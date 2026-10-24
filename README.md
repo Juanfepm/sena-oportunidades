@@ -1,4 +1,4 @@
-# Rumbo · SENA Oportunidades
+# DEBUPA · SENA Oportunidades
 
 Prototipo de una herramienta independiente para ayudar a aprendices del SENA a ordenar oportunidades del SGVA y revisar posibles destinatarios antes de iniciar una campaña de contacto externo.
 

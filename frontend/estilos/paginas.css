@@ -101,7 +101,7 @@
 
 .correo_cabecera {
   align-items: center;
-  background: #f3f7ef;
+  background: #f0faf7;
   border-bottom: 1px solid var(--color_borde);
   display: flex;
   gap: var(--espacio_3);
@@ -131,7 +131,7 @@
 }
 
 .correo_cuerpo textarea:focus-visible {
-  outline: 2px solid #79a978;
+  outline: 2px solid #17847e;
   outline-offset: 0.35rem;
 }
 
@@ -157,7 +157,7 @@
 }
 
 .correo_fila input:focus-visible {
-  outline: 2px solid #79a978;
+  outline: 2px solid #17847e;
   outline-offset: -0.4rem;
 }
 
@@ -219,27 +219,38 @@
 }
 
 .forma_decorativa {
+  pointer-events: none;
   position: absolute;
 }
 
-.forma_decorativa_uno {
-  background: #d3e3c8;
-  border-radius: 48% 52% 58% 42% / 38% 61% 39% 62%;
-  height: 30rem;
-  right: 1rem;
-  top: 0.4rem;
-  transform: rotate(16deg);
-  width: 30rem;
+.forma_decorativa_dos {
+  background: var(--color_coral);
+  border-radius: 55% 45% 39% 61% / 43% 57% 48% 52%;
+  height: 12rem;
+  right: 0.5rem;
+  top: -0.5rem;
+  transform: rotate(21deg);
+  width: 13rem;
 }
 
-.forma_decorativa_dos {
-  background: #b8d0b4;
-  border-radius: 46% 54% 39% 61% / 55% 38% 62% 45%;
+.forma_decorativa_tres {
+  background: var(--color_lila);
+  border-radius: 42% 58% 61% 39% / 59% 43% 57% 41%;
+  bottom: 0.1rem;
   height: 11rem;
-  right: 1rem;
-  top: 2rem;
-  transform: rotate(-24deg);
-  width: 13rem;
+  right: 0;
+  transform: rotate(-18deg);
+  width: 12rem;
+}
+
+.forma_decorativa_uno {
+  background: #9ee6c2;
+  border-radius: 41% 59% 47% 53% / 54% 41% 59% 46%;
+  height: 28rem;
+  left: -0.5rem;
+  top: 2.5rem;
+  transform: rotate(-14deg);
+  width: 27rem;
 }
 
 .franja_beneficios {
@@ -277,7 +288,7 @@
   gap: clamp(1rem, 5vw, 5rem);
   grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
   min-height: 39rem;
-  padding-block: clamp(4rem, 9vw, 7rem);
+  padding-block: clamp(3rem, 5vw, 4.5rem);
 }
 
 .hero_acciones {
@@ -295,17 +306,18 @@
 
 .hero_texto h1 {
   font-family: var(--fuente_titulo);
-  font-size: clamp(3.2rem, 5.4vw, 5.7rem);
-  font-weight: 500;
-  letter-spacing: -0.067em;
-  line-height: 0.99;
+  font-size: clamp(3.1rem, 5.25vw, 5.4rem);
+  font-weight: 800;
+  letter-spacing: -0.058em;
+  line-height: 1.02;
   margin: var(--espacio_5) 0 var(--espacio_6);
   max-width: 41rem;
 }
 
 .hero_texto h1 em {
   color: var(--color_verde_claro);
-  font-weight: 400;
+  font-style: normal;
+  font-weight: 800;
 }
 
 .hero_visual {
@@ -522,7 +534,7 @@
 }
 
 .panel_seleccion_fondo {
-  background: rgb(9 30 17 / 43%);
+  background: rgb(23 51 55 / 45%);
   inset: 0;
   position: absolute;
 }
@@ -532,6 +544,18 @@
   border: 1px solid var(--color_borde);
   border-radius: var(--radio_medio);
   padding: var(--espacio_8);
+}
+
+.paso_tarjeta:nth-child(2) {
+  background: var(--color_azul);
+}
+
+.paso_tarjeta:nth-child(3) {
+  background: var(--color_verde_suave);
+}
+
+.paso_tarjeta:nth-child(4) {
+  background: var(--color_lila);
 }
 
 .paso_tarjeta h2 {
@@ -681,8 +705,8 @@
 }
 
 .plan_tarjeta_destacado {
-  background: var(--color_fondo_verde);
-  border-color: #b8cdb5;
+  background: var(--color_lila);
+  border-color: #d7c9f6;
 }
 
 .planes_grid {
@@ -911,7 +935,7 @@
 }
 
 .texto_destacado {
-  color: #566f5d;
+  color: var(--color_muted);
   font-size: clamp(1rem, 1.5vw, 1.13rem);
   line-height: 1.65;
   max-width: 35rem;
@@ -947,9 +971,9 @@
 
 .vista_previa {
   background: var(--color_hoja);
-  border: 1px solid #d2dfcf;
-  border-radius: 1.25rem;
-  box-shadow: 0 2.5rem 5rem rgb(32 53 40 / 18%);
+  border: 1px solid var(--color_borde);
+  border-radius: 1.6rem;
+  box-shadow: 0 2rem 4.5rem rgb(40 92 85 / 16%);
   left: 1.4rem;
   overflow: hidden;
   position: absolute;
@@ -1039,8 +1063,8 @@
   }
 
   .forma_decorativa_uno {
-    height: 24rem;
-    width: 24rem;
+    height: 19rem;
+    width: 19rem;
   }
 
   .hero_visual {
@@ -1121,6 +1145,20 @@
   .franja_beneficios div {
     border-left: 0 !important;
     padding-left: 0;
+  }
+
+  .forma_decorativa_dos {
+    right: 1.5rem;
+  }
+
+  .forma_decorativa_tres {
+    right: 2rem;
+  }
+
+  .forma_decorativa_uno {
+    height: clamp(14rem, 70vw, 18rem);
+    left: 1.5rem;
+    width: clamp(14rem, 70vw, 18rem);
   }
 
   .hero_texto h1 {

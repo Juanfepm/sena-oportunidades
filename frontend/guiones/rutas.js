@@ -22,7 +22,7 @@ export function mostrarRuta() {
     if (enlace.dataset.enlaceRuta === ruta) enlace.setAttribute("aria-current", "page");
     else enlace.removeAttribute("aria-current");
   });
-  document.title = `${document.querySelector(`#${ruta} h1`)?.textContent ?? "Rumbo"} | Rumbo`;
+  document.title = `${document.querySelector(`#${ruta} h1`)?.textContent ?? "DEBUPA"} | DEBUPA`;
   window.scrollTo({ top: 0, behavior: "instant" });
 }
 

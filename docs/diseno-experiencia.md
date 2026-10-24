@@ -1,4 +1,4 @@
-# Criterios de experiencia para Rumbo
+# Criterios de experiencia para DEBUPA
 
 ## Fuentes estudiadas
 
@@ -10,6 +10,10 @@
 
 La cifra de 50 corresponde a esa recopilación divulgativa, no a una lista científica única u oficial. Los sesgos son una herramienta para detectar decisiones de diseño problemáticas, no para manipular al aprendiz.
 
+## Identidad visual
+
+DEBUPA significa «desesperados buscando patrocinio». La interfaz combina un verde más luminoso con azul, coral y lila suaves para alejarse de una estética institucional. Los títulos usan fuentes sans serif disponibles en el sistema; las formas de fondo son decorativas y no interfieren con los controles. Los textos y botones conservan contraste legible.
+
 ## Lo que confirma el manual del SGVA
 
 - El aprendiz entra en la opción «Aprendiz» y busca ofertas visibles para su perfil.
@@ -18,7 +22,7 @@ La cifra de 50 corresponde a esa recopilación divulgativa, no a una lista cient
 - Una aplicación activa limita nuevas postulaciones hasta que termine el proceso o se cumplan las condiciones descritas en el manual.
 - El SGVA permite actualizar el perfil profesional y ver mensajes de empresas.
 
-Rumbo toma únicamente el flujo de consulta y lectura como referencia. Contactar externamente por correo y postularse dentro del SGVA se explican como acciones diferentes. El prototipo no implementa ninguna de las dos.
+DEBUPA toma únicamente el flujo de consulta y lectura como referencia. Contactar externamente por correo y postularse dentro del SGVA se explican como acciones diferentes. El prototipo no implementa ninguna de las dos.
 
 ## Decisiones observables en la interfaz
 
@@ -27,7 +31,7 @@ Rumbo toma únicamente el flujo de consulta y lectura como referencia. Contactar
 | Estado visible | La cola, la búsqueda, la revisión y el envío tienen estados separados. En la vista previa se rotulan como simulados. |
 | Lenguaje cercano | «Empresas sugeridas», «Revisar» y «Quitar» reemplazan términos técnicos internos. |
 | Control y libertad | El aprendiz puede volver, editar el correo, retirar destinatarios y detener la demostración. |
-| Consistencia | Botones primarios verdes, secundarios claros y una misma estructura de formularios. |
+| Consistencia | Botones primarios verdes, secundarios claros y una misma estructura de formularios. La paleta combina verde fresco con azul, lila y coral suaves. |
 | Prevención de errores | Selectores para modalidad y tiempo, dependencias departamento/ciudad, límites de archivos y confirmación previa. |
 | Reconocimiento | Etiquetas visibles, ayudas junto al campo y un resumen del motivo de coincidencia. |
 | Diseño mínimo | La pantalla principal se centra en la búsqueda; los detalles quedan en pasos posteriores. |
