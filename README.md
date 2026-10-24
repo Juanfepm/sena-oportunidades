@@ -8,6 +8,8 @@ El frontend es una vista previa navegable con empresas ficticias. El backend ya 
 
 El selector muestra una selección práctica de ciudades y municipios principales, verificada con DIVIPOLA. Si una población no aparece, se puede elegir «Todos los municipios». Para actualizar la selección desde la fuente oficial, ejecuta `python -m herramientas.actualizar_municipios` desde la raíz del repositorio. El script actualiza las copias del frontend y el backend.
 
+La estructura inicial de PostgreSQL ya tiene migraciones versionadas. El procedimiento de creación y conexión segura está en [backend/README.md](backend/README.md#preparar-postgresql-en-supabase).
+
 ## Ejecutar la vista previa
 
 Sirve `frontend/` con cualquier servidor HTTP estático y abre su dirección local. Por ejemplo:
