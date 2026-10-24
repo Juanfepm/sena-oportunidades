@@ -1,0 +1,127 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color_fondo);
+  color: var(--color_texto);
+  font-family: var(--fuente_cuerpo);
+  line-height: 1.55;
+  margin: 0;
+  min-width: 320px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled,
+input:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
+fieldset {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.12;
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+input,
+select,
+textarea {
+  color: var(--color_texto);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible,
+button:focus-visible {
+  outline: 3px solid #79a978;
+  outline-offset: 3px;
+}
+
+input[aria-invalid="true"],
+select[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+  border-color: var(--color_error);
+}
+
+main {
+  min-height: 54vh;
+}
+
+textarea {
+  resize: vertical;
+}
+
+a {
+  color: inherit;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.contenedor {
+  margin-inline: auto;
+  max-width: var(--ancho_contenido);
+  padding-inline: clamp(1.2rem, 4vw, 2rem);
+}
+
+.sr_solo {
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

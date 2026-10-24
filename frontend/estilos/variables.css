@@ -1,0 +1,38 @@
+:root {
+  --color_acento: #d6e6aa;
+  --color_azul: #dbe9eb;
+  --color_azul_texto: #3b6370;
+  --color_blanco: #ffffff;
+  --color_borde: #d8e1d4;
+  --color_error: #a83232;
+  --color_error_fondo: #fff1ee;
+  --color_fondo: #f6f8f2;
+  --color_fondo_verde: #eaf0e2;
+  --color_hoja: #fdfefb;
+  --color_muted: #617367;
+  --color_texto: #203528;
+  --color_verde: #234f37;
+  --color_verde_claro: #478058;
+  --color_verde_profundo: #173e2b;
+  --color_verde_suave: #e7f0e5;
+  --espacio_1: 0.25rem;
+  --espacio_2: 0.5rem;
+  --espacio_3: 0.75rem;
+  --espacio_4: 1rem;
+  --espacio_5: 1.25rem;
+  --espacio_6: 1.5rem;
+  --espacio_8: 2rem;
+  --espacio_10: 2.5rem;
+  --espacio_12: 3rem;
+  --espacio_16: 4rem;
+  --fuente_cuerpo: "Segoe UI", "Aptos", Arial, sans-serif;
+  --fuente_titulo: Georgia, "Times New Roman", serif;
+  --gradiente_hero: linear-gradient(135deg, #f8faf4 12%, #edf3e7 58%, #f8faf4 100%);
+  --radio_boton: 0.8rem;
+  --radio_grande: 1.75rem;
+  --radio_medio: 1.2rem;
+  --sombra_panel: 0 1.5rem 4rem rgb(25 62 42 / 8%);
+  --sombra_suave: 0 0.75rem 2.2rem rgb(25 62 42 / 6%);
+  --transicion_corta: 180ms ease;
+  --ancho_contenido: 76rem;
+}
