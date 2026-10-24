@@ -1,0 +1,106 @@
+DEBUPA - COMANDOS PARA INICIAR EL PROYECTO
+============================================
+
+Usa una terminal nueva de PowerShell en VS Code.
+Ejecuta los bloques en este orden. Las variables configuradas aquí solo duran
+mientras esta terminal esté abierta.
+
+1. UBICARSE EN EL PROYECTO Y ACTIVAR EL ENTORNO
+------------------------------------------------
+
+cd "C:\Users\juanf\Downloads\Trabajo Programación\sena-oportunidades"
+.\.venv\Scripts\Activate.ps1
+
+
+2. CONFIGURAR POSTGRESQL DE SUPABASE
+------------------------------------
+
+Pega tu cadena de conexión de Supabase entre las comillas.
+Debe comenzar exactamente por postgresql+psycopg://
+
+$env:DEBUPA_BASE_DATOS = "PEGA_AQUI_LA_CADENA_DE_SUPABASE"
+
+Indica dónde guardaste el certificado descargado de Supabase:
+
+$env:PGSSLROOTCERT = "C:\Users\juanf\Downloads\prod-ca-2021.crt"
+
+Comprobación rápida. Debe mostrar True:
+
+$env:DEBUPA_BASE_DATOS.StartsWith("postgresql+psycopg://")
+Test-Path $env:PGSSLROOTCERT
+
+
+3. CONFIGURAR GOOGLE OAUTH
+--------------------------
+
+Reemplaza solo el contenido entre comillas por los valores de tu cliente web
+de Google Cloud. No subas estas claves a GitHub ni las pegues en archivos.
+
+$env:DEBUPA_ENTORNO = "desarrollo"
+$env:GOOGLE_CLIENTE_ID = "PEGA_AQUI_TU_CLIENT_ID"
+$env:GOOGLE_CLIENTE_SECRETO = "PEGA_AQUI_TU_CLIENT_SECRET"
+$env:GOOGLE_URI_REDIRECCION = "http://127.0.0.1:8000/api/v1/autenticacion/google/callback"
+$env:GOOGLE_URL_INICIO = "/#inicio"
+
+Genera un secreto temporal nuevo para firmar la sesión. Ejecuta esta línea tal
+cual una vez por terminal:
+
+$env:DEBUPA_SECRETO_SESION = ((New-Guid).Guid + (New-Guid).Guid).Replace("-", "")
+
+
+4. INSTALAR DEPENDENCIAS (SOLO SI ES UNA COMPUTADORA NUEVA O FALTAN PAQUETES)
+-------------------------------------------------------------------------------
+
+.\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+
+
+5. ACTUALIZAR LA BASE DE DATOS
+------------------------------
+
+.\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini upgrade head
+
+
+6. INICIAR EL SERVIDOR
+----------------------
+
+.\.venv\Scripts\python.exe -m uvicorn backend.aplicacion.principal:aplicacion --reload --host 127.0.0.1 --port 8000
+
+
+7. ABRIR LA APLICACIÓN
+----------------------
+
+En el navegador entra a:
+
+http://127.0.0.1:8000/
+
+La documentación técnica de la API queda en:
+
+http://127.0.0.1:8000/docs
+
+
+DETENER EL SERVIDOR
+-------------------
+
+En la terminal que tiene Uvicorn activo, presiona:
+
+Ctrl + C
+
+
+NOTAS IMPORTANTES
+-----------------
+
+- No abras el frontend con Live Server ni con el archivo index.html directamente.
+  Debe abrirse desde http://127.0.0.1:8000/ para que Google OAuth y la sesión
+  funcionen correctamente.
+- Si cierras la terminal, tendrás que repetir los pasos 1, 2, 3, 5 y 6.
+- Si GitHub tiene cambios nuevos, antes del paso 5 ejecuta:
+
+  git pull origin main
+
+- Si PowerShell bloquea Activate.ps1, ejecuta una sola vez:
+
+  Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+
+  Luego vuelve a ejecutar:
+
+  .\.venv\Scripts\Activate.ps1
