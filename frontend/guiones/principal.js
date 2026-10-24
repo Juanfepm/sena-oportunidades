@@ -1,5 +1,6 @@
 import { actualizarEjemplos, configurarCoincidencias, pintarResumen } from "./coincidencias.js";
 import { configurarAutenticacion } from "./autenticacion.js";
+import { guardarPreferencias } from "./campanas.js";
 import { configurarRutas, irA } from "./rutas.js";
 import { configurarUbicaciones } from "./ubicaciones.js";
 import { activarCorreccion, validarAdjuntos, validarFormulario } from "./validacion.js";
@@ -101,7 +102,7 @@ function configurarFormularios() {
   });
 
   activarCorreccion(formularioCampana, erroresCampana);
-  formularioCampana.addEventListener("submit", (evento) => {
+  formularioCampana.addEventListener("submit", async (evento) => {
     evento.preventDefault();
     const camposExclusion = [...listaExclusiones.querySelectorAll("input")];
     const vistos = new Set();
@@ -118,6 +119,23 @@ function configurarFormularios() {
       erroresCampana.hidden = false;
       erroresCampana.scrollIntoView({ block: "center", behavior: "smooth" });
       return;
+    }
+    const boton = formularioCampana.querySelector("button[type='submit']");
+    boton.disabled = true;
+    const textoOriginal = boton.textContent;
+    boton.textContent = "Guardando preferencias…";
+    try {
+      const campana = await guardarPreferencias(formularioCampana, correosExcluidos);
+      formularioCampana.dataset.campanaId = campana.id;
+    } catch (error) {
+      erroresCampana.textContent = error instanceof Error ? error.message : "No se pudieron guardar tus preferencias.";
+      erroresCampana.dataset.origen = "servidor";
+      erroresCampana.hidden = false;
+      erroresCampana.scrollIntoView({ block: "center", behavior: "smooth" });
+      return;
+    } finally {
+      boton.disabled = false;
+      boton.textContent = textoOriginal;
     }
     actualizarEjemplos({
       modalidad: formularioCampana.elements.modalidad.value,

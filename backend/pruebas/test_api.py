@@ -126,7 +126,13 @@ def test_google_inicia_sesion_y_permita_cerrarla(monkeypatch: pytest.MonkeyPatch
             assert cuenta.status_code == 200
             assert cuenta.json()["correo"] == "aprendiz@ejemplo.com"
             assert cuenta.json()["plan"] == "gratis"
-            assert cliente.post("/api/v1/autenticacion/cerrar-sesion").status_code == 204
+            assert cliente.post("/api/v1/autenticacion/cerrar-sesion").status_code == 403
+            csrf = cliente.get("/api/v1/autenticacion/csrf").json()["token"]
+            assert cliente.post("/api/v1/campanas", json=solicitud_valida()).status_code == 403
+            assert cliente.post(
+                "/api/v1/campanas", json=solicitud_valida(), headers={"X-CSRF-Token": csrf}
+            ).status_code == 201
+            assert cliente.post("/api/v1/autenticacion/cerrar-sesion", headers={"X-CSRF-Token": csrf}).status_code == 204
             assert cliente.get("/api/v1/autenticacion/yo").status_code == 401
     finally:
         motor.dispose()

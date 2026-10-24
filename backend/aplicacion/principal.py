@@ -21,7 +21,7 @@ from .configuracion import Configuracion
 from .dominio.estados import LIMITES_ARCHIVOS, LIMITES_CONTACTO, TARJETAS_RESUMEN, Plan
 from .esquemas import ResumenCampana, ResumenHistorial, SolicitudBorrador
 from .modelos import HistorialEnvio, Usuario
-from .seguridad import obtener_usuario_actual
+from .seguridad import obtener_token_csrf, obtener_usuario_actual, verificar_csrf
 from .servicios.campanas import EsperaPlanGratis, consultar_campana, consultar_disponibilidad, crear_borrador, listar_borradores
 from .servicios.exclusiones import listar_exclusiones, quitar_exclusion
 
@@ -120,10 +120,11 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
         sesion.refresh(usuario)
         request.session.clear()
         request.session["usuario_id"] = usuario.id
+        request.session["token_csrf"] = token_urlsafe(32)
         return RedirectResponse(configuracion.google_url_inicio, status_code=303)
 
     @api.post("/api/v1/autenticacion/cerrar-sesion", status_code=204)
-    async def cerrar_sesion(request: Request) -> None:
+    async def cerrar_sesion(request: Request, _: None = Depends(verificar_csrf)) -> None:
         request.session.clear()
 
     @api.get("/api/v1/autenticacion/yo")
@@ -134,6 +135,13 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
             "plan": usuario.plan,
             "es_administrador": usuario.es_administrador,
         }
+
+    @api.get("/api/v1/autenticacion/csrf")
+    def token_csrf(
+        request: Request,
+        _: Usuario = Depends(obtener_usuario_actual),
+    ) -> dict[str, str]:
+        return {"token": obtener_token_csrf(request)}
 
     @api.middleware("http")
     async def proteger_respuestas(peticion: Request, siguiente) -> Response:
@@ -181,6 +189,7 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
     @api.post("/api/v1/campanas", response_model=ResumenCampana, status_code=201)
     def nueva_campana(
         solicitud: SolicitudBorrador,
+        _: None = Depends(verificar_csrf),
         usuario: Usuario = Depends(obtener_usuario_actual),
         sesion: Session = Depends(obtener_sesion),
     ) -> ResumenCampana:
@@ -212,6 +221,7 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
     @api.post("/api/v1/campanas/{campana_id}/iniciar")
     def iniciar_campana(
         campana_id: str,
+        _: None = Depends(verificar_csrf),
         usuario: Usuario = Depends(obtener_usuario_actual),
         sesion: Session = Depends(obtener_sesion),
     ) -> None:
@@ -229,6 +239,7 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
     @api.delete("/api/v1/correos-excluidos/{correo}", status_code=204)
     def retirar_exclusion(
         correo: str,
+        _: None = Depends(verificar_csrf),
         usuario: Usuario = Depends(obtener_usuario_actual),
         sesion: Session = Depends(obtener_sesion),
     ) -> None:

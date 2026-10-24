@@ -1,6 +1,7 @@
-"""Acceso local de desarrollo; Google OAuth reemplazará esta dependencia."""
+"""Identidad de sesión y protección CSRF para rutas que cambian datos."""
 
 from hmac import compare_digest
+from secrets import token_urlsafe
 
 from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy import select
@@ -8,6 +9,31 @@ from sqlalchemy.orm import Session
 
 from .base_datos import obtener_sesion
 from .modelos import Usuario
+
+
+def obtener_token_csrf(peticion: Request) -> str:
+    """Crea un token ligado a la cookie de sesión, nunca a localStorage."""
+    token = peticion.session.get("token_csrf")
+    if not isinstance(token, str) or len(token) < 32:
+        token = token_urlsafe(32)
+        peticion.session["token_csrf"] = token
+    return token
+
+
+def verificar_csrf(
+    peticion: Request,
+    token_csrf: str | None = Header(default=None, alias="X-CSRF-Token"),
+) -> None:
+    """Exige prueba de la sesión para cambios autenticados mediante cookie.
+
+    El acceso Bearer solo existe en desarrollo local y se conserva para las
+    pruebas automatizadas; no utiliza la cookie de sesión.
+    """
+    if not peticion.session.get("usuario_id"):
+        return
+    token_guardado = peticion.session.get("token_csrf")
+    if not isinstance(token_guardado, str) or not token_csrf or not compare_digest(token_guardado, token_csrf):
+        raise HTTPException(403, "La solicitud de seguridad expiró. Actualiza la página e inténtalo de nuevo.")
 
 
 def obtener_usuario_actual(
