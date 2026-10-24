@@ -4,7 +4,7 @@ Prototipo de una herramienta independiente para ayudar a aprendices del SENA a o
 
 ## Estado actual
 
-La primera entrega es una interfaz estática navegable en `frontend/`. Usa empresas, correos y porcentajes ficticios; no consulta el SGVA, no inicia sesión con Google, no recibe pagos y no envía mensajes. El formulario de credenciales SGVA permanece desactivado hasta que exista un backend seguro.
+El frontend es una vista previa navegable con empresas ficticias. El backend ya ofrece borradores, exclusiones persistentes, historial mínimo, reglas de selección, cola para un navegador y verificación manual de pagos como servicios internos. Aún no se conectan entre sí ni se ejecuta una campaña real: faltan Google, SGVA, Gmail, almacenamiento temporal cifrado y el trabajador de la cola. Las credenciales SGVA siguen desactivadas en el frontend.
 
 ## Ejecutar la vista previa
 
@@ -26,15 +26,20 @@ frontend/
   recursos/iconos.svg        Iconografía reutilizable
 docs/
   diseno-experiencia.md      Decisiones de contenido y usabilidad
+backend/
+  aplicacion/               API, reglas, modelos y contratos de integración
+  pruebas/                  Pruebas de permisos y reglas críticas
+  README.md                 Instalación, endpoints y trabajo pendiente
 ```
 
 ## Próximas piezas
 
-- API Python/FastAPI y PostgreSQL para usuarios, campañas e historial.
 - Inicio de sesión con Google y permiso mínimo de Gmail.
-- Una cola persistente con un solo navegador Playwright para SGVA.
-- Clasificación local y explicable de empresas.
-- Revisión humana, envío individual y seguimiento real.
-- Panel administrativo protegido y verificación manual de Nequi.
+- Integración autorizada con SGVA y trabajador Playwright de una sola sesión.
+- Carga temporal cifrada de credenciales, correo y adjuntos, con eliminación verificable.
+- Clasificación explicable, revisión humana y envío individual real.
+- Panel administrativo protegido, almacenamiento privado de comprobantes Nequi y migraciones PostgreSQL.
+
+Las instrucciones del servidor y su alcance exacto están en [backend/README.md](backend/README.md).
 
 El código y las páginas de información están redactados en español. Las políticas mostradas en la interfaz son borradores informativos que deberán completarse y revisarse antes de tratar datos reales.

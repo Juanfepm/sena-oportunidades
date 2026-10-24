@@ -1,0 +1,1 @@
+"""Operaciones sobre datos persistentes."""

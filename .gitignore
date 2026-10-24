@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!backend/.env.ejemplo
 *.pem
 *.key
 
@@ -13,6 +14,7 @@ __pycache__/
 .ruff_cache/
 .venv/
 venv/
+backend/datos/
 
 # Node y frontend
 node_modules/
