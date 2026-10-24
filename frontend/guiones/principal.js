@@ -19,6 +19,17 @@ const etapas = {
 };
 
 let simulacionActiva = null;
+let proximaBusquedaGratis = null;
+
+function fechaUnMesDespues(fecha) {
+  const ultimoDia = new Date(fecha.getFullYear(), fecha.getMonth() + 2, 0).getDate();
+  return new Date(fecha.getFullYear(), fecha.getMonth() + 1, Math.min(fecha.getDate(), ultimoDia));
+}
+
+function textoEspera() {
+  const fecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "long" }).format(proximaBusquedaGratis);
+  return `En el plan gratis debes esperar un mes después de una campaña con envíos. Próxima búsqueda: ${fecha}. Esta vista previa solo simula la restricción.`;
+}
 
 function configurarCookies() {
   const aviso = document.querySelector("#aviso-cookies");
@@ -44,16 +55,69 @@ function configurarCookies() {
 function configurarFormularios() {
   const formularioCampana = document.querySelector("#formulario-campana");
   const erroresCampana = document.querySelector("#errores-campana");
-  const campoExclusiones = document.querySelector("#correos-excluidos");
-  const extraerExclusiones = () => campoExclusiones.value.split(/[\n,;]+/).map((correo) => correo.trim().toLowerCase()).filter(Boolean);
-  campoExclusiones.addEventListener("input", () => campoExclusiones.setCustomValidity(""));
+  const listaExclusiones = document.querySelector("#lista-correos-excluidos");
+  const agregarExclusion = document.querySelector("#agregar-correo-excluido");
+  let indiceExclusion = 1;
+
+  listaExclusiones.addEventListener("input", (evento) => {
+    if (evento.target instanceof HTMLInputElement) evento.target.setCustomValidity("");
+  });
+
+  agregarExclusion.addEventListener("click", () => {
+    if (listaExclusiones.children.length >= 5) return;
+    indiceExclusion += 1;
+    const fila = document.createElement("div");
+    fila.className = "fila_exclusion";
+    const campo = document.createElement("input");
+    campo.id = `correo-excluido-${indiceExclusion}`;
+    campo.name = `correo_excluido_${indiceExclusion}`;
+    campo.type = "email";
+    campo.maxLength = 254;
+    campo.autocomplete = "off";
+    campo.placeholder = "correo@empresa.com";
+    campo.setAttribute("aria-label", `Correo de empresa excluida ${indiceExclusion}`);
+    const quitar = document.createElement("button");
+    quitar.className = "boton boton_secundario boton_pequeno";
+    quitar.type = "button";
+    quitar.textContent = "Quitar";
+    quitar.setAttribute("aria-label", `Quitar correo excluido ${indiceExclusion}`);
+    quitar.addEventListener("click", () => {
+      fila.remove();
+      agregarExclusion.disabled = false;
+      document.querySelector("#correo-excluido-1").focus();
+    });
+    fila.append(campo, quitar);
+    listaExclusiones.append(fila);
+    agregarExclusion.disabled = listaExclusiones.children.length >= 5;
+    campo.focus();
+  });
+
+  [["#habilidades-aprendiz", "#conteo-habilidades"], ["#actividades-deseadas", "#conteo-deseadas"],
+    ["#actividades-no-deseadas", "#conteo-no-deseadas"]].forEach(([campoId, conteoId]) => {
+    const campo = document.querySelector(campoId);
+    const conteo = document.querySelector(conteoId);
+    campo.addEventListener("input", () => { conteo.textContent = String(campo.value.length); });
+  });
+
   activarCorreccion(formularioCampana, erroresCampana);
   formularioCampana.addEventListener("submit", (evento) => {
     evento.preventDefault();
-    const correosExcluidos = extraerExclusiones();
-    const correoValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    campoExclusiones.setCustomValidity(correosExcluidos.every((correo) => correoValido.test(correo)) ? "" : "escribe direcciones válidas, separadas por línea.");
+    const camposExclusion = [...listaExclusiones.querySelectorAll("input")];
+    const vistos = new Set();
+    camposExclusion.forEach((campo) => {
+      campo.value = campo.value.trim().toLowerCase();
+      campo.setCustomValidity(campo.value && vistos.has(campo.value) ? "este correo ya está en la lista." : "");
+      if (campo.value) vistos.add(campo.value);
+    });
+    const correosExcluidos = [...vistos];
     if (!validarFormulario(formularioCampana, erroresCampana)) return;
+    if (formularioCampana.elements.plan.value === "gratis" && proximaBusquedaGratis > new Date()) {
+      erroresCampana.textContent = textoEspera();
+      erroresCampana.dataset.origen = "espera";
+      erroresCampana.hidden = false;
+      erroresCampana.scrollIntoView({ block: "center", behavior: "smooth" });
+      return;
+    }
     actualizarEjemplos({
       modalidad: formularioCampana.elements.modalidad.value,
       departamento: formularioCampana.elements.departamento.value,
@@ -68,11 +132,21 @@ function configurarFormularios() {
   const erroresCorreo = document.querySelector("#errores-correo");
   const entradaArchivos = document.querySelector("#archivos-correo");
   const listaArchivos = document.querySelector("#lista-archivos");
+  const plan = document.querySelector("#plan-campana");
+  const limiteArchivos = () => plan.value === "premium" ? 2 : 1;
+  const actualizarArchivos = () => {
+    const limite = limiteArchivos();
+    entradaArchivos.multiple = limite === 2;
+    document.querySelector("#ayuda-archivos").textContent = `Plan ${plan.value}: hasta ${limite} ${limite === 1 ? "archivo" : "archivos"} de 5 MB${limite === 1 ? "" : " cada uno"}. PDF, Word, texto o imagen.`;
+    validarAdjuntos(entradaArchivos, erroresCorreo, listaArchivos, limite);
+  };
+  plan.addEventListener("change", actualizarArchivos);
+  actualizarArchivos();
   activarCorreccion(formularioCorreo, erroresCorreo);
-  entradaArchivos.addEventListener("change", () => validarAdjuntos(entradaArchivos, erroresCorreo, listaArchivos));
+  entradaArchivos.addEventListener("change", actualizarArchivos);
   formularioCorreo.addEventListener("submit", (evento) => {
     evento.preventDefault();
-    const archivosValidos = validarAdjuntos(entradaArchivos, erroresCorreo, listaArchivos);
+    const archivosValidos = validarAdjuntos(entradaArchivos, erroresCorreo, listaArchivos, limiteArchivos());
     if (!archivosValidos) return;
     if (validarFormulario(formularioCorreo, erroresCorreo)) iniciarSimulacion("busqueda");
   });
@@ -114,7 +188,12 @@ function iniciarSimulacion(tipo) {
     }
     clearInterval(intervalo);
     simulacionActiva = null;
-    if (tipo === "envio") pintarResumen();
+    if (tipo === "envio") {
+      pintarResumen(document.querySelector("#plan-campana").value);
+      if (document.querySelector("#plan-campana").value === "gratis") {
+        proximaBusquedaGratis = fechaUnMesDespues(new Date());
+      }
+    }
     irA(tipo === "busqueda" ? "confirmacion" : "resultados");
   }, 1200);
   simulacionActiva = { intervalo, tipo };
@@ -135,6 +214,21 @@ function configurarSimulacion() {
       simulacionActiva = null;
     }
   });
+  document.querySelector("#crear-otra-busqueda").addEventListener("click", () => {
+    const aviso = document.querySelector("#aviso-espera-gratis");
+    if (document.querySelector("#plan-campana").value === "gratis" && proximaBusquedaGratis > new Date()) {
+      aviso.textContent = textoEspera();
+      aviso.hidden = false;
+      aviso.scrollIntoView({ block: "center", behavior: "smooth" });
+      return;
+    }
+    aviso.hidden = true;
+    irA("campana");
+  });
+}
+
+if (["correo", "confirmacion", "progreso", "resultados"].includes(window.location.hash.slice(1))) {
+  window.history.replaceState(null, "", "#inicio");
 }
 
 document.querySelector("#anio-actual").textContent = String(new Date().getFullYear());

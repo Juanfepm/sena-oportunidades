@@ -75,10 +75,12 @@ export function activarCorreccion(formulario, contenedorErrores) {
   formulario.addEventListener("change", revisar);
 }
 
-export function validarAdjuntos(entrada, contenedorErrores, listaArchivos) {
+export function validarAdjuntos(entrada, contenedorErrores, listaArchivos, limiteArchivos) {
   const archivos = [...entrada.files];
   const errores = [];
-  if (archivos.length > 2) errores.push("Adjunta un máximo de dos archivos.");
+  if (archivos.length > limiteArchivos) {
+    errores.push(`Tu plan admite un máximo de ${limiteArchivos} ${limiteArchivos === 1 ? "archivo" : "archivos"}.`);
+  }
 
   archivos.forEach((archivo) => {
     const extension = archivo.name.split(".").at(-1)?.toLowerCase();

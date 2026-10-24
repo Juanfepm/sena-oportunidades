@@ -1,6 +1,7 @@
 """Casos críticos de selección, recontacto, cola y pagos."""
 
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine, select
@@ -10,9 +11,11 @@ from sqlalchemy.pool import StaticPool
 from backend.aplicacion.base_datos import Base
 from backend.aplicacion.dominio.contactos import evaluar_contacto, hace_seis_meses
 from backend.aplicacion.dominio.archivos import ArchivoAdjunto, validar_adjuntos
+from backend.aplicacion.dominio.disponibilidad import proxima_busqueda
 from backend.aplicacion.dominio.estados import EstadoCampana, EstadoPago, Plan
 from backend.aplicacion.dominio.ofertas import cumple_filtros
 from backend.aplicacion.dominio.seleccion import Coincidencia, separar_coincidencias
+from backend.aplicacion.dominio.ubicaciones import MUNICIPIOS_POR_DEPARTAMENTO, RUTA_CATALOGO
 from backend.aplicacion.integraciones.contratos import OfertaSGVA
 from backend.aplicacion.modelos import Campana, NavegadorSGVA, PagoPremium, Usuario
 from backend.aplicacion.servicios.cola import encolar, liberar, renovar_reserva, reservar_siguiente
@@ -116,9 +119,31 @@ def test_remoto_es_posibilidad_y_la_fecha_es_obligatoria():
 
 def test_adjuntos_limita_cantidad_tamano_y_tipo():
     validar_adjuntos([ArchivoAdjunto("hoja-de-vida.pdf", "application/pdf", 2000)])
+    dos_archivos = [ArchivoAdjunto("uno.pdf", "application/pdf", 100),
+                    ArchivoAdjunto("dos.pdf", "application/pdf", 100)]
+    with pytest.raises(ValueError):
+        validar_adjuntos(dos_archivos, Plan.GRATIS)
+    validar_adjuntos(dos_archivos, Plan.PREMIUM)
     with pytest.raises(ValueError):
         validar_adjuntos([ArchivoAdjunto("uno.pdf", "application/pdf", 1)] * 3)
     with pytest.raises(ValueError):
         validar_adjuntos([ArchivoAdjunto("hoja-de-vida.pdf", "application/pdf", 6 * 1024 * 1024)])
     with pytest.raises(ValueError):
         validar_adjuntos([ArchivoAdjunto("hoja-de-vida.exe", "application/pdf", 100)])
+
+
+def test_espera_gratis_un_mes_calendario_y_premium_sin_espera():
+    envio = datetime(2026, 1, 31, 5, tzinfo=timezone.utc)
+    ahora = datetime(2026, 2, 27, tzinfo=timezone.utc)
+    assert proxima_busqueda(Plan.GRATIS, envio, ahora) == datetime(2026, 2, 28, 5, tzinfo=timezone.utc)
+    assert proxima_busqueda(Plan.GRATIS, envio, datetime(2026, 2, 28, 5, tzinfo=timezone.utc)) is None
+    assert proxima_busqueda(Plan.PREMIUM, envio, ahora) is None
+    assert proxima_busqueda(Plan.GRATIS, None, ahora) is None
+
+
+def test_catalogo_municipal_compartido_con_frontend():
+    ruta_frontend = Path(__file__).resolve().parents[2] / "frontend" / "datos" / "municipios.json"
+    assert RUTA_CATALOGO.read_bytes() == ruta_frontend.read_bytes()
+    assert len(MUNICIPIOS_POR_DEPARTAMENTO) == 33
+    assert sum(map(len, MUNICIPIOS_POR_DEPARTAMENTO.values())) >= 1100
+    assert "Abejorral" in MUNICIPIOS_POR_DEPARTAMENTO["Antioquia"]

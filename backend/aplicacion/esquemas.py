@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from .dominio.ubicaciones import CIUDADES_POR_DEPARTAMENTO
+from .dominio.ubicaciones import MUNICIPIOS_POR_DEPARTAMENTO
 
 
 PATRON_CORREO = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
@@ -21,7 +21,7 @@ class SolicitudBorrador(BaseModel):
     ciudad: str = Field(default="todas", min_length=1, max_length=80)
     antiguedad_dias: Literal[0, 7, 14, 30]
     permitir_recontacto: bool = False
-    correos_excluidos: list[str] = Field(default_factory=list, max_length=50)
+    correos_excluidos: list[str] = Field(default_factory=list, max_length=5)
     mayor_de_edad: Literal[True]
     acepta_tratamiento: Literal[True]
 
@@ -47,10 +47,10 @@ class SolicitudBorrador(BaseModel):
         if self.departamento == "todos" and self.ciudad != "todas":
             raise ValueError("Para seleccionar una ciudad debes elegir un departamento.")
         if self.departamento != "todos":
-            if self.departamento not in CIUDADES_POR_DEPARTAMENTO:
+            if self.departamento not in MUNICIPIOS_POR_DEPARTAMENTO:
                 raise ValueError("El departamento no está disponible.")
-            if self.ciudad != "todas" and self.ciudad not in CIUDADES_POR_DEPARTAMENTO[self.departamento]:
-                raise ValueError("La ciudad no pertenece al departamento seleccionado.")
+            if self.ciudad != "todas" and self.ciudad not in MUNICIPIOS_POR_DEPARTAMENTO[self.departamento]:
+                raise ValueError("El municipio no pertenece al departamento seleccionado.")
         return self
 
 

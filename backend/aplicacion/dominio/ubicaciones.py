@@ -1,37 +1,10 @@
-"""Opciones de ubicación admitidas por el formulario actual."""
+"""Catálogo DIVIPOLA compartido con el selector del frontend."""
 
-CIUDADES_POR_DEPARTAMENTO: dict[str, tuple[str, ...]] = {
-    "Amazonas": ("Leticia", "Puerto Nariño"),
-    "Antioquia": ("Medellín", "Bello", "Envigado", "Itagüí", "Rionegro"),
-    "Arauca": ("Arauca", "Saravena", "Tame"),
-    "Atlántico": ("Barranquilla", "Soledad", "Malambo"),
-    "Bogotá D. C.": ("Bogotá",),
-    "Bolívar": ("Cartagena", "Magangué", "Turbaco"),
-    "Boyacá": ("Tunja", "Duitama", "Sogamoso"),
-    "Caldas": ("Manizales", "La Dorada", "Chinchiná"),
-    "Caquetá": ("Florencia", "San Vicente del Caguán"),
-    "Casanare": ("Yopal", "Aguazul", "Villanueva"),
-    "Cauca": ("Popayán", "Santander de Quilichao"),
-    "Cesar": ("Valledupar", "Aguachica"),
-    "Chocó": ("Quibdó", "Istmina"),
-    "Córdoba": ("Montería", "Cereté", "Lorica"),
-    "Cundinamarca": ("Soacha", "Chía", "Facatativá", "Zipaquirá"),
-    "Guainía": ("Inírida",),
-    "Guaviare": ("San José del Guaviare",),
-    "Huila": ("Neiva", "Pitalito", "Garzón"),
-    "La Guajira": ("Riohacha", "Maicao", "Uribia"),
-    "Magdalena": ("Santa Marta", "Ciénaga"),
-    "Meta": ("Villavicencio", "Acacías", "Granada"),
-    "Nariño": ("Pasto", "Ipiales", "Tumaco"),
-    "Norte de Santander": ("Cúcuta", "Ocaña", "Villa del Rosario"),
-    "Putumayo": ("Mocoa", "Puerto Asís"),
-    "Quindío": ("Armenia", "Calarcá", "Montenegro"),
-    "Risaralda": ("Pereira", "Dosquebradas", "Santa Rosa de Cabal"),
-    "San Andrés y Providencia": ("San Andrés", "Providencia"),
-    "Santander": ("Bucaramanga", "Floridablanca", "Barrancabermeja"),
-    "Sucre": ("Sincelejo", "Corozal"),
-    "Tolima": ("Ibagué", "Espinal", "Melgar"),
-    "Valle del Cauca": ("Cali", "Palmira", "Buenaventura", "Tuluá"),
-    "Vaupés": ("Mitú",),
-    "Vichada": ("Puerto Carreño",),
-}
+import json
+from pathlib import Path
+
+
+RUTA_CATALOGO = Path(__file__).with_name("municipios.json")
+MUNICIPIOS_POR_DEPARTAMENTO: dict[str, list[str]] = json.loads(
+    RUTA_CATALOGO.read_text(encoding="utf-8")
+)["departamentos"]

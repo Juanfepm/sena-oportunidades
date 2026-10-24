@@ -7,11 +7,11 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from .base_datos import crear_motor, obtener_sesion
 from .configuracion import Configuracion
-from .dominio.estados import LIMITES_CONTACTO, TARJETAS_RESUMEN, Plan
+from .dominio.estados import LIMITES_ARCHIVOS, LIMITES_CONTACTO, TARJETAS_RESUMEN, Plan
 from .esquemas import ResumenCampana, ResumenHistorial, SolicitudBorrador
 from .modelos import HistorialEnvio, Usuario
 from .seguridad import obtener_usuario_actual
-from .servicios.campanas import consultar_campana, crear_borrador, listar_borradores
+from .servicios.campanas import EsperaPlanGratis, consultar_campana, consultar_disponibilidad, crear_borrador, listar_borradores
 from .servicios.exclusiones import listar_exclusiones, quitar_exclusion
 
 
@@ -52,9 +52,18 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
     @api.get("/api/v1/planes")
     def planes() -> dict[str, dict[str, int]]:
         return {
-            plan: {"maximo_contactos": LIMITES_CONTACTO[plan], "tarjetas_detalladas": TARJETAS_RESUMEN[plan]}
+            plan: {"maximo_contactos": LIMITES_CONTACTO[plan], "maximo_archivos": LIMITES_ARCHIVOS[plan],
+                   "tarjetas_detalladas": TARJETAS_RESUMEN[plan]}
             for plan in Plan
         }
+
+    @api.get("/api/v1/disponibilidad")
+    def disponibilidad(
+        usuario: Usuario = Depends(obtener_usuario_actual),
+        sesion: Session = Depends(obtener_sesion),
+    ) -> dict[str, bool | str | None]:
+        proxima_fecha = consultar_disponibilidad(sesion, usuario)
+        return {"puede_buscar": proxima_fecha is None, "proxima_fecha": proxima_fecha.isoformat() if proxima_fecha else None}
 
     @api.post("/api/v1/campanas", response_model=ResumenCampana, status_code=201)
     def nueva_campana(
@@ -62,7 +71,11 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
         usuario: Usuario = Depends(obtener_usuario_actual),
         sesion: Session = Depends(obtener_sesion),
     ) -> ResumenCampana:
-        return ResumenCampana.model_validate(crear_borrador(sesion, usuario, solicitud))
+        try:
+            return ResumenCampana.model_validate(crear_borrador(sesion, usuario, solicitud))
+        except EsperaPlanGratis as espera:
+            raise HTTPException(429, {"mensaje": "El plan gratis debe esperar un mes después del último envío.",
+                                      "proxima_fecha": espera.fecha.isoformat()}) from espera
 
     @api.get("/api/v1/campanas", response_model=list[ResumenCampana])
     def campanas(

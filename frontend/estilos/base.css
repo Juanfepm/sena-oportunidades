@@ -63,6 +63,12 @@ input,
 select,
 textarea {
   color: var(--color_texto);
+  min-width: 0;
+}
+
+select {
+  max-width: 100%;
+  text-overflow: ellipsis;
 }
 
 input:focus-visible,

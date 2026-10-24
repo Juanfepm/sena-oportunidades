@@ -8,7 +8,9 @@ Base local en FastAPI y SQLAlchemy. El código, las rutas y los modelos usan nom
 - Exclusiones de correo normalizadas y persistentes por usuario.
 - Historial mínimo de correos enviados por la aplicación; la regla de seis meses no lee Gmail.
 - Reglas de límites: gratis hasta ocho destinatarios y dos tarjetas; premium hasta treinta destinatarios, siempre según coincidencias disponibles.
+- Un adjunto para gratis, dos para premium, ambos de hasta 5 MB; la espera de un mes calendario para gratis comienza solo después de un envío registrado. Premium no espera y una búsqueda sin envíos permite reintentar.
 - Separación de alta coincidencia y «por revisar», y validación de ubicación, fecha y adjuntos.
+- Catálogo local de municipios y localidades basado en [DIVIPOLA](https://www.datos.gov.co/Mapas-Nacionales/DIVIPOLA-C-digos-municipios/gdxc-w37w), sincronizado con el frontend mediante `python -m herramientas.actualizar_municipios`.
 - Reserva persistente y renovable de un único navegador para el futuro trabajador SGVA.
 - Modelo y servicio de aprobación manual del pago. El cliente nunca puede asignarse premium.
 
@@ -43,6 +45,7 @@ La base local SQLite se crea en `backend/datos/` y Git la ignora. Para producci�
 | `GET /api/v1/salud` | Público | Comprueba que la API y la base responden. |
 | `GET /api/v1/capacidades` | Público | Declara claramente qué integraciones faltan. |
 | `GET /api/v1/planes` | Público | Muestra los límites, no promete una cantidad mínima. |
+| `GET /api/v1/disponibilidad` | Desarrollo autenticado | Indica si el aprendiz puede crear otra búsqueda y la próxima fecha. |
 | `POST /api/v1/campanas` | Desarrollo autenticado | Guarda solo un borrador de filtros. |
 | `GET /api/v1/campanas` y `GET /api/v1/campanas/{id}` | Desarrollo autenticado | Muestra solo campañas del usuario. |
 | `POST /api/v1/campanas/{id}/iniciar` | Desarrollo autenticado | Bloqueado con 503 hasta conectar proveedores. |

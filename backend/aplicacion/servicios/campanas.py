@@ -1,14 +1,35 @@
 """Borradores: conservan filtros, no credenciales ni contenido del correo."""
 
+from datetime import datetime, timezone
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..dominio.estados import LIMITES_CONTACTO, Plan
+from ..dominio.disponibilidad import proxima_busqueda
 from ..esquemas import SolicitudBorrador
-from ..modelos import Campana, CorreoExcluido, Usuario
+from ..modelos import Campana, CorreoExcluido, HistorialEnvio, Usuario
+
+
+class EsperaPlanGratis(Exception):
+    def __init__(self, fecha: datetime):
+        self.fecha = fecha
+
+
+def consultar_disponibilidad(sesion: Session, usuario: Usuario, ahora: datetime | None = None) -> datetime | None:
+    ultimo_envio = sesion.scalar(
+        select(HistorialEnvio.enviado_en)
+        .where(HistorialEnvio.usuario_id == usuario.id)
+        .order_by(HistorialEnvio.enviado_en.desc())
+        .limit(1)
+    )
+    return proxima_busqueda(Plan(usuario.plan), ultimo_envio, ahora or datetime.now(timezone.utc))
 
 
 def crear_borrador(sesion: Session, usuario: Usuario, solicitud: SolicitudBorrador) -> Campana:
+    proxima_fecha = consultar_disponibilidad(sesion, usuario)
+    if proxima_fecha is not None:
+        raise EsperaPlanGratis(proxima_fecha)
     plan = Plan(usuario.plan)
     existentes = set(sesion.scalars(select(CorreoExcluido.correo).where(CorreoExcluido.usuario_id == usuario.id)))
     sesion.add_all(

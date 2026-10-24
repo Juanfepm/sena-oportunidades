@@ -1,13 +1,14 @@
 """La API no acepta plan, claves ni contenido del correo desde un borrador."""
 
 import pytest
+from datetime import datetime, timezone
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.pool import StaticPool
 
 from backend.aplicacion.base_datos import Base
 from backend.aplicacion.configuracion import Configuracion
-from backend.aplicacion.modelos import Campana, NavegadorSGVA, Usuario
+from backend.aplicacion.modelos import Campana, HistorialEnvio, NavegadorSGVA, Usuario
 from backend.aplicacion.principal import crear_aplicacion
 
 
@@ -85,8 +86,26 @@ def test_un_usuario_no_puede_leer_una_campana_ajena(cliente: TestClient):
 
 def test_ubicacion_valida_del_formulario(cliente: TestClient):
     solicitud = solicitud_valida()
-    solicitud.update(modalidad="presencial", departamento="Antioquia", ciudad="Medellín")
+    solicitud.update(modalidad="presencial", departamento="Antioquia", ciudad="Abejorral")
     assert cliente.post("/api/v1/campanas", json=solicitud, headers=acceso()).status_code == 201
+
+
+def test_plan_gratis_espera_despues_de_un_envio_y_premium_no(cliente: TestClient):
+    primera = cliente.post("/api/v1/campanas", json=solicitud_valida(), headers=acceso()).json()
+    with cliente.app.state.fabrica_sesiones() as sesion:
+        usuario = sesion.scalar(select(Usuario).where(Usuario.identificador_externo == "desarrollo:aprendiz-local"))
+        sesion.add(HistorialEnvio(usuario_id=usuario.id, campana_id=primera["id"],
+                                 correo="empresa@ejemplo.com", enviado_en=datetime.now(timezone.utc)))
+        sesion.commit()
+    disponibilidad = cliente.get("/api/v1/disponibilidad", headers=acceso()).json()
+    assert disponibilidad["puede_buscar"] is False
+    assert disponibilidad["proxima_fecha"] is not None
+    assert cliente.post("/api/v1/campanas", json=solicitud_valida(), headers=acceso()).status_code == 429
+    with cliente.app.state.fabrica_sesiones() as sesion:
+        usuario = sesion.scalar(select(Usuario).where(Usuario.identificador_externo == "desarrollo:aprendiz-local"))
+        usuario.plan = "premium"
+        sesion.commit()
+    assert cliente.post("/api/v1/campanas", json=solicitud_valida(), headers=acceso()).status_code == 201
 
 
 @pytest.mark.parametrize("departamento,ciudad", [
@@ -107,6 +126,7 @@ def test_ubicacion_fuera_del_formulario(cliente: TestClient, departamento: str, 
     ("plan", "premium"),
     ("clave_sgva", "contraseña-no-admitida"),
     ("cuerpo_correo", "texto-no-admitido"),
+    ("correos_excluidos", [f"empresa{numero}@ejemplo.com" for numero in range(6)]),
 ])
 def test_borrador_rechaza_datos_no_permitidos(cliente: TestClient, campo: str, valor):
     solicitud = solicitud_valida()

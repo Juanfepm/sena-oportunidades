@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from pathlib import PurePath
 
+from .estados import LIMITES_ARCHIVOS, Plan
+
 
 TIPOS_PERMITIDOS = {
     ".pdf": {"application/pdf"},
@@ -14,7 +16,6 @@ TIPOS_PERMITIDOS = {
     ".png": {"image/png"},
     ".webp": {"image/webp"},
 }
-MAXIMO_ARCHIVOS = 2
 MAXIMO_BYTES = 5 * 1024 * 1024
 
 
@@ -25,9 +26,10 @@ class ArchivoAdjunto:
     tamano_bytes: int
 
 
-def validar_adjuntos(archivos: list[ArchivoAdjunto]) -> None:
-    if len(archivos) > MAXIMO_ARCHIVOS:
-        raise ValueError("Solo se permiten dos adjuntos.")
+def validar_adjuntos(archivos: list[ArchivoAdjunto], plan: Plan = Plan.GRATIS) -> None:
+    limite = LIMITES_ARCHIVOS[plan]
+    if len(archivos) > limite:
+        raise ValueError(f"El plan {plan} permite hasta {limite} adjuntos.")
     for archivo in archivos:
         nombre = PurePath(archivo.nombre).name
         extension = PurePath(nombre).suffix.lower()

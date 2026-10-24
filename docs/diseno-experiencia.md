@@ -12,7 +12,7 @@ La cifra de 50 corresponde a esa recopilación divulgativa, no a una lista cient
 
 ## Identidad visual
 
-DEBUPA significa «desesperados buscando patrocinio». La interfaz combina un verde más luminoso con azul, coral y lila suaves para alejarse de una estética institucional. Los títulos usan fuentes sans serif disponibles en el sistema; las formas de fondo son decorativas y no interfieren con los controles. Los textos y botones conservan contraste legible.
+DEBUPA significa «desesperados buscando patrocinio». El nombre escrito es suficiente como identificador; no se usa un símbolo con la letra D. La frase de origen queda como lema discreto. La interfaz combina un verde luminoso con azul, coral y lila suaves para alejarse de una estética institucional. Los títulos usan fuentes sans serif disponibles en el sistema; las formas de fondo son decorativas y no interfieren con los controles. Los textos y botones conservan contraste legible.
 
 ## Lo que confirma el manual del SGVA
 
@@ -32,7 +32,7 @@ DEBUPA toma únicamente el flujo de consulta y lectura como referencia. Contacta
 | Lenguaje cercano | «Empresas sugeridas», «Revisar» y «Quitar» reemplazan términos técnicos internos. |
 | Control y libertad | El aprendiz puede volver, editar el correo, retirar destinatarios y detener la demostración. |
 | Consistencia | Botones primarios verdes, secundarios claros y una misma estructura de formularios. La paleta combina verde fresco con azul, lila y coral suaves. |
-| Prevención de errores | Selectores para modalidad y tiempo, dependencias departamento/ciudad, límites de archivos y confirmación previa. |
+| Prevención de errores | Selectores para modalidad y tiempo, dependencia departamento/municipio, hasta cinco exclusiones individuales, límites de uno o dos archivos según el plan y confirmación previa. |
 | Reconocimiento | Etiquetas visibles, ayudas junto al campo y un resumen del motivo de coincidencia. |
 | Diseño mínimo | La pantalla principal se centra en la búsqueda; los detalles quedan en pasos posteriores. |
 | Recuperación | Alertas persistentes explican qué corregir, sin desaparecer automáticamente. |
@@ -48,6 +48,7 @@ DEBUPA toma únicamente el flujo de consulta y lectura como referencia. Contacta
 - No presentar modalidad remota como confirmada si la empresa no lo ha escrito expresamente.
 - No usar urgencia artificial, temporizadores de presión o selección oculta de destinatarios.
 - No guardar contraseñas ni adjuntos en el navegador. Los campos SGVA están desactivados en la vista previa.
+- La espera mensual del plan gratis comienza después de un envío registrado; sin envíos se puede reintentar. La vista previa solo simula este estado.
 - Renderizar texto variable con `textContent`; no insertar contenido del usuario con `innerHTML`.
 - Validar tipo, cantidad y tamaño de archivos también en el servidor cuando exista.
 - Mantener las páginas de privacidad, cookies y condiciones como borradores señalados hasta su revisión para el piloto.

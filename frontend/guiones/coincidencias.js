@@ -108,6 +108,8 @@ function elementoSeleccionado(empresa) {
 function pintarEmpresas() {
   const listado = document.querySelector("#lista-coincidencias");
   const seleccionadas = document.querySelector("#lista-seleccion");
+  document.querySelector("#aviso-sin-resultados").hidden = visibles.length > 0;
+  document.querySelector(".revision_disposicion").hidden = visibles.length === 0;
   listado.replaceChildren(...visibles.map(tarjetaEmpresa));
   if (visibles.length === 0) {
     listado.append(elemento("p", "estado_vacio", "No hay empresas de ejemplo para estos filtros. Ajusta la ubicación o el periodo para continuar la demostración."));
@@ -168,20 +170,20 @@ export function actualizarEjemplos(filtros) {
     const departamentoCoincide = filtros.modalidad === "remoto" || filtros.departamento === "todos" || empresa.departamento === filtros.departamento;
     const ciudadCoincide = filtros.modalidad === "remoto" || filtros.ciudad === "todas" || empresa.ubicacion === filtros.ciudad;
     const periodoCoincide = empresa.diasPublicacion <= Number(filtros.antiguedad);
-    return modalidadCoincide && departamentoCoincide && ciudadCoincide && periodoCoincide && !excluidos.has(empresa.correo);
+    return empresa.puntaje >= 60 && modalidadCoincide && departamentoCoincide && ciudadCoincide && periodoCoincide && !excluidos.has(empresa.correo);
   });
   seleccion.clear();
   visibles.forEach(({ id }) => seleccion.add(id));
   pintarEmpresas();
 }
 
-export function pintarResumen() {
+export function pintarResumen(plan) {
   const tarjetas = document.querySelector("#tarjetas-resultado");
   const registro = document.querySelector("#lista-envios-resumen");
   const empresas = visibles.filter(({ id }) => seleccion.has(id));
   const fecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" }).format(new Date());
 
-  tarjetas.replaceChildren(...empresas.slice(0, 2).map((empresa) => {
+  tarjetas.replaceChildren(...empresas.slice(0, plan === "premium" ? 30 : 2).map((empresa) => {
     const tarjeta = elemento("article", "resultado_tarjeta");
     const cabecera = elemento("div", "resultado_tarjeta_cabecera");
     cabecera.append(elemento("span", "avatar_empresa", empresa.inicial), elemento("span", "pildora_puntuacion", `${empresa.puntaje}% estimado`));
