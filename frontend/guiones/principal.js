@@ -1,4 +1,5 @@
 import { actualizarEjemplos, configurarCoincidencias, pintarResumen } from "./coincidencias.js";
+import { configurarAutenticacion } from "./autenticacion.js";
 import { configurarRutas, irA } from "./rutas.js";
 import { configurarUbicaciones } from "./ubicaciones.js";
 import { activarCorreccion, validarAdjuntos, validarFormulario } from "./validacion.js";
@@ -233,6 +234,7 @@ if (["correo", "confirmacion", "progreso", "resultados"].includes(window.locatio
 
 document.querySelector("#anio-actual").textContent = String(new Date().getFullYear());
 configurarRutas();
+configurarAutenticacion();
 configurarUbicaciones();
 configurarCookies();
 configurarCoincidencias();

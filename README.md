@@ -4,21 +4,26 @@ Prototipo de una herramienta independiente para ayudar a aprendices del SENA a o
 
 ## Estado actual
 
-El frontend es una vista previa navegable con empresas ficticias. El backend ya ofrece borradores, exclusiones persistentes, historial mínimo, reglas de selección, cola para un navegador y verificación manual de pagos como servicios internos. Aún no se conectan entre sí ni se ejecuta una campaña real: faltan Google, SGVA, Gmail, almacenamiento temporal cifrado y el trabajador de la cola. Las credenciales SGVA siguen desactivadas en el frontend.
+El frontend es una vista previa navegable con empresas ficticias. El backend sirve la página y permite iniciar y cerrar sesión con Google; la cabecera muestra la cuenta y el plan. También ofrece borradores, exclusiones persistentes, historial mínimo, reglas de selección, cola para un navegador y verificación manual de pagos como servicios internos. Los formularios de búsqueda aún son una simulación: faltan SGVA, Gmail, almacenamiento temporal cifrado y el trabajador de la cola. Las credenciales SGVA siguen desactivadas en el frontend.
 
 El selector muestra una selección práctica de ciudades y municipios principales, verificada con DIVIPOLA. Si una población no aparece, se puede elegir «Todos los municipios». Para actualizar la selección desde la fuente oficial, ejecuta `python -m herramientas.actualizar_municipios` desde la raíz del repositorio. El script actualiza las copias del frontend y el backend.
 
 La estructura inicial de PostgreSQL ya tiene migraciones versionadas. El procedimiento de creación y conexión segura está en [backend/README.md](backend/README.md#preparar-postgresql-en-supabase).
 
-## Ejecutar la vista previa
+## Ejecutar la aplicación local
 
-Sirve `frontend/` con cualquier servidor HTTP estático y abre su dirección local. Por ejemplo:
+Para probar el inicio de sesión, sirve frontend y API juntos:
 
-```bash
-python -m http.server 8000 --directory frontend
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r backend\requirements-postgresql.txt
+$env:DEBUPA_ENTORNO = "desarrollo"
+$env:GOOGLE_URL_INICIO = "/#inicio"
+$env:DEBUPA_SECRETO_SESION = ((New-Guid).Guid + (New-Guid).Guid).Replace("-", "")
+.\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini upgrade head
+.\.venv\Scripts\python.exe -m uvicorn backend.aplicacion.principal:aplicacion --reload --host 127.0.0.1 --port 8000
 ```
 
-Luego abre `http://localhost:8000/`. No abras el archivo HTML mediante `file://`: los módulos JavaScript y los SVG externos requieren un servidor HTTP.
+Estas órdenes suponen que ya configuraste la conexión PostgreSQL, el certificado SSL, `GOOGLE_CLIENTE_ID`, `GOOGLE_CLIENTE_SECRETO` y la URI de callback en la misma terminal. Abre `http://127.0.0.1:8000/` y pulsa «Entrar con Google». La guía completa está en [backend/README.md](backend/README.md#google-oauth).
 
 ## Estructura actual
 
@@ -38,7 +43,7 @@ backend/
 
 ## Próximas piezas
 
-- Inicio de sesión con Google y permiso mínimo de Gmail.
+- Permiso mínimo de Gmail para enviar desde la cuenta del aprendiz.
 - Integración autorizada con SGVA y trabajador Playwright de una sola sesión.
 - Carga temporal cifrada de credenciales, correo y adjuntos, con eliminación verificable.
 - Clasificación explicable, revisión humana y envío individual real.

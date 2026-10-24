@@ -129,6 +129,12 @@
   gap: var(--espacio_4);
 }
 
+.cabecera_cuenta {
+  align-items: center;
+  display: flex;
+  gap: var(--espacio_2);
+}
+
 .cabecera_interior {
   align-items: center;
   display: flex;
@@ -289,6 +295,15 @@
 .enlace_texto:hover {
   text-decoration: underline;
   text-underline-offset: 0.25rem;
+}
+
+.estado_cuenta {
+  color: var(--color_muted);
+  font-size: 0.78rem;
+  max-width: 13rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .etiqueta_estado {
@@ -504,6 +519,21 @@
     flex-wrap: wrap;
     gap: var(--espacio_2);
     padding-block: var(--espacio_3);
+  }
+
+  .cabecera_cuenta {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .cabecera_acciones {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .estado_cuenta {
+    max-width: 8rem;
   }
 
   .cabecera_acciones .boton {

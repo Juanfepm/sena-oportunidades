@@ -16,8 +16,13 @@ def obtener_usuario_actual(
     sesion: Session = Depends(obtener_sesion),
 ) -> Usuario:
     configuracion = peticion.app.state.configuracion
+    usuario_id = peticion.session.get("usuario_id")
+    if usuario_id:
+        usuario = sesion.get(Usuario, usuario_id)
+        if usuario is not None:
+            return usuario
     if configuracion.entorno != "desarrollo" or not configuracion.clave_pruebas:
-        raise HTTPException(503, "La identidad de Google todavía no está conectada.")
+        raise HTTPException(401, "Se requiere iniciar sesión con Google.")
     if peticion.client is None or peticion.client.host not in {"127.0.0.1", "::1", "testclient"}:
         raise HTTPException(403, "La identidad de desarrollo solo funciona desde este equipo.")
     tipo, separador, clave = (autorizacion or "").partition(" ")

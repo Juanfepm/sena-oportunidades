@@ -3,8 +3,10 @@
 import pytest
 from datetime import datetime, timezone
 from fastapi.testclient import TestClient
+import httpx
 from sqlalchemy import create_engine, select
 from sqlalchemy.pool import StaticPool
+from urllib.parse import parse_qs, urlsplit
 
 from backend.aplicacion.base_datos import Base
 from backend.aplicacion.configuracion import Configuracion
@@ -18,7 +20,12 @@ def cliente():
     Base.metadata.create_all(motor)
     with motor.begin() as conexion:
         conexion.execute(NavegadorSGVA.__table__.insert().values(id=1))
-    configuracion = Configuracion(entorno="desarrollo", base_datos="sqlite://", clave_pruebas="clave-segura-de-pruebas-locales-2026")
+    configuracion = Configuracion(
+        entorno="desarrollo",
+        base_datos="sqlite://",
+        clave_pruebas="clave-segura-de-pruebas-locales-2026",
+        secreto_sesion="secreto-de-sesion-local-largo-2026",
+    )
     with TestClient(crear_aplicacion(configuracion, motor)) as cliente_actual:
         yield cliente_actual
     motor.dispose()
@@ -50,6 +57,79 @@ def test_capacidades_no_prometen_integraciones(cliente: TestClient):
     assert capacidades["sgva"] is False
     assert capacidades["gmail"] is False
     assert capacidades["trabajador_activo"] is False
+
+
+def test_google_oauth_requiere_configuracion(cliente: TestClient):
+    respuesta = cliente.get("/api/v1/autenticacion/google/iniciar")
+    assert respuesta.status_code == 503
+
+
+def test_frontend_y_cuenta_requieren_sesion(cliente: TestClient):
+    portada = cliente.get("/")
+    assert portada.status_code == 200
+    assert "Entrar con Google" in portada.text
+    assert cliente.get("/guiones/autenticacion.js").status_code == 200
+    assert cliente.get("/api/v1/autenticacion/yo").status_code == 401
+
+
+def test_google_inicia_sesion_y_permita_cerrarla(monkeypatch: pytest.MonkeyPatch):
+    from backend.aplicacion import principal
+
+    motor = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(motor)
+    configuracion = Configuracion(
+        entorno="pruebas",
+        base_datos="sqlite://",
+        google_cliente_id="cliente-prueba.apps.googleusercontent.com",
+        google_cliente_secreto="secreto-ficticio",
+        secreto_sesion="clave-firmada-para-pruebas-de-google-2026",
+    )
+
+    def responder(peticion: httpx.Request) -> httpx.Response:
+        if peticion.url.path == "/token":
+            return httpx.Response(200, json={"access_token": "token-ficticio"})
+        if peticion.url.path == "/v1/userinfo":
+            assert peticion.headers["Authorization"] == "Bearer token-ficticio"
+            return httpx.Response(200, json={
+                "sub": "identificador-estable",
+                "email": "Aprendiz@Ejemplo.com",
+                "email_verified": True,
+                "name": "Aprendiz de prueba",
+            })
+        return httpx.Response(404)
+
+    cliente_httpx = httpx.AsyncClient
+    monkeypatch.setattr(
+        principal.httpx,
+        "AsyncClient",
+        lambda **opciones: cliente_httpx(transport=httpx.MockTransport(responder), **opciones),
+    )
+    try:
+        with TestClient(crear_aplicacion(configuracion, motor)) as cliente:
+            inicio = cliente.get("/api/v1/autenticacion/google/iniciar", follow_redirects=False)
+            assert inicio.status_code == 307
+            invalido = cliente.get(
+                "/api/v1/autenticacion/google/callback?code=ficticio&state=incorrecto",
+                follow_redirects=False,
+            )
+            assert invalido.status_code == 401
+
+            inicio = cliente.get("/api/v1/autenticacion/google/iniciar", follow_redirects=False)
+            estado = parse_qs(urlsplit(inicio.headers["location"]).query)["state"][0]
+            regreso = cliente.get(
+                f"/api/v1/autenticacion/google/callback?code=ficticio&state={estado}",
+                follow_redirects=False,
+            )
+            assert regreso.status_code == 303
+            assert regreso.headers["location"] == "/#inicio"
+            cuenta = cliente.get("/api/v1/autenticacion/yo")
+            assert cuenta.status_code == 200
+            assert cuenta.json()["correo"] == "aprendiz@ejemplo.com"
+            assert cuenta.json()["plan"] == "gratis"
+            assert cliente.post("/api/v1/autenticacion/cerrar-sesion").status_code == 204
+            assert cliente.get("/api/v1/autenticacion/yo").status_code == 401
+    finally:
+        motor.dispose()
 
 
 def test_borrador_necesita_autorizacion(cliente: TestClient):

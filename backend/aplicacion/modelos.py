@@ -23,9 +23,14 @@ class Usuario(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=nuevo_id)
     identificador_externo: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    correo_google: Mapped[str | None] = mapped_column(String(254))
+    nombre_google: Mapped[str | None] = mapped_column(String(180))
     plan: Mapped[str] = mapped_column(String(12), default=Plan.GRATIS, nullable=False)
     es_administrador: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora_utc, nullable=False)
+    ultimo_acceso_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora_utc, nullable=False)
+
+    __table_args__ = (Index("ix_usuarios_correo_google_unico", "correo_google", unique=True),)
 
 
 class Campana(Base):

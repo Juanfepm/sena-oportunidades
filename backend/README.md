@@ -1,6 +1,6 @@
 # Backend de DEBUPA
 
-Base local en FastAPI y SQLAlchemy. El código, las rutas y los modelos usan nombres descriptivos en español. La interfaz actual todavía no llama a esta API.
+Base local en FastAPI y SQLAlchemy. El código, las rutas y los modelos usan nombres descriptivos en español. La API sirve también el frontend en el mismo origen para que Google OAuth comparta la cookie de sesión.
 
 ## Lo que funciona ahora
 
@@ -13,7 +13,7 @@ Base local en FastAPI y SQLAlchemy. El código, las rutas y los modelos usan nom
 - Selección local de ciudades y municipios principales verificada con [DIVIPOLA](https://www.datos.gov.co/Mapas-Nacionales/DIVIPOLA-C-digos-municipios/gdxc-w37w), sincronizada con el frontend mediante `python -m herramientas.actualizar_municipios`.
 - Reserva persistente y renovable de un único navegador para el futuro trabajador SGVA.
 - Modelo y servicio de aprobación manual del pago. El cliente nunca puede asignarse premium.
-- Migración inicial de PostgreSQL, con acceso a las tablas cerrado para los roles públicos de Supabase.
+- Migraciones de PostgreSQL para el esquema inicial y la identidad de Google, con acceso a las tablas cerrado para los roles públicos de Supabase.
 
 No se aceptan contraseñas SGVA, cuerpos de correo ni archivos en los borradores. El endpoint `/api/v1/campanas/{id}/iniciar` devuelve 503 hasta que existan las integraciones seguras. La cola es una base de datos y reglas; todavía no hay un trabajador que consulte SGVA o envíe Gmail.
 
@@ -29,7 +29,7 @@ $env:DEBUPA_CLAVE_PRUEBAS = "una-clave-larga-y-aleatoria-solo-local"
 .\.venv\Scripts\python.exe -m uvicorn backend.aplicacion.principal:aplicacion --host 127.0.0.1 --port 8001
 ```
 
-La documentación interactiva local queda en `http://127.0.0.1:8001/docs`. Las rutas privadas usan temporalmente `Authorization: Bearer <DEBUPA_CLAVE_PRUEBAS>` solo en desarrollo. No se debe publicar este modo ni usar una contraseña real del SGVA. Si no se configura la clave, esas rutas responden 503. En producción, la identidad de prueba también queda desactivada.
+La página local queda en `http://127.0.0.1:8001/` y la documentación interactiva en `http://127.0.0.1:8001/docs`. Las rutas privadas usan temporalmente `Authorization: Bearer <DEBUPA_CLAVE_PRUEBAS>` solo en desarrollo cuando no hay sesión de Google. No se debe publicar este modo ni usar una contraseña real del SGVA. En producción, la identidad de prueba queda desactivada.
 
 Pruebas:
 
@@ -67,7 +67,7 @@ Remove-Variable direccionProtegida
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini check
 ```
 
-`current` debe mostrar `0001_esquema_inicial (head)` después de la migración; `check` debe indicar que no hay operaciones nuevas. En el editor SQL de Supabase puedes comprobarlo sin modificar datos:
+`current` debe mostrar `0002_identidad_google (head)` después de aplicar ambas migraciones; `check` debe indicar que no hay operaciones nuevas. En el editor SQL de Supabase puedes comprobarlo sin modificar datos:
 
 ```sql
 select version_num from alembic_version;
@@ -76,25 +76,66 @@ select id from navegador_sgva;
 
 La segunda consulta debe devolver únicamente `1`. Cierra la terminal cuando termines para retirar la cadena de su entorno. En Supabase Free debes organizar copias de seguridad externas antes de almacenar datos reales. No ejecutes `downgrade` en una base con información: eliminaría tablas.
 
+## Google OAuth
+
+La API usa OpenID Connect de Google únicamente para identificar al aprendiz. No guarda contraseñas ni tokens de Google. El callback crea o actualiza el usuario local con el identificador estable de Google, el correo verificado y el nombre visible.
+
+En Google Cloud Console crea un cliente OAuth de tipo **Aplicación web** y registra exactamente:
+
+```text
+http://127.0.0.1:8000/api/v1/autenticacion/google/callback
+```
+
+En la terminal donde se levanta la API configura:
+
+```powershell
+$env:GOOGLE_CLIENTE_ID = "tu-cliente-id.apps.googleusercontent.com"
+$env:GOOGLE_CLIENTE_SECRETO = "tu-secreto"
+$env:GOOGLE_URI_REDIRECCION = "http://127.0.0.1:8000/api/v1/autenticacion/google/callback"
+$env:GOOGLE_URL_INICIO = "/#inicio"
+$env:DEBUPA_SECRETO_SESION = "genera-un-secreto-aleatorio-de-al-menos-32-caracteres"
+```
+
+Después aplica la migración de identidad:
+
+```powershell
+.\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini upgrade head
+```
+
+Para probar en tu computador con PostgreSQL, usa `DEBUPA_ENTORNO=desarrollo` y levanta la API solo en `127.0.0.1`. Puedes conservar `DEBUPA_BASE_DATOS` y `PGSSLROOTCERT` ya configuradas. La cookie de producción exige HTTPS y por eso no sirve para esta prueba local con HTTP.
+
+```powershell
+$env:DEBUPA_ENTORNO = "desarrollo"
+$env:GOOGLE_URL_INICIO = "/#inicio"
+$env:DEBUPA_SECRETO_SESION = ((New-Guid).Guid + (New-Guid).Guid).Replace("-", "")
+.\.venv\Scripts\python.exe -m pip install -r backend\requirements-postgresql.txt
+.\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini upgrade head
+.\.venv\Scripts\python.exe -m uvicorn backend.aplicacion.principal:aplicacion --reload --host 127.0.0.1 --port 8000
+```
+
+Abre `http://127.0.0.1:8000/` y pulsa «Entrar con Google». La cabecera mostrará tu nombre y tu plan. El frontend consulta `/api/v1/autenticacion/yo` y cierra sesión con `POST /api/v1/autenticacion/cerrar-sesion`. La búsqueda y el envío del formulario siguen siendo ejemplos; no se transmiten a SGVA ni Gmail.
+
 ## Rutas disponibles
 
 | Ruta | Acceso | Estado |
 | --- | --- | --- |
 | `GET /api/v1/salud` | Público | Comprueba que la API y la base responden. |
+| `GET /api/v1/autenticacion/google/iniciar` y callback | Público | Completa el inicio de sesión con Google. |
+| `GET /api/v1/autenticacion/yo` y `POST /api/v1/autenticacion/cerrar-sesion` | Sesión | Muestra la cuenta actual y cierra sesión. |
 | `GET /api/v1/capacidades` | Público | Declara claramente qué integraciones faltan. |
 | `GET /api/v1/planes` | Público | Muestra los límites, no promete una cantidad mínima. |
-| `GET /api/v1/disponibilidad` | Desarrollo autenticado | Indica si el aprendiz puede crear otra búsqueda y la próxima fecha. |
-| `POST /api/v1/campanas` | Desarrollo autenticado | Guarda solo un borrador de filtros. |
-| `GET /api/v1/campanas` y `GET /api/v1/campanas/{id}` | Desarrollo autenticado | Muestra solo campañas del usuario. |
-| `POST /api/v1/campanas/{id}/iniciar` | Desarrollo autenticado | Bloqueado con 503 hasta conectar proveedores. |
-| `GET /api/v1/correos-excluidos` y `DELETE /api/v1/correos-excluidos/{correo}` | Desarrollo autenticado | Gestiona exclusiones propias. |
-| `GET /api/v1/historial` | Desarrollo autenticado | Lee solo envíos propios registrados por DEBUPA. |
+| `GET /api/v1/disponibilidad` | Sesión | Indica si el aprendiz puede crear otra búsqueda y la próxima fecha. |
+| `POST /api/v1/campanas` | Sesión | Guarda solo un borrador de filtros. |
+| `GET /api/v1/campanas` y `GET /api/v1/campanas/{id}` | Sesión | Muestra solo campañas del usuario. |
+| `POST /api/v1/campanas/{id}/iniciar` | Sesión | Bloqueado con 503 hasta conectar proveedores. |
+| `GET /api/v1/correos-excluidos` y `DELETE /api/v1/correos-excluidos/{correo}` | Sesión | Gestiona exclusiones propias. |
+| `GET /api/v1/historial` | Sesión | Lee solo envíos propios registrados por DEBUPA. |
 
-El navegador no recibe CORS abierto. La futura publicación deberá servir el frontend y la API bajo el mismo origen o configurar orígenes concretos, además de sesión segura, CSRF, límites de solicitudes y control de administrador.
+El navegador no recibe CORS abierto: el frontend y la API comparten origen. Antes de publicar faltan controles operativos adicionales, entre ellos límites de solicitudes y control de administrador.
 
 ## Integraciones para continuar
 
-1. **Google Identity Services / OAuth 2.0:** inicio de sesión verificable en el servidor. Para enviar se solicitará `gmail.send`; no se necesita `gmail.readonly` si el historial se basa en los envíos registrados por DEBUPA. Para campañas que sigan cuando el usuario cierre el navegador hará falta acceso offline y proteger el token de actualización.
+1. **Google Identity Services / OAuth 2.0:** inicio de sesión verificable en el servidor. El inicio y callback ya están preparados; para enviar se solicitará `gmail.send`. No se necesita `gmail.readonly` si el historial se basa en los envíos registrados por DEBUPA. Para campañas que sigan cuando el usuario cierre el navegador hará falta acceso offline y proteger el token de actualización.
 2. **SGVA:** confirmar con SENA si ofrece una integración autorizada. Si no, un adaptador Playwright con una sola sesión, límites y manejo de caídas. Nunca se pulsará «Aplicar» automáticamente.
 3. **IA:** un adaptador de clasificación que devuelva puntuación, motivo y grado de certeza. Una modalidad remota no mencionada expresamente quedará «por revisar», no confirmada.
 4. **Gmail API:** envíos individuales confirmados, identificación del mensaje enviado e historial idempotente para no duplicar destinatarios ante reintentos.
