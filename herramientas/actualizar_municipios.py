@@ -1,4 +1,4 @@
-"""Actualiza el catálogo local desde la DIVIPOLA oficial de datos.gov.co."""
+"""Actualiza una selección de municipios desde la DIVIPOLA oficial."""
 
 import json
 import unicodedata
@@ -23,6 +23,41 @@ DEPARTAMENTOS = {
     "88": "San Andrés y Providencia", "91": "Amazonas", "94": "Guainía",
     "95": "Guaviare", "97": "Vaupés", "99": "Vichada",
 }
+MUNICIPIOS_PRINCIPALES = {
+    "Amazonas": ("Leticia", "Puerto Nariño"),
+    "Antioquia": ("Medellín", "Bello", "Envigado", "Itagüí", "Rionegro"),
+    "Arauca": ("Arauca", "Saravena", "Tame"),
+    "Atlántico": ("Barranquilla", "Soledad", "Malambo"),
+    "Bogotá D. C.": ("Bogotá",),
+    "Bolívar": ("Cartagena de Indias", "Magangué", "Turbaco"),
+    "Boyacá": ("Tunja", "Duitama", "Sogamoso"),
+    "Caldas": ("Manizales", "La Dorada", "Chinchiná"),
+    "Caquetá": ("Florencia", "San Vicente del Caguán"),
+    "Casanare": ("Yopal", "Aguazul", "Villanueva"),
+    "Cauca": ("Popayán", "Santander de Quilichao"),
+    "Cesar": ("Valledupar", "Aguachica"),
+    "Chocó": ("Quibdó", "Istmina"),
+    "Córdoba": ("Montería", "Cereté", "Lorica"),
+    "Cundinamarca": ("Soacha", "Chía", "Facatativá", "Zipaquirá"),
+    "Guainía": ("Inírida",),
+    "Guaviare": ("San José del Guaviare",),
+    "Huila": ("Neiva", "Pitalito", "Garzón"),
+    "La Guajira": ("Riohacha", "Maicao", "Uribia"),
+    "Magdalena": ("Santa Marta", "Ciénaga"),
+    "Meta": ("Villavicencio", "Acacías", "Granada"),
+    "Nariño": ("Pasto", "Ipiales", "San Andrés de Tumaco"),
+    "Norte de Santander": ("San José de Cúcuta", "Ocaña", "Villa del Rosario"),
+    "Putumayo": ("Mocoa", "Puerto Asís"),
+    "Quindío": ("Armenia", "Calarcá", "Montenegro"),
+    "Risaralda": ("Pereira", "Dosquebradas", "Santa Rosa de Cabal"),
+    "San Andrés y Providencia": ("San Andrés", "Providencia"),
+    "Santander": ("Bucaramanga", "Floridablanca", "Barrancabermeja"),
+    "Sucre": ("Sincelejo", "Corozal"),
+    "Tolima": ("Ibagué", "Espinal", "Melgar"),
+    "Valle del Cauca": ("Santiago de Cali", "Palmira", "Buenaventura", "Tuluá"),
+    "Vaupés": ("Mitú",),
+    "Vichada": ("Puerto Carreño",),
+}
 
 
 def ordenar(texto: str) -> str:
@@ -38,6 +73,31 @@ def nombre_visible(nombre: str) -> str:
                     else palabra for indice, palabra in enumerate(palabras))
 
 
+def seleccionar_municipios(municipios: dict[str, set[str]]) -> dict[str, list[str]]:
+    if set(municipios) != set(MUNICIPIOS_PRINCIPALES):
+        raise ValueError("La selección no coincide con los departamentos de DIVIPOLA.")
+    seleccion = {}
+    for departamento, nombres in MUNICIPIOS_PRINCIPALES.items():
+        no_encontrados = set(nombres) - municipios[departamento]
+        if no_encontrados:
+            raise ValueError(f"Municipios no encontrados en {departamento}: {sorted(no_encontrados)}")
+        seleccion[departamento] = sorted(nombres, key=ordenar)
+    return dict(sorted(seleccion.items(), key=lambda elemento: ordenar(elemento[0])))
+
+
+def guardar_municipios(municipios: dict[str, list[str]]) -> None:
+    contenido = {
+        "fuente": FUENTE,
+        "descripcion": "Selección práctica de ciudades y municipios principales verificados con DIVIPOLA; no es un ranking oficial.",
+        "departamentos": municipios,
+    }
+    serializado = json.dumps(contenido, ensure_ascii=False, indent=2) + "\n"
+    for destino in DESTINOS:
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        destino.write_text(serializado, encoding="utf-8")
+    print(f"Catálogo guardado: {sum(map(len, municipios.values()))} municipios en {len(municipios)} departamentos.")
+
+
 def actualizar() -> None:
     with urlopen(FUENTE, timeout=30) as respuesta:
         registros = json.load(respuesta)
@@ -46,19 +106,7 @@ def actualizar() -> None:
         municipios[DEPARTAMENTOS[registro["cod_dpto"]]].add(nombre_visible(registro["nom_mpio"]))
     if len(registros) < 1100 or len(municipios) != 33 or any(not nombres for nombres in municipios.values()):
         raise ValueError("La respuesta DIVIPOLA está incompleta; se conserva el catálogo anterior.")
-    contenido = {
-        "fuente": FUENTE,
-        "descripcion": "Municipios, isla y áreas no municipalizadas de DIVIPOLA; nombres adaptados para lectura.",
-        "departamentos": {
-            departamento: sorted(nombres, key=ordenar)
-            for departamento, nombres in sorted(municipios.items(), key=lambda elemento: ordenar(elemento[0]))
-        },
-    }
-    serializado = json.dumps(contenido, ensure_ascii=False, indent=2) + "\n"
-    for destino in DESTINOS:
-        destino.parent.mkdir(parents=True, exist_ok=True)
-        destino.write_text(serializado, encoding="utf-8")
-    print(f"Catálogo guardado: {len(registros)} localidades en {len(municipios)} departamentos.")
+    guardar_municipios(seleccionar_municipios(municipios))
 
 
 if __name__ == "__main__":

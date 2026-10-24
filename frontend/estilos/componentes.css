@@ -162,16 +162,14 @@
 }
 
 .campo select {
+  appearance: none;
+  background-image: var(--icono_desplegable);
+  background-position: right 1rem center;
+  background-repeat: no-repeat;
+  background-size: 0.8rem;
   max-inline-size: 100%;
+  padding-right: 2.5rem;
   text-overflow: ellipsis;
-}
-
-#departamento-busqueda {
-  inline-size: min(100%, 19rem);
-}
-
-#modalidad-trabajo {
-  inline-size: min(100%, 15rem);
 }
 
 .campo input:disabled,

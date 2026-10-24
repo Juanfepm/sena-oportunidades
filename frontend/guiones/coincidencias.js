@@ -85,7 +85,9 @@ function tarjetaEmpresa(empresa) {
   const motivo = elemento("p", "", empresa.motivo);
   const pie = elemento("div", "sugerencia_tarjeta_pie");
   const detalle = elemento("span", "", `${empresa.modalidad} · ${empresa.correo}`);
-  const boton = elemento("button", "", seleccion.has(empresa.id) ? "Quitar de la lista" : "Añadir a la lista");
+  const seleccionada = seleccion.has(empresa.id);
+  const boton = elemento("button", seleccionada ? "accion_quitar" : "accion_agregar",
+    seleccionada ? "Quitar de la lista" : "Añadir a la lista");
   boton.type = "button";
   boton.addEventListener("click", () => alternarEmpresa(empresa.id));
   pie.append(detalle, boton);

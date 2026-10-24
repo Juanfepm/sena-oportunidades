@@ -86,7 +86,7 @@ def test_un_usuario_no_puede_leer_una_campana_ajena(cliente: TestClient):
 
 def test_ubicacion_valida_del_formulario(cliente: TestClient):
     solicitud = solicitud_valida()
-    solicitud.update(modalidad="presencial", departamento="Antioquia", ciudad="Abejorral")
+    solicitud.update(modalidad="presencial", departamento="Antioquia", ciudad="Medellín")
     assert cliente.post("/api/v1/campanas", json=solicitud, headers=acceso()).status_code == 201
 
 

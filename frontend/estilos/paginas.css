@@ -909,6 +909,7 @@
   color: var(--color_muted);
   font-size: 1rem;
   margin: 0;
+  transform: translateY(0.85rem);
 }
 
 .sugerencia_tarjeta {
@@ -958,10 +959,14 @@
 .sugerencia_tarjeta_pie button {
   background: none;
   border: 0;
-  color: var(--color_error);
+  color: var(--color_verde);
   font-size: 0.8rem;
   font-weight: 700;
   padding: 0.2rem;
+}
+
+.sugerencia_tarjeta_pie .accion_quitar {
+  color: var(--color_error);
 }
 
 .tarjeta_muestra {
@@ -1165,6 +1170,10 @@
   .hero_visual {
     margin-top: var(--espacio_4);
     min-height: 27rem;
+  }
+
+  .seccion_destacada p {
+    transform: none;
   }
 
   .nota_lateral,

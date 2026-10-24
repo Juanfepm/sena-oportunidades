@@ -6,7 +6,7 @@ Prototipo de una herramienta independiente para ayudar a aprendices del SENA a o
 
 El frontend es una vista previa navegable con empresas ficticias. El backend ya ofrece borradores, exclusiones persistentes, historial mínimo, reglas de selección, cola para un navegador y verificación manual de pagos como servicios internos. Aún no se conectan entre sí ni se ejecuta una campaña real: faltan Google, SGVA, Gmail, almacenamiento temporal cifrado y el trabajador de la cola. Las credenciales SGVA siguen desactivadas en el frontend.
 
-El selector de municipio o localidad usa un catálogo DIVIPOLA local. Para actualizarlo desde la fuente oficial, ejecuta `python -m herramientas.actualizar_municipios` desde la raíz del repositorio. El script actualiza las copias del frontend y el backend.
+El selector muestra una selección práctica de ciudades y municipios principales, verificada con DIVIPOLA. Si una población no aparece, se puede elegir «Todos los municipios». Para actualizar la selección desde la fuente oficial, ejecuta `python -m herramientas.actualizar_municipios` desde la raíz del repositorio. El script actualiza las copias del frontend y el backend.
 
 ## Ejecutar la vista previa
 

@@ -145,5 +145,6 @@ def test_catalogo_municipal_compartido_con_frontend():
     ruta_frontend = Path(__file__).resolve().parents[2] / "frontend" / "datos" / "municipios.json"
     assert RUTA_CATALOGO.read_bytes() == ruta_frontend.read_bytes()
     assert len(MUNICIPIOS_POR_DEPARTAMENTO) == 33
-    assert sum(map(len, MUNICIPIOS_POR_DEPARTAMENTO.values())) >= 1100
-    assert "Abejorral" in MUNICIPIOS_POR_DEPARTAMENTO["Antioquia"]
+    assert 80 <= sum(map(len, MUNICIPIOS_POR_DEPARTAMENTO.values())) <= 120
+    assert "Medellín" in MUNICIPIOS_POR_DEPARTAMENTO["Antioquia"]
+    assert "Abejorral" not in MUNICIPIOS_POR_DEPARTAMENTO["Antioquia"]
