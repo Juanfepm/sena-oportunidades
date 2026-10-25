@@ -15,10 +15,24 @@ cd "C:\Users\juanf\Downloads\Trabajo Programación\sena-oportunidades"
 2. CONFIGURAR POSTGRESQL DE SUPABASE
 ------------------------------------
 
-Pega tu cadena de conexión de Supabase entre las comillas.
-Debe comenzar exactamente por postgresql+psycopg://
+En Supabase abre Connect, elige Session pooler y copia la cadena completa.
+Debe incluir un usuario con el formato postgres.TU_PROJECT_REF, no solo postgres.
+La contraseña debe ser la contraseña actual de la base de datos.
 
 $env:DEBUPA_BASE_DATOS = "PEGA_AQUI_LA_CADENA_DE_SUPABASE"
+
+Si la cadena copiada comienza por postgresql://, ejecuta esta conversión:
+
+$env:DEBUPA_BASE_DATOS = $env:DEBUPA_BASE_DATOS -replace "^postgresql://", "postgresql+psycopg://"
+
+SSL es obligatorio para el pooler. Agrega sslmode=verify-full al final. Si la
+cadena no tiene un signo ?, ejecuta:
+
+$env:DEBUPA_BASE_DATOS += "?sslmode=verify-full"
+
+Si la cadena ya tiene ?, ejecuta en su lugar:
+
+$env:DEBUPA_BASE_DATOS += "&sslmode=verify-full"
 
 Indica dónde guardaste el certificado descargado de Supabase:
 
@@ -27,7 +41,12 @@ $env:PGSSLROOTCERT = "C:\Users\juanf\Downloads\prod-ca-2021.crt"
 Comprobación rápida. Debe mostrar True:
 
 $env:DEBUPA_BASE_DATOS.StartsWith("postgresql+psycopg://")
+$env:DEBUPA_BASE_DATOS -match "^postgresql\+psycopg://postgres\.[a-z0-9]+:"
+$env:DEBUPA_BASE_DATOS -match "sslmode=verify-full"
 Test-Path $env:PGSSLROOTCERT
+
+Los cuatro comandos deben devolver True. No imprimas la cadena completa porque
+contiene tu contraseña.
 
 
 3. CONFIGURAR GOOGLE OAUTH
