@@ -40,8 +40,10 @@ export function haySeguimiento() {
   return seguimiento !== null;
 }
 
-function pintarEstado(campana) {
-  const porcentaje = Math.max(0, Math.min(100, campana.progreso));
+function pintarEstado(campana, referencia) {
+  const recibido = Math.max(0, Math.min(100, Number(campana.progreso) || 0));
+  referencia.maximoMostrado = Math.max(referencia.maximoMostrado, recibido);
+  const porcentaje = referencia.maximoMostrado;
   document.querySelector("#barra-progreso-relleno").style.width = `${porcentaje}%`;
   document.querySelector(".barra_progreso").setAttribute("aria-valuenow", String(porcentaje));
   document.querySelector("#texto-progreso").textContent = `${campana.etapa} · ${porcentaje}%`;
@@ -53,15 +55,16 @@ function pintarEstado(campana) {
 }
 
 async function abrirResultados(campana, referencia) {
-  const { destinatarios, resultadosOcultos, planActual, limiteContactos } = await consultarDestinatarios(campana.id);
+  const actual = referencia ? campana : await consultarCampana(campana.id);
+  const { destinatarios, resultadosOcultos, planActual, limiteContactos } = await consultarDestinatarios(actual.id);
   if (referencia && seguimiento !== referencia) return;
   cargarCoincidencias(destinatarios, {
-    ...campana, plan_aplicado: planActual || campana.plan_aplicado,
+    ...actual, plan_aplicado: planActual || actual.plan_aplicado,
     limite_contactos: limiteContactos,
   }, resultadosOcultos);
-  campañaReanudable = campana;
-  document.querySelector("#texto-reanudar-campana").textContent = campana.modo_consulta === "sgva" ? "Tus ofertas de SGVA están listas para revisar." : "Tus ofertas ficticias están listas para revisar.";
-  document.querySelector("#boton-reanudar-campana").textContent = campana.modo_consulta === "sgva" ? "Ver ofertas consultadas" : "Ver resultados de ejemplo";
+  campañaReanudable = actual;
+  document.querySelector("#texto-reanudar-campana").textContent = actual.modo_consulta === "sgva" ? "Tus ofertas de SGVA están listas para revisar." : "Tus ofertas ficticias están listas para revisar.";
+  document.querySelector("#boton-reanudar-campana").textContent = actual.modo_consulta === "sgva" ? "Ver ofertas consultadas" : "Ver resultados de ejemplo";
   detenerSeguimiento();
   irA("confirmacion");
 }
@@ -70,7 +73,7 @@ async function revisar(referencia) {
   try {
     const campana = await consultarCampana(referencia.id);
     if (seguimiento !== referencia) return;
-    pintarEstado(campana);
+    pintarEstado(campana, referencia);
     if (campana.estado === "esperando_confirmacion") {
       await abrirResultados(campana, referencia);
       return;
@@ -103,7 +106,7 @@ export function iniciarSeguimiento(campanaId) {
   document.querySelector("#barra-progreso-relleno").style.width = "0%";
   document.querySelector(".barra_progreso").setAttribute("aria-valuenow", "0");
   iniciarDatosDuranteEspera();
-  seguimiento = { id: campanaId, temporizador: null };
+  seguimiento = { id: campanaId, temporizador: null, maximoMostrado: 0 };
   irA("progreso");
   revisar(seguimiento);
 }

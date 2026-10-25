@@ -108,3 +108,13 @@ export async function consultarDestinatarios(campanaId) {
     limiteContactos: Number(respuesta.headers.get("X-DEBUPA-LIMITE-CONTACTOS") || 8),
   };
 }
+
+export async function guardarSeleccion(campanaId, destinatarios) {
+  const respuesta = await enviarConCsrf(`/api/v1/campanas/${encodeURIComponent(campanaId)}/seleccion`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ destinatarios }),
+  });
+  if (!respuesta.ok) throw new Error((await leerMensajeError(respuesta)).mensaje);
+  return respuesta.json();
+}

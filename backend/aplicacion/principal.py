@@ -24,7 +24,7 @@ from .base_datos import crear_motor, obtener_sesion
 from .configuracion import Configuracion
 from .dominio.archivos import MAXIMO_BYTES
 from .dominio.estados import EstadoCampana, LIMITES_ARCHIVOS, LIMITES_CONTACTO, TARJETAS_RESUMEN, Plan
-from .esquemas import ResumenCampana, ResumenDestinatario, ResumenHistorial, SolicitudAccesoSGVA, SolicitudBorrador
+from .esquemas import ResumenCampana, ResumenDestinatario, ResumenHistorial, SolicitudAccesoSGVA, SolicitudBorrador, SolicitudSeleccion
 from .integraciones.contratos import AccesoSGVARestringido, IntegracionNoDisponible, SGVANoDisponible
 from .modelos import Campana, ConexionGmail, Destinatario, HistorialEnvio, Usuario
 from .rutas.temporales import router as router_temporales
@@ -39,6 +39,7 @@ from .servicios.envio_gmail import (
     enviar_gmail,
 )
 from .servicios.gmail import ClaveCifradoInvalida, cifrar_token, descifrar_token, obtener_cifrador
+from .servicios.selecciones import SeleccionInvalida, guardar_seleccion
 from .servicios.temporales import limpiar_expirados
 from .servicios.cola import encolar
 from .servicios.trabajador_demo import vigilar_cola
@@ -502,6 +503,27 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
         else:
             respuesta.headers["X-DEBUPA-RESULTADOS-OCULTOS"] = "0"
         return [ResumenDestinatario.model_validate(destino) for destino in sesion.scalars(consulta)]
+
+    @api.put("/api/v1/campanas/{campana_id}/seleccion")
+    def guardar_seleccion_campana(
+        campana_id: str,
+        solicitud: SolicitudSeleccion,
+        _: None = Depends(verificar_csrf),
+        usuario: Usuario = Depends(obtener_usuario_actual),
+        sesion: Session = Depends(obtener_sesion),
+    ) -> dict[str, int]:
+        campana = sesion.scalar(select(Campana).where(
+            Campana.id == campana_id, Campana.usuario_id == usuario.id,
+        ).with_for_update())
+        if campana is None:
+            raise HTTPException(404, "Campaña no encontrada.")
+        if campana.estado != EstadoCampana.ESPERANDO_CONFIRMACION:
+            raise HTTPException(409, "La campaña aún no admite guardar destinatarios.")
+        try:
+            cantidad = guardar_seleccion(sesion, campana, Plan(usuario.plan), solicitud.destinatarios)
+        except SeleccionInvalida as error:
+            raise HTTPException(422, str(error)) from error
+        return {"seleccionados": cantidad}
 
     @api.get("/api/v1/correos-excluidos", response_model=list[str])
     def correos_excluidos(

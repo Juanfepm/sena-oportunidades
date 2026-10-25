@@ -42,6 +42,7 @@ class Campana(Base):
     modo_consulta: Mapped[str] = mapped_column(String(12), default="demo", nullable=False)
     etapa: Mapped[str] = mapped_column(String(80), default="Preferencias guardadas", nullable=False)
     progreso: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    seleccion_guardada: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     plan_aplicado: Mapped[str] = mapped_column(String(12), nullable=False)
     limite_contactos: Mapped[int] = mapped_column(Integer, nullable=False)
     modalidad: Mapped[str] = mapped_column(String(12), nullable=False)
@@ -87,6 +88,7 @@ class Destinatario(Base):
     motivo: Mapped[str] = mapped_column(Text, nullable=False)
     puntuacion: Mapped[int | None] = mapped_column(Integer)
     estado: Mapped[str] = mapped_column(String(25), default="por_revisar", nullable=False)
+    seleccionado: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     __table_args__ = (Index("ix_destinatarios_campana_correo", "campana_id", "correo", unique=True),)
 

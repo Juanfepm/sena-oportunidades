@@ -292,6 +292,8 @@ def test_un_usuario_no_puede_leer_una_campana_ajena(cliente: TestClient):
         identificador = ajena.id
     assert cliente.get(f"/api/v1/campanas/{identificador}", headers=acceso()).status_code == 404
     assert cliente.get(f"/api/v1/campanas/{identificador}/destinatarios", headers=acceso()).status_code == 404
+    assert cliente.put(f"/api/v1/campanas/{identificador}/seleccion",
+                       json={"destinatarios": []}, headers=acceso()).status_code == 404
 
 
 def test_plan_gratis_muestra_nueve_ofertas_y_premium_todas(cliente: TestClient):
@@ -313,6 +315,21 @@ def test_plan_gratis_muestra_nueve_ofertas_y_premium_todas(cliente: TestClient):
     assert gratis.headers["X-DEBUPA-RESULTADOS-OCULTOS"] == "3"
     assert gratis.headers["X-DEBUPA-PLAN"] == "gratis"
     assert [oferta["puntuacion"] for oferta in gratis.json()] == list(range(99, 90, -1))
+    seleccion_gratis = f"/api/v1/campanas/{primera['id']}/seleccion"
+    visibles = [oferta["id"] for oferta in gratis.json()]
+    with cliente.app.state.fabrica_sesiones() as sesion:
+        oculto = sesion.scalar(select(Destinatario.id).where(
+            Destinatario.campana_id == primera["id"], Destinatario.puntuacion == 90,
+        ))
+    assert cliente.put(seleccion_gratis, json={"destinatarios": visibles}, headers=acceso()).status_code == 422
+    assert cliente.put(seleccion_gratis, json={"destinatarios": [oculto]}, headers=acceso()).status_code == 422
+    assert cliente.put(seleccion_gratis, json={"destinatarios": visibles[:8]}, headers=acceso()).json() == {
+        "seleccionados": 8,
+    }
+    assert cliente.get(f"/api/v1/campanas/{primera['id']}", headers=acceso()).json()["seleccion_guardada"] is True
+    assert sum(oferta["seleccionado"] for oferta in cliente.get(
+        f"/api/v1/campanas/{primera['id']}/destinatarios", headers=acceso(),
+    ).json()) == 8
 
     with cliente.app.state.fabrica_sesiones() as sesion:
         sesion.get(Usuario, usuario_id).plan = "premium"
@@ -335,6 +352,12 @@ def test_plan_gratis_muestra_nueve_ofertas_y_premium_todas(cliente: TestClient):
     assert premium.headers["X-DEBUPA-PLAN"] == "premium"
     assert premium.headers["X-DEBUPA-LIMITE-CONTACTOS"] == "70"
     assert len(cliente.get(f"/api/v1/campanas/{primera['id']}/destinatarios", headers=acceso()).json()) == 12
+    assert cliente.put(f"/api/v1/campanas/{segunda['id']}/seleccion", json={
+        "destinatarios": [oferta["id"] for oferta in premium.json()],
+    }, headers=acceso()).json() == {"seleccionados": 12}
+    assert sum(oferta["seleccionado"] for oferta in cliente.get(
+        f"/api/v1/campanas/{segunda['id']}/destinatarios", headers=acceso(),
+    ).json()) == 12
 
 
 def test_trabajador_demo_persiste_resultados_sin_enviar(cliente: TestClient):

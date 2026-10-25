@@ -1,7 +1,11 @@
+import { guardarSeleccion } from "./campanas.js";
+
 const seleccion = new Set();
 let visibles = [];
 let resultadosCargados = false;
 let limiteSeleccion = 8;
+let campanaActual = null;
+let seleccionGuardada = false;
 
 function elemento(etiqueta, clase, texto) {
   const nodo = document.createElement(etiqueta);
@@ -20,6 +24,14 @@ function actualizarConteo() {
   document.querySelector("#conteo-envio-movil").textContent = `${cantidad} ${cantidad === 1 ? "seleccionada" : "seleccionadas"}`;
 }
 
+function actualizarEstadoSeleccion() {
+  const mensaje = seleccionGuardada
+    ? "Selección guardada para esta campaña."
+    : "Selección sin guardar. Abre «Ver seleccionadas» y pulsa «Guardar selección».";
+  document.querySelector("#estado-seleccion").textContent = mensaje;
+  document.querySelector("#estado-seleccion-resumen").textContent = mensaje;
+}
+
 function tarjetaEmpresa(empresa) {
   const tarjeta = elemento("article", "sugerencia_tarjeta");
   const cabecera = elemento("div", "sugerencia_tarjeta_cabecera");
@@ -31,7 +43,17 @@ function tarjetaEmpresa(empresa) {
   const motivo = elemento("p", "", empresa.motivo);
   const descripcion = elemento("details");
   if (empresa.descripcion) {
-    descripcion.append(elemento("summary", "", "Ver perfil y funciones"), elemento("p", "", empresa.descripcion));
+    const indicador = elemento("span", "desplegable_indicador");
+    const icono = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    const uso = document.createElementNS("http://www.w3.org/2000/svg", "use");
+    icono.classList.add("icono");
+    icono.setAttribute("aria-hidden", "true");
+    uso.setAttribute("href", "./recursos/iconos.svg#desplegar");
+    icono.append(uso);
+    indicador.append(icono);
+    const titulo = elemento("summary");
+    titulo.append(indicador, document.createTextNode("Ver perfil y funciones"));
+    descripcion.append(titulo, elemento("p", "", empresa.descripcion));
   }
   const pie = elemento("div", "sugerencia_tarjeta_pie");
   const detalle = elemento("span", "", `${empresa.modalidad} · ${empresa.correo || "Sin correo"} · ${empresa.telefono}`);
@@ -89,6 +111,8 @@ function alternarEmpresa(id) {
     seleccion.add(id);
   }
   document.querySelector("#aviso-limite-seleccion").hidden = true;
+  seleccionGuardada = false;
+  actualizarEstadoSeleccion();
   pintarEmpresas();
 }
 
@@ -110,6 +134,21 @@ export function configurarCoincidencias() {
     focoAnterior?.focus();
   };
   panel.querySelectorAll("[data-cerrar-seleccion]").forEach((boton) => boton.addEventListener("click", cerrar));
+  const guardar = document.querySelector("#guardar-seleccion");
+  guardar.addEventListener("click", async () => {
+    if (!campanaActual) return;
+    guardar.disabled = true;
+    try {
+      await guardarSeleccion(campanaActual, [...seleccion]);
+      seleccionGuardada = true;
+      actualizarEstadoSeleccion();
+      cerrar();
+    } catch (error) {
+      document.querySelector("#estado-seleccion").textContent = error.message;
+    } finally {
+      guardar.disabled = false;
+    }
+  });
   document.addEventListener("keydown", (evento) => {
     if (evento.key === "Escape" && !panel.hidden) cerrar();
     if (evento.key !== "Tab" || panel.hidden) return;
@@ -130,6 +169,8 @@ export function configurarCoincidencias() {
 export function cargarCoincidencias(destinatarios, campana, resultadosOcultos = 0) {
   const modalidades = { remoto: "Remoto por confirmar", hibrido: "Híbrido por confirmar", presencial: "Presencial por confirmar" };
   const gratis = campana.plan_aplicado === "gratis";
+  campanaActual = campana.id;
+  seleccionGuardada = campana.seleccion_guardada === true;
   limiteSeleccion = gratis ? Math.min(8, campana.limite_contactos) : Infinity;
   const mostrados = gratis ? destinatarios.slice(0, 9) : destinatarios;
   visibles = mostrados.map((destinatario) => ({
@@ -143,13 +184,16 @@ export function cargarCoincidencias(destinatarios, campana, resultadosOcultos = 
     puntaje: destinatario.puntuacion,
     pendienteIa: destinatario.estado === "pendiente_ia",
     estado: destinatario.estado,
+    seleccionado: destinatario.seleccionado === true,
     modalidad: modalidades[campana.modalidad],
     motivo: destinatario.motivo,
   }));
   resultadosCargados = true;
   seleccion.clear();
-  visibles.filter(({ correo, puntaje, pendienteIa }) => correo && !pendienteIa && puntaje > 80)
+  visibles.filter(({ correo, puntaje, pendienteIa, seleccionado }) => correo && (seleccionGuardada
+    ? seleccionado : !pendienteIa && puntaje > 80))
     .slice(0, limiteSeleccion).forEach(({ id }) => seleccion.add(id));
+  actualizarEstadoSeleccion();
   const botonEnvio = document.querySelector("#iniciar-simulacion");
   const botonMovil = document.querySelector("#iniciar-envio-movil");
   botonEnvio.dataset.modoConsulta = campana.modo_consulta;

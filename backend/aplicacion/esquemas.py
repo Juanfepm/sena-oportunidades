@@ -63,6 +63,7 @@ class ResumenCampana(BaseModel):
     modo_consulta: str
     etapa: str
     progreso: int
+    seleccion_guardada: bool
     plan_aplicado: str
     limite_contactos: int
     modalidad: str
@@ -87,6 +88,22 @@ class ResumenDestinatario(BaseModel):
     motivo: str
     puntuacion: int | None
     estado: str
+    seleccionado: bool
+
+
+class SolicitudSeleccion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    destinatarios: list[str] = Field(max_length=70)
+
+    @field_validator("destinatarios")
+    @classmethod
+    def validar_destinatarios(cls, identificadores: list[str]) -> list[str]:
+        if len(set(identificadores)) != len(identificadores):
+            raise ValueError("No repitas empresas en la selección.")
+        if any(not 1 <= len(identificador) <= 36 for identificador in identificadores):
+            raise ValueError("La selección contiene un identificador inválido.")
+        return identificadores
 
 
 class PerfilTemporalIA(BaseModel):

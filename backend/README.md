@@ -65,7 +65,7 @@ $env:DEBUPA_BASE_DATOS = [System.Net.NetworkCredential]::new("", $direccionProte
 Remove-Variable direccionProtegida
 ```
 
-6. Comprueba la conexión y aplica las migraciones pendientes en la base de este proyecto. Si ya llegaste a `0004`, `upgrade head` añade `0005` sin borrar las tablas anteriores:
+6. Comprueba la conexión y aplica las migraciones pendientes en la base de este proyecto. `upgrade head` añade las revisiones que falten sin borrar las tablas anteriores:
 
 ```powershell
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini current
@@ -74,7 +74,7 @@ Remove-Variable direccionProtegida
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini check
 ```
 
-`current` debe mostrar `0005_consulta_sgva (head)` después de aplicar las migraciones; `check` debe indicar que no hay operaciones nuevas. En el editor SQL de Supabase puedes comprobarlo sin modificar datos:
+`current` debe mostrar `0006_seleccion_revision (head)` después de aplicar las migraciones; `check` debe indicar que no hay operaciones nuevas. En el editor SQL de Supabase puedes comprobarlo sin modificar datos:
 
 ```sql
 select version_num from alembic_version;
@@ -142,7 +142,8 @@ Activa Gmail API en Google Cloud y declara únicamente el permiso `https://www.g
 | `POST /api/v1/campanas` | Sesión | Guarda solo un borrador de filtros. |
 | `GET /api/v1/campanas` y `GET /api/v1/campanas/{id}` | Sesión | Muestra solo campañas del usuario. |
 | `POST /api/v1/campanas/{id}/iniciar` | Sesión + CSRF | En modo SGVA recibe credenciales y, si el usuario autoriza IA, `acepta_ia` y `perfil_ia`; en modo demo prepara ejemplos. No envía mensajes. |
-| `GET /api/v1/campanas/{id}/destinatarios` | Sesión | Devuelve los resultados de la campaña propia cuando están listos. |
+| `GET /api/v1/campanas/{id}/destinatarios` | Sesión | Muestra hasta nueve ofertas al plan gratis y todas al premium, con el estado de selección guardado. |
+| `PUT /api/v1/campanas/{id}/seleccion` | Sesión + CSRF | Guarda la selección propia; valida límites del plan, visibilidad y correo antes de aceptarla. No envía mensajes. |
 | `GET /api/v1/correos-excluidos` y `DELETE /api/v1/correos-excluidos/{correo}` | Sesión | Gestiona exclusiones propias. |
 | `GET /api/v1/historial` | Sesión | Lee solo envíos propios registrados por DEBUPA. |
 

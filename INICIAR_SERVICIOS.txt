@@ -109,7 +109,7 @@ Aplica las migraciones pendientes. Ejecutar upgrade head otra vez es seguro:
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini current
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini check
 
-current debe mostrar 0005_consulta_sgva (head).
+current debe mostrar 0006_seleccion_revision (head).
 check debe terminar con No new upgrade operations detected.
 
 8. INICIAR EL SERVIDOR

@@ -1094,24 +1094,26 @@
   display: none;
 }
 
-.sugerencia_tarjeta summary::before {
+.sugerencia_tarjeta .desplegable_indicador {
   align-items: center;
   background: var(--color_verde);
   border-radius: 0.4rem;
   color: var(--color_blanco);
-  content: "›";
   display: inline-flex;
   flex: none;
-  font-size: 1.25rem;
   height: 1.5rem;
   justify-content: center;
-  line-height: 1;
-  transition: transform var(--transicion_corta);
   width: 1.5rem;
 }
 
-.sugerencia_tarjeta details[open] summary::before {
-  transform: rotate(90deg);
+.sugerencia_tarjeta .desplegable_indicador .icono {
+  height: 1rem;
+  transition: transform var(--transicion_corta);
+  width: 1rem;
+}
+
+.sugerencia_tarjeta details[open] .desplegable_indicador .icono {
+  transform: rotate(180deg);
 }
 
 .sugerencia_tarjeta p {
