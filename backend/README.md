@@ -116,7 +116,7 @@ $env:DEBUPA_SECRETO_SESION = ((New-Guid).Guid + (New-Guid).Guid).Replace("-", ""
 .\.venv\Scripts\python.exe -m uvicorn backend.aplicacion.principal:aplicacion --reload --host 127.0.0.1 --port 8000
 ```
 
-Activa Gmail API en Google Cloud y declara únicamente el permiso `https://www.googleapis.com/auth/gmail.send`. Con la clave de cifrado configurada, el botón «Entrar con Google y Gmail» inicia una sola autorización. DEBUPA solicita acceso offline y guarda únicamente el token de renovación cifrado. La cabecera permite desconectar Gmail y volver a vincularlo con el mismo acceso. Aún no envía mensajes ni lee la bandeja.
+Activa Gmail API en Google Cloud y declara únicamente el permiso `https://www.googleapis.com/auth/gmail.send`. Con la clave de cifrado configurada, «Entrar con Google» autoriza la cuenta y Gmail en un solo paso. DEBUPA solicita acceso offline y guarda únicamente el token de renovación cifrado. «Cerrar sesión» elimina ese token local e intenta revocar el permiso en Google; si Google no responde, el acceso local queda eliminado. Para volver a vincular Gmail, inicia sesión de nuevo. Aún no envía mensajes ni lee la bandeja.
 
 ## Rutas disponibles
 
@@ -124,9 +124,8 @@ Activa Gmail API en Google Cloud y declara únicamente el permiso `https://www.g
 | --- | --- | --- |
 | `GET /api/v1/salud` | Público | Comprueba que la API y la base responden. |
 | `GET /api/v1/autenticacion/google/iniciar` y callback | Público | Completa el inicio de sesión con Google y guarda el permiso de Gmail cifrado. |
-| `GET /api/v1/autenticacion/yo` y `POST /api/v1/autenticacion/cerrar-sesion` | Sesión | Muestra la cuenta actual y cierra sesión. |
+| `GET /api/v1/autenticacion/yo` y `POST /api/v1/autenticacion/cerrar-sesion` | Sesión | Muestra la cuenta actual; al salir elimina la conexión de Gmail. |
 | `GET /api/v1/gmail/estado` | Sesión | Indica si Gmail quedó vinculado en el inicio de sesión. |
-| `DELETE /api/v1/gmail/conexion` | Sesión + CSRF | Borra localmente el permiso almacenado. |
 | `GET /api/v1/capacidades` | Público | Declara claramente qué integraciones faltan. |
 | `GET /api/v1/planes` | Público | Muestra los límites, no promete una cantidad mínima. |
 | `GET /api/v1/disponibilidad` | Sesión | Indica si el aprendiz puede crear otra búsqueda y la próxima fecha. |

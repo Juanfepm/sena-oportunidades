@@ -198,7 +198,24 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
         return RedirectResponse(configuracion.google_url_inicio, status_code=303)
 
     @api.post("/api/v1/autenticacion/cerrar-sesion", status_code=204)
-    async def cerrar_sesion(request: Request, _: None = Depends(verificar_csrf)) -> None:
+    async def cerrar_sesion(
+        request: Request,
+        _: None = Depends(verificar_csrf),
+        sesion: Session = Depends(obtener_sesion),
+    ) -> None:
+        usuario_id = request.session.get("usuario_id")
+        if usuario_id is not None:
+            conexion = sesion.scalar(select(ConexionGmail).where(ConexionGmail.usuario_id == usuario_id))
+            if conexion is not None:
+                try:
+                    token = descifrar_token(conexion.token_renovacion_cifrado, configuracion.clave_cifrado)
+                    async with httpx.AsyncClient(timeout=5) as cliente:
+                        respuesta = await cliente.post("https://oauth2.googleapis.com/revoke", data={"token": token})
+                        respuesta.raise_for_status()
+                except (ClaveCifradoInvalida, httpx.HTTPError):
+                    pass  # El permiso local se elimina aunque Google no responda.
+                sesion.delete(conexion)
+                sesion.commit()
         request.session.clear()
 
     @api.get("/api/v1/autenticacion/yo")
@@ -232,17 +249,6 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
     def conectar_gmail_anterior() -> RedirectResponse:
         """Los enlaces previos inician ahora el flujo único de Google."""
         return RedirectResponse("/api/v1/autenticacion/google/iniciar", status_code=303)
-
-    @api.delete("/api/v1/gmail/conexion", status_code=204)
-    def desconectar_gmail(
-        _: None = Depends(verificar_csrf),
-        usuario: Usuario = Depends(obtener_usuario_actual),
-        sesion: Session = Depends(obtener_sesion),
-    ) -> None:
-        conexion = sesion.scalar(select(ConexionGmail).where(ConexionGmail.usuario_id == usuario.id))
-        if conexion is not None:
-            sesion.delete(conexion)
-            sesion.commit()
 
     @api.middleware("http")
     async def proteger_respuestas(peticion: Request, siguiente) -> Response:

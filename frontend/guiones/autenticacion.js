@@ -2,7 +2,6 @@ const estadoCuenta = document.querySelector("#estado-cuenta");
 const enlaceGoogle = document.querySelector("#iniciar-google");
 const botonCerrar = document.querySelector("#cerrar-sesion");
 const estadoGmail = document.querySelector("#estado-gmail");
-const botonDesconectarGmail = document.querySelector("#desconectar-gmail");
 let cuentaActiva = null;
 let tokenCsrf = null;
 
@@ -20,7 +19,6 @@ async function obtenerJson(ruta) {
 
 function ocultarGmail() {
   estadoGmail.hidden = true;
-  botonDesconectarGmail.hidden = true;
 }
 
 async function actualizarGmail() {
@@ -37,14 +35,11 @@ async function actualizarGmail() {
     estadoGmail.textContent = "Gmail conectado";
     estadoGmail.title = gmail.datos.correo ?? "";
     enlaceGoogle.hidden = true;
-    botonDesconectarGmail.hidden = false;
     return;
   }
-  estadoGmail.textContent = "Gmail desconectado";
+  estadoGmail.textContent = "Gmail pendiente; vuelve a entrar";
   estadoGmail.removeAttribute("title");
-  enlaceGoogle.textContent = "Volver a vincular Gmail";
-  enlaceGoogle.hidden = false;
-  botonDesconectarGmail.hidden = true;
+  enlaceGoogle.hidden = true;
 }
 
 async function actualizarCuenta() {
@@ -71,7 +66,7 @@ async function actualizarCuenta() {
     const disponible = capacidades.datos?.google_oauth === true;
     estadoCuenta.textContent = disponible ? "Sin sesión" : "Acceso temporalmente no disponible";
     estadoCuenta.removeAttribute("title");
-    enlaceGoogle.textContent = "Entrar con Google y Gmail";
+    enlaceGoogle.textContent = "Entrar con Google";
     enlaceGoogle.hidden = !disponible;
     botonCerrar.hidden = true;
   } catch (error) {
@@ -102,20 +97,6 @@ export async function enviarConCsrf(ruta, opciones = {}) {
 }
 
 export function configurarAutenticacion() {
-  botonDesconectarGmail.addEventListener("click", async () => {
-    botonDesconectarGmail.disabled = true;
-    estadoGmail.textContent = "Desconectando Gmail…";
-    try {
-      const respuesta = await enviarConCsrf("/api/v1/gmail/conexion", { method: "DELETE" });
-      if (!respuesta.ok) throw new Error("No se pudo desconectar Gmail.");
-      await actualizarGmail();
-    } catch {
-      estadoGmail.textContent = "No se pudo desconectar Gmail.";
-    } finally {
-      botonDesconectarGmail.disabled = false;
-    }
-  });
-
   botonCerrar.addEventListener("click", async () => {
     botonCerrar.disabled = true;
     estadoCuenta.textContent = "Cerrando sesión…";

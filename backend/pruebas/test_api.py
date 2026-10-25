@@ -90,6 +90,8 @@ def test_google_inicia_sesion_y_permita_cerrarla(monkeypatch: pytest.MonkeyPatch
         clave_cifrado=Fernet.generate_key().decode(),
     )
 
+    revocaciones = []
+
     def responder(peticion: httpx.Request) -> httpx.Response:
         if peticion.url.path == "/token":
             return httpx.Response(200, json={
@@ -105,6 +107,9 @@ def test_google_inicia_sesion_y_permita_cerrarla(monkeypatch: pytest.MonkeyPatch
                 "email_verified": True,
                 "name": "Aprendiz de prueba",
             })
+        if peticion.url.path == "/revoke":
+            revocaciones.append(peticion.content)
+            return httpx.Response(200)
         return httpx.Response(404)
 
     cliente_httpx = httpx.AsyncClient
@@ -152,6 +157,10 @@ def test_google_inicia_sesion_y_permita_cerrarla(monkeypatch: pytest.MonkeyPatch
             ).status_code == 201
             assert cliente.post("/api/v1/autenticacion/cerrar-sesion", headers={"X-CSRF-Token": csrf}).status_code == 204
             assert cliente.get("/api/v1/autenticacion/yo").status_code == 401
+            assert cliente.get("/api/v1/gmail/estado").status_code == 401
+            assert revocaciones == [b"token=renovacion-secreta"]
+            with cliente.app.state.fabrica_sesiones() as sesion:
+                assert sesion.scalar(select(ConexionGmail)) is None
     finally:
         motor.dispose()
 
@@ -189,6 +198,8 @@ def test_gmail_reconexion_y_desconexion(monkeypatch: pytest.MonkeyPatch):
                 "email_verified": True,
                 "name": "Aprendiz de prueba",
             })
+        if peticion.url.path == "/revoke":
+            return httpx.Response(503)
         return httpx.Response(404)
 
     cliente_httpx = httpx.AsyncClient
@@ -217,10 +228,12 @@ def test_gmail_reconexion_y_desconexion(monkeypatch: pytest.MonkeyPatch):
             estado = parse_qs(urlsplit(inicio.headers["location"]).query)["state"][0]
             assert cliente.get(f"/api/v1/autenticacion/google/callback?code=otra-vez&state={estado}", follow_redirects=False).status_code == 303
             assert cliente.get("/api/v1/gmail/estado").json()["conectado"] is True
-            assert cliente.delete("/api/v1/gmail/conexion").status_code == 403
+            assert cliente.post("/api/v1/autenticacion/cerrar-sesion").status_code == 403
             csrf = cliente.get("/api/v1/autenticacion/csrf").json()["token"]
-            assert cliente.delete("/api/v1/gmail/conexion", headers={"X-CSRF-Token": csrf}).status_code == 204
-            assert cliente.get("/api/v1/gmail/estado").json()["conectado"] is False
+            assert cliente.post("/api/v1/autenticacion/cerrar-sesion", headers={"X-CSRF-Token": csrf}).status_code == 204
+            assert cliente.get("/api/v1/gmail/estado").status_code == 401
+            with cliente.app.state.fabrica_sesiones() as sesion:
+                assert sesion.scalar(select(ConexionGmail)) is None
 
             inicio = cliente.get("/api/v1/autenticacion/google/iniciar", follow_redirects=False)
             estado = parse_qs(urlsplit(inicio.headers["location"]).query)["state"][0]
