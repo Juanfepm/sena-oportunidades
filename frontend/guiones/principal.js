@@ -1,6 +1,7 @@
 import { actualizarEjemplos, configurarCoincidencias, pintarResumen } from "./coincidencias.js";
 import { configurarAutenticacion } from "./autenticacion.js";
 import { guardarPreferencias } from "./campanas.js";
+import { configurarErrores, mostrarErrorProceso } from "./errores.js";
 import { configurarRutas, irA } from "./rutas.js";
 import { configurarUbicaciones } from "./ubicaciones.js";
 import { activarCorreccion, validarAdjuntos, validarFormulario } from "./validacion.js";
@@ -22,6 +23,31 @@ const etapas = {
 
 let simulacionActiva = null;
 let proximaBusquedaGratis = null;
+let intervaloDatos = null;
+
+const datosDuranteEspera = [
+  "DEBUPA es un proyecto independiente y no está afiliado al SENA.",
+  "Tus preferencias ayudan a ordenar oportunidades; tú decides a quién contactar.",
+  "El permiso de Gmail se solicita para enviar mensajes, sin leer tu bandeja.",
+  "Contactar por correo no equivale a postularte dentro del SGVA.",
+  "Puedes retirar empresas de la selección antes de confirmar un envío.",
+];
+
+function detenerDatosDuranteEspera() {
+  if (intervaloDatos) window.clearInterval(intervaloDatos);
+  intervaloDatos = null;
+}
+
+function iniciarDatosDuranteEspera() {
+  detenerDatosDuranteEspera();
+  const destino = document.querySelector("#dato-progreso");
+  let indice = 0;
+  destino.textContent = datosDuranteEspera[indice];
+  intervaloDatos = window.setInterval(() => {
+    indice = (indice + 1) % datosDuranteEspera.length;
+    destino.textContent = datosDuranteEspera[indice];
+  }, 2500);
+}
 
 function fechaUnMesDespues(fecha) {
   const ultimoDia = new Date(fecha.getFullYear(), fecha.getMonth() + 2, 0).getDate();
@@ -132,6 +158,9 @@ function configurarFormularios() {
       erroresCampana.dataset.origen = "servidor";
       erroresCampana.hidden = false;
       erroresCampana.scrollIntoView({ block: "center", behavior: "smooth" });
+      if (error?.codigo !== "navegando") {
+        mostrarErrorProceso(error?.codigo, error.message);
+      }
       return;
     } finally {
       boton.disabled = false;
@@ -189,6 +218,7 @@ function actualizarProgreso(tipo, indice) {
 
 function iniciarSimulacion(tipo) {
   if (simulacionActiva) clearInterval(simulacionActiva.intervalo);
+  iniciarDatosDuranteEspera();
   const lista = document.querySelector("#pasos-progreso");
   lista.replaceChildren(...etapas[tipo].map((nombre) => {
     const paso = document.createElement("li");
@@ -206,6 +236,7 @@ function iniciarSimulacion(tipo) {
       return;
     }
     clearInterval(intervalo);
+    detenerDatosDuranteEspera();
     simulacionActiva = null;
     if (tipo === "envio") {
       pintarResumen(document.querySelector("#plan-campana").value);
@@ -223,6 +254,7 @@ function configurarSimulacion() {
   document.querySelector("#cancelar-simulacion").addEventListener("click", () => {
     if (!simulacionActiva) return;
     clearInterval(simulacionActiva.intervalo);
+    detenerDatosDuranteEspera();
     const destino = simulacionActiva.tipo === "busqueda" ? "correo" : "confirmacion";
     simulacionActiva = null;
     irA(destino);
@@ -230,6 +262,7 @@ function configurarSimulacion() {
   window.addEventListener("hashchange", () => {
     if (simulacionActiva && window.location.hash !== "#progreso") {
       clearInterval(simulacionActiva.intervalo);
+      detenerDatosDuranteEspera();
       simulacionActiva = null;
     }
   });
@@ -256,5 +289,6 @@ configurarAutenticacion();
 configurarUbicaciones();
 configurarCookies();
 configurarCoincidencias();
+configurarErrores();
 configurarFormularios();
 configurarSimulacion();

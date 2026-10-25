@@ -51,6 +51,28 @@
   margin: 0;
 }
 
+.aviso_requisitos {
+  background: var(--color_azul);
+  border: 1px solid #b9dce8;
+  border-radius: var(--radio_medio);
+  color: var(--color_texto);
+  margin-bottom: var(--espacio_6);
+  padding-block: var(--espacio_4);
+}
+
+.aviso_requisitos p {
+  margin: var(--espacio_2) 0;
+}
+
+.aviso_requisitos ul {
+  margin: var(--espacio_2) 0;
+  padding-left: var(--espacio_6);
+}
+
+.aviso_requisitos small {
+  color: var(--color_muted);
+}
+
 .barra_progreso {
   background: var(--color_fondo_verde);
   border-radius: 2rem;
@@ -214,6 +236,17 @@
   border-radius: 50%;
   height: 0.6rem;
   width: 0.6rem;
+}
+
+.dato_progreso {
+  background: var(--color_azul);
+  border-radius: var(--radio_boton);
+  color: var(--color_azul_texto);
+  font-size: 0.87rem;
+  margin: var(--espacio_4) 0;
+  max-width: 40rem;
+  min-height: 3.5rem;
+  padding: var(--espacio_3) var(--espacio_4);
 }
 
 .disposicion_formulario {

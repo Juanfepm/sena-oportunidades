@@ -61,8 +61,9 @@ def test_capacidades_no_prometen_integraciones(cliente: TestClient):
 
 
 def test_google_oauth_requiere_configuracion(cliente: TestClient):
-    respuesta = cliente.get("/api/v1/autenticacion/google/iniciar")
-    assert respuesta.status_code == 503
+    respuesta = cliente.get("/api/v1/autenticacion/google/iniciar", follow_redirects=False)
+    assert respuesta.status_code == 303
+    assert respuesta.headers["location"] == "/error.html?tipo=servicio"
 
 
 def test_frontend_y_cuenta_requieren_sesion(cliente: TestClient):
@@ -71,6 +72,8 @@ def test_frontend_y_cuenta_requieren_sesion(cliente: TestClient):
     assert "Entrar con Google" in portada.text
     assert cliente.get("/guiones/autenticacion.js").status_code == 200
     assert cliente.get("/api/v1/autenticacion/yo").status_code == 401
+    assert "No encontramos esta página" in cliente.get("/no-existe").text
+    assert "Servicio temporalmente no disponible" in cliente.get("/error.html?tipo=servicio").text
 
 
 def test_google_inicia_sesion_y_permita_cerrarla(monkeypatch: pytest.MonkeyPatch):
@@ -84,11 +87,16 @@ def test_google_inicia_sesion_y_permita_cerrarla(monkeypatch: pytest.MonkeyPatch
         google_cliente_id="cliente-prueba.apps.googleusercontent.com",
         google_cliente_secreto="secreto-ficticio",
         secreto_sesion="clave-firmada-para-pruebas-de-google-2026",
+        clave_cifrado=Fernet.generate_key().decode(),
     )
 
     def responder(peticion: httpx.Request) -> httpx.Response:
         if peticion.url.path == "/token":
-            return httpx.Response(200, json={"access_token": "token-ficticio"})
+            return httpx.Response(200, json={
+                "access_token": "token-ficticio",
+                "refresh_token": "renovacion-secreta",
+                "scope": "openid email profile https://www.googleapis.com/auth/gmail.send",
+            })
         if peticion.url.path == "/v1/userinfo":
             assert peticion.headers["Authorization"] == "Bearer token-ficticio"
             return httpx.Response(200, json={
@@ -109,11 +117,15 @@ def test_google_inicia_sesion_y_permita_cerrarla(monkeypatch: pytest.MonkeyPatch
         with TestClient(crear_aplicacion(configuracion, motor)) as cliente:
             inicio = cliente.get("/api/v1/autenticacion/google/iniciar", follow_redirects=False)
             assert inicio.status_code == 307
+            parametros = parse_qs(urlsplit(inicio.headers["location"]).query)
+            assert "https://www.googleapis.com/auth/gmail.send" in parametros["scope"][0]
+            assert parametros["access_type"] == ["offline"]
             invalido = cliente.get(
                 "/api/v1/autenticacion/google/callback?code=ficticio&state=incorrecto",
                 follow_redirects=False,
             )
-            assert invalido.status_code == 401
+            assert invalido.status_code == 303
+            assert invalido.headers["location"] == "/error.html?tipo=google"
 
             inicio = cliente.get("/api/v1/autenticacion/google/iniciar", follow_redirects=False)
             estado = parse_qs(urlsplit(inicio.headers["location"]).query)["state"][0]
@@ -127,6 +139,11 @@ def test_google_inicia_sesion_y_permita_cerrarla(monkeypatch: pytest.MonkeyPatch
             assert cuenta.status_code == 200
             assert cuenta.json()["correo"] == "aprendiz@ejemplo.com"
             assert cuenta.json()["plan"] == "gratis"
+            assert cliente.get("/api/v1/gmail/estado").json()["conectado"] is True
+            with cliente.app.state.fabrica_sesiones() as sesion:
+                conexion = sesion.scalar(select(ConexionGmail))
+                assert conexion is not None
+                assert "renovacion-secreta" not in conexion.token_renovacion_cifrado
             assert cliente.post("/api/v1/autenticacion/cerrar-sesion").status_code == 403
             csrf = cliente.get("/api/v1/autenticacion/csrf").json()["token"]
             assert cliente.post("/api/v1/campanas", json=solicitud_valida()).status_code == 403
@@ -139,7 +156,7 @@ def test_google_inicia_sesion_y_permita_cerrarla(monkeypatch: pytest.MonkeyPatch
         motor.dispose()
 
 
-def test_gmail_guarda_solo_token_cifrado_y_permite_desconectar(monkeypatch: pytest.MonkeyPatch):
+def test_gmail_reconexion_y_desconexion(monkeypatch: pytest.MonkeyPatch):
     from backend.aplicacion import principal
 
     motor = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -153,9 +170,18 @@ def test_gmail_guarda_solo_token_cifrado_y_permite_desconectar(monkeypatch: pyte
         clave_cifrado=Fernet.generate_key().decode(),
     )
 
+    veces = 0
+
     def responder(peticion: httpx.Request) -> httpx.Response:
+        nonlocal veces
         if peticion.url.path == "/token":
-            return httpx.Response(200, json={"access_token": "token-ficticio", "refresh_token": "renovacion-secreta"})
+            veces += 1
+            datos = {"access_token": "token-ficticio", "scope": "openid email profile https://www.googleapis.com/auth/gmail.send"}
+            if veces == 1:
+                datos["refresh_token"] = "renovacion-secreta"
+            if veces == 3:
+                datos["scope"] = "openid email profile"
+            return httpx.Response(200, json=datos)
         if peticion.url.path == "/v1/userinfo":
             return httpx.Response(200, json={
                 "sub": "identificador-estable",
@@ -175,17 +201,7 @@ def test_gmail_guarda_solo_token_cifrado_y_permite_desconectar(monkeypatch: pyte
         with TestClient(crear_aplicacion(configuracion, motor)) as cliente:
             inicio = cliente.get("/api/v1/autenticacion/google/iniciar", follow_redirects=False)
             estado = parse_qs(urlsplit(inicio.headers["location"]).query)["state"][0]
-            cliente.get(f"/api/v1/autenticacion/google/callback?code=identidad&state={estado}")
-
-            conectar = cliente.get("/api/v1/gmail/conectar", follow_redirects=False)
-            assert conectar.status_code == 307
-            parametros = parse_qs(urlsplit(conectar.headers["location"]).query)
-            assert "https://www.googleapis.com/auth/gmail.send" in parametros["scope"][0]
-            assert parametros["redirect_uri"] == ["http://127.0.0.1:8000/api/v1/gmail/callback"]
-            estado_gmail = parametros["state"][0]
-            respuesta = cliente.get(
-                f"/api/v1/gmail/callback?code=gmail&state={estado_gmail}", follow_redirects=False
-            )
+            respuesta = cliente.get(f"/api/v1/autenticacion/google/callback?code=identidad&state={estado}", follow_redirects=False)
             assert respuesta.status_code == 303
             assert cliente.get("/api/v1/gmail/estado").json() == {
                 "conectado": True,
@@ -196,10 +212,21 @@ def test_gmail_guarda_solo_token_cifrado_y_permite_desconectar(monkeypatch: pyte
                 assert conexion is not None
                 assert conexion.token_renovacion_cifrado != "renovacion-secreta"
                 assert "renovacion-secreta" not in conexion.token_renovacion_cifrado
+
+            inicio = cliente.get("/api/v1/autenticacion/google/iniciar", follow_redirects=False)
+            estado = parse_qs(urlsplit(inicio.headers["location"]).query)["state"][0]
+            assert cliente.get(f"/api/v1/autenticacion/google/callback?code=otra-vez&state={estado}", follow_redirects=False).status_code == 303
+            assert cliente.get("/api/v1/gmail/estado").json()["conectado"] is True
             assert cliente.delete("/api/v1/gmail/conexion").status_code == 403
             csrf = cliente.get("/api/v1/autenticacion/csrf").json()["token"]
             assert cliente.delete("/api/v1/gmail/conexion", headers={"X-CSRF-Token": csrf}).status_code == 204
             assert cliente.get("/api/v1/gmail/estado").json()["conectado"] is False
+
+            inicio = cliente.get("/api/v1/autenticacion/google/iniciar", follow_redirects=False)
+            estado = parse_qs(urlsplit(inicio.headers["location"]).query)["state"][0]
+            sin_permiso = cliente.get(f"/api/v1/autenticacion/google/callback?code=sin-permiso&state={estado}", follow_redirects=False)
+            assert sin_permiso.headers["location"] == "/error.html?tipo=gmail"
+            assert cliente.get("/api/v1/gmail/estado").status_code == 401
     finally:
         motor.dispose()
 

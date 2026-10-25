@@ -2,20 +2,24 @@ const estadoCuenta = document.querySelector("#estado-cuenta");
 const enlaceGoogle = document.querySelector("#iniciar-google");
 const botonCerrar = document.querySelector("#cerrar-sesion");
 const estadoGmail = document.querySelector("#estado-gmail");
-const enlaceGmail = document.querySelector("#conectar-gmail");
 const botonDesconectarGmail = document.querySelector("#desconectar-gmail");
 let cuentaActiva = null;
 let tokenCsrf = null;
 
 async function obtenerJson(ruta) {
   const respuesta = await fetch(ruta, { cache: "no-store", credentials: "same-origin" });
+  if (respuesta.status >= 500) {
+    const datos = await respuesta.json().catch(() => ({}));
+    const error = new Error("El servicio no está disponible.");
+    error.tipo = datos.codigo === "base_datos" ? "base-datos" : "servicio";
+    throw error;
+  }
   if (!respuesta.ok) return { codigo: respuesta.status, datos: null };
   return { codigo: respuesta.status, datos: await respuesta.json() };
 }
 
 function ocultarGmail() {
   estadoGmail.hidden = true;
-  enlaceGmail.hidden = true;
   botonDesconectarGmail.hidden = true;
 }
 
@@ -32,13 +36,14 @@ async function actualizarGmail() {
   if (gmail.datos?.conectado) {
     estadoGmail.textContent = "Gmail conectado";
     estadoGmail.title = gmail.datos.correo ?? "";
-    enlaceGmail.hidden = true;
+    enlaceGoogle.hidden = true;
     botonDesconectarGmail.hidden = false;
     return;
   }
-  estadoGmail.textContent = "Gmail pendiente";
+  estadoGmail.textContent = "Gmail desconectado";
   estadoGmail.removeAttribute("title");
-  enlaceGmail.hidden = false;
+  enlaceGoogle.textContent = "Volver a vincular Gmail";
+  enlaceGoogle.hidden = false;
   botonDesconectarGmail.hidden = true;
 }
 
@@ -64,17 +69,19 @@ async function actualizarCuenta() {
     ocultarGmail();
     const capacidades = await obtenerJson("/api/v1/capacidades");
     const disponible = capacidades.datos?.google_oauth === true;
-    estadoCuenta.textContent = disponible ? "Sin sesión" : "Google aún no está configurado";
+    estadoCuenta.textContent = disponible ? "Sin sesión" : "Acceso temporalmente no disponible";
     estadoCuenta.removeAttribute("title");
+    enlaceGoogle.textContent = "Entrar con Google y Gmail";
     enlaceGoogle.hidden = !disponible;
     botonCerrar.hidden = true;
-  } catch {
+  } catch (error) {
     cuentaActiva = null;
     tokenCsrf = null;
     ocultarGmail();
     estadoCuenta.textContent = "Abre DEBUPA desde la API para iniciar sesión";
     enlaceGoogle.hidden = true;
     botonCerrar.hidden = true;
+    if (window.location.pathname === "/") window.location.assign(`/error.html?tipo=${error?.tipo ?? "servicio"}`);
   }
 }
 

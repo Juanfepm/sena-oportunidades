@@ -17,6 +17,8 @@ Base local en FastAPI y SQLAlchemy. El código, las rutas y los modelos usan nom
 
 No se aceptan contraseñas SGVA, cuerpos de correo ni archivos en los borradores. El endpoint `/api/v1/campanas/{id}/iniciar` devuelve 503 hasta que existan las integraciones seguras. La cola es una base de datos y reglas; todavía no hay un trabajador que consulte SGVA o envíe Gmail.
 
+La interfaz recuerda que un patrocinio activo o una postulación en curso pueden impedir la búsqueda de empresas en SGVA. Estas condiciones todavía no se comprueban automáticamente. El adaptador futuro distinguirá un rechazo de cuenta (`sgva_restringido`) de una caída del servicio (`sgva_no_disponible`), sin atribuir una causa específica que SGVA no confirme.
+
 ## Desarrollo local en Windows
 
 Desde la raíz del repositorio:
@@ -78,13 +80,12 @@ La segunda consulta debe devolver únicamente `1`. Cierra la terminal cuando ter
 
 ## Google OAuth y permiso de Gmail
 
-La API usa OpenID Connect de Google para identificar al aprendiz. El callback crea o actualiza el usuario local con el identificador estable de Google, el correo verificado y el nombre visible. El permiso de Gmail se solicita después, por separado, y su token de renovación se cifra antes de persistirse.
+La API usa OpenID Connect de Google para identificar al aprendiz y solicita `gmail.send` en el mismo consentimiento. El callback crea o actualiza el usuario local con el identificador estable de Google, el correo verificado y el nombre visible; cifra el token de renovación antes de persistirlo.
 
 En Google Cloud Console crea un cliente OAuth de tipo **Aplicación web** y registra exactamente:
 
 ```text
 http://127.0.0.1:8000/api/v1/autenticacion/google/callback
-http://127.0.0.1:8000/api/v1/gmail/callback
 ```
 
 En la terminal donde se levanta la API configura:
@@ -93,7 +94,6 @@ En la terminal donde se levanta la API configura:
 $env:GOOGLE_CLIENTE_ID = "tu-cliente-id.apps.googleusercontent.com"
 $env:GOOGLE_CLIENTE_SECRETO = "tu-secreto"
 $env:GOOGLE_URI_REDIRECCION = "http://127.0.0.1:8000/api/v1/autenticacion/google/callback"
-$env:GOOGLE_URI_REDIRECCION_GMAIL = "http://127.0.0.1:8000/api/v1/gmail/callback"
 $env:GOOGLE_URL_INICIO = "/#inicio"
 $env:DEBUPA_SECRETO_SESION = "genera-un-secreto-aleatorio-de-al-menos-32-caracteres"
 $env:DEBUPA_CLAVE_CIFRADO = "una-clave-Fernet-estable-y-guardada-fuera-del-repositorio"
@@ -116,16 +116,16 @@ $env:DEBUPA_SECRETO_SESION = ((New-Guid).Guid + (New-Guid).Guid).Replace("-", ""
 .\.venv\Scripts\python.exe -m uvicorn backend.aplicacion.principal:aplicacion --reload --host 127.0.0.1 --port 8000
 ```
 
-Activa Gmail API en Google Cloud y declara únicamente el permiso `https://www.googleapis.com/auth/gmail.send`. Con la clave de cifrado configurada, la cabecera permitirá conectar o desconectar Gmail. DEBUPA comprueba que sea la misma cuenta de Google, solicita acceso offline y guarda únicamente el token de renovación cifrado. Aún no envía mensajes ni lee la bandeja.
+Activa Gmail API en Google Cloud y declara únicamente el permiso `https://www.googleapis.com/auth/gmail.send`. Con la clave de cifrado configurada, el botón «Entrar con Google y Gmail» inicia una sola autorización. DEBUPA solicita acceso offline y guarda únicamente el token de renovación cifrado. La cabecera permite desconectar Gmail y volver a vincularlo con el mismo acceso. Aún no envía mensajes ni lee la bandeja.
 
 ## Rutas disponibles
 
 | Ruta | Acceso | Estado |
 | --- | --- | --- |
 | `GET /api/v1/salud` | Público | Comprueba que la API y la base responden. |
-| `GET /api/v1/autenticacion/google/iniciar` y callback | Público | Completa el inicio de sesión con Google. |
+| `GET /api/v1/autenticacion/google/iniciar` y callback | Público | Completa el inicio de sesión con Google y guarda el permiso de Gmail cifrado. |
 | `GET /api/v1/autenticacion/yo` y `POST /api/v1/autenticacion/cerrar-sesion` | Sesión | Muestra la cuenta actual y cierra sesión. |
-| `GET /api/v1/gmail/estado`, conexión y callback | Sesión | Conecta Gmail con solo `gmail.send`; el token de renovación se cifra antes de persistirse. |
+| `GET /api/v1/gmail/estado` | Sesión | Indica si Gmail quedó vinculado en el inicio de sesión. |
 | `DELETE /api/v1/gmail/conexion` | Sesión + CSRF | Borra localmente el permiso almacenado. |
 | `GET /api/v1/capacidades` | Público | Declara claramente qué integraciones faltan. |
 | `GET /api/v1/planes` | Público | Muestra los límites, no promete una cantidad mínima. |
@@ -140,7 +140,7 @@ El navegador no recibe CORS abierto: el frontend y la API comparten origen. Ante
 
 ## Integraciones para continuar
 
-1. **Google Identity Services / OAuth 2.0:** inicio de sesión verificable en el servidor. El inicio y callback ya están preparados; para enviar se solicitará `gmail.send`. No se necesita `gmail.readonly` si el historial se basa en los envíos registrados por DEBUPA. Para campañas que sigan cuando el usuario cierre el navegador hará falta acceso offline y proteger el token de actualización.
+1. **Google Identity Services / OAuth 2.0:** inicio de sesión verificable con permiso `gmail.send` y acceso offline. No se necesita `gmail.readonly` si el historial se basa en los envíos registrados por DEBUPA. Para campañas que sigan cuando el usuario cierre el navegador se usará el token de renovación cifrado.
 2. **SGVA:** confirmar con SENA si ofrece una integración autorizada. Si no, un adaptador Playwright con una sola sesión, límites y manejo de caídas. Nunca se pulsará «Aplicar» automáticamente.
 3. **IA:** un adaptador de clasificación que devuelva puntuación, motivo y grado de certeza. Una modalidad remota no mencionada expresamente quedará «por revisar», no confirmada.
 4. **Gmail API:** envíos individuales confirmados, identificación del mensaje enviado e historial idempotente para no duplicar destinatarios ante reintentos.

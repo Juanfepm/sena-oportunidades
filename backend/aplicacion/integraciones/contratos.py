@@ -36,3 +36,11 @@ class EmisorGmail(Protocol):
 
 class IntegracionNoDisponible(RuntimeError):
     pass
+
+
+class AccesoSGVARestringido(RuntimeError):
+    """SGVA rechazó la consulta; la causa concreta aún debe confirmarse allí."""
+
+
+class SGVANoDisponible(IntegracionNoDisponible):
+    """La plataforma SGVA no respondió a la consulta."""

@@ -2,8 +2,11 @@ import { enviarConCsrf, tieneSesionActiva } from "./autenticacion.js";
 
 function leerMensajeError(respuesta) {
   return respuesta.json()
-    .then((datos) => datos.detail?.mensaje || datos.detail || "No se pudieron guardar tus preferencias.")
-    .catch(() => "No se pudieron guardar tus preferencias.");
+    .then((datos) => ({
+      codigo: datos.codigo || datos.detail?.codigo || "servicio",
+      mensaje: datos.detail?.mensaje || (typeof datos.detail === "string" ? datos.detail : "No se pudieron guardar tus preferencias."),
+    }))
+    .catch(() => ({ codigo: "servicio", mensaje: "No se pudieron guardar tus preferencias." }));
 }
 
 export async function guardarPreferencias(formulario, correosExcluidos) {
@@ -27,6 +30,19 @@ export async function guardarPreferencias(formulario, correosExcluidos) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(solicitud),
   });
-  if (!respuesta.ok) throw new Error(await leerMensajeError(respuesta));
+  if (!respuesta.ok) {
+    const error = await leerMensajeError(respuesta);
+    const paginasServicios = {
+      base_datos: "base-datos",
+      servicio_no_disponible: "servicio",
+      sgva_no_disponible: "sgva",
+    };
+    const fallo = new Error(error.mensaje);
+    fallo.codigo = respuesta.status >= 500 ? "navegando" : error.codigo;
+    if (respuesta.status >= 500) {
+      window.location.assign(`/error.html?tipo=${paginasServicios[error.codigo] ?? "servicio"}`);
+    }
+    throw fallo;
+  }
   return respuesta.json();
 }
