@@ -53,9 +53,12 @@ function pintarEstado(campana) {
 }
 
 async function abrirResultados(campana, referencia) {
-  const destinatarios = await consultarDestinatarios(campana.id);
+  const { destinatarios, resultadosOcultos, planActual, limiteContactos } = await consultarDestinatarios(campana.id);
   if (referencia && seguimiento !== referencia) return;
-  cargarCoincidencias(destinatarios, campana);
+  cargarCoincidencias(destinatarios, {
+    ...campana, plan_aplicado: planActual || campana.plan_aplicado,
+    limite_contactos: limiteContactos,
+  }, resultadosOcultos);
   campañaReanudable = campana;
   document.querySelector("#texto-reanudar-campana").textContent = campana.modo_consulta === "sgva" ? "Tus ofertas de SGVA están listas para revisar." : "Tus ofertas ficticias están listas para revisar.";
   document.querySelector("#boton-reanudar-campana").textContent = campana.modo_consulta === "sgva" ? "Ver ofertas consultadas" : "Ver resultados de ejemplo";

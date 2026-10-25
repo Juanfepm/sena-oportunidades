@@ -51,6 +51,33 @@
   margin: 0;
 }
 
+.aviso_envio_pendiente,
+.aviso_limite_seleccion {
+  background: var(--color_azul);
+  border-radius: var(--radio_boton);
+  color: var(--color_azul_texto);
+  font-size: 0.84rem;
+  padding: var(--espacio_3) var(--espacio_4);
+}
+
+.aviso_limite_seleccion {
+  margin: var(--espacio_4) var(--espacio_6) 0;
+}
+
+.aviso_plan_gratis {
+  background: var(--color_fondo_verde);
+  border-top: 1px solid var(--color_borde);
+  padding: var(--espacio_6);
+  text-align: center;
+}
+
+.aviso_plan_gratis p {
+  color: var(--color_muted);
+  font-size: 0.86rem;
+  margin: var(--espacio_2) auto var(--espacio_4);
+  max-width: 26rem;
+}
+
 .aviso_requisitos {
   background: var(--color_azul);
   border: 1px solid #b9dce8;
@@ -71,6 +98,10 @@
 
 .aviso_requisitos small {
   color: var(--color_muted);
+}
+
+.barra_envio_movil {
+  display: none;
 }
 
 .barra_progreso {
@@ -481,6 +512,7 @@
 .lista_coincidencias {
   display: grid;
   gap: var(--espacio_4);
+  min-width: 0;
   padding: var(--espacio_6);
 }
 
@@ -679,6 +711,10 @@
   background: rgb(23 51 55 / 45%);
   inset: 0;
   position: absolute;
+}
+
+.pagina_revision {
+  animation: none;
 }
 
 .paso_tarjeta {
@@ -980,6 +1016,10 @@
   grid-template-columns: minmax(0, 1fr) 17rem;
 }
 
+.revision_disposicion > * {
+  min-width: 0;
+}
+
 .seccion_destacada {
   align-items: center;
   display: grid;
@@ -1005,6 +1045,8 @@
 .sugerencia_tarjeta {
   border: 1px solid var(--color_borde);
   border-radius: var(--radio_medio);
+  min-width: 0;
+  overflow-wrap: anywhere;
   padding: var(--espacio_5);
 }
 
@@ -1023,6 +1065,53 @@
 
 .sugerencia_tarjeta_cabecera small {
   color: var(--color_muted);
+}
+
+.sugerencia_tarjeta details {
+  border-top: 1px solid var(--color_borde);
+  margin-top: var(--espacio_4);
+}
+
+.sugerencia_tarjeta details p {
+  border-top: 1px solid var(--color_borde);
+  margin: 0;
+  padding-block: var(--espacio_3);
+  white-space: pre-line;
+}
+
+.sugerencia_tarjeta summary {
+  align-items: center;
+  color: var(--color_verde);
+  cursor: pointer;
+  display: flex;
+  font-weight: 700;
+  gap: var(--espacio_2);
+  list-style: none;
+  padding-block: var(--espacio_3);
+}
+
+.sugerencia_tarjeta summary::-webkit-details-marker {
+  display: none;
+}
+
+.sugerencia_tarjeta summary::before {
+  align-items: center;
+  background: var(--color_verde);
+  border-radius: 0.4rem;
+  color: var(--color_blanco);
+  content: "›";
+  display: inline-flex;
+  flex: none;
+  font-size: 1.25rem;
+  height: 1.5rem;
+  justify-content: center;
+  line-height: 1;
+  transition: transform var(--transicion_corta);
+  width: 1.5rem;
+}
+
+.sugerencia_tarjeta details[open] summary::before {
+  transform: rotate(90deg);
 }
 
 .sugerencia_tarjeta p {
@@ -1044,6 +1133,8 @@
 
 .sugerencia_tarjeta_pie span {
   color: var(--color_muted);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .sugerencia_tarjeta_pie button {
@@ -1242,6 +1333,38 @@
 }
 
 @media (max-width: 760px) {
+  .barra_envio_movil {
+    align-items: center;
+    background: rgb(255 255 255 / 96%);
+    border-top: 1px solid var(--color_borde);
+    bottom: 0;
+    box-shadow: 0 -0.5rem 2rem rgb(25 62 42 / 10%);
+    display: grid;
+    gap: var(--espacio_2);
+    grid-template-columns: minmax(0, 1fr) auto;
+    left: 0;
+    padding: var(--espacio_3) max(var(--espacio_4), env(safe-area-inset-right)) calc(var(--espacio_3) + env(safe-area-inset-bottom)) max(var(--espacio_4), env(safe-area-inset-left));
+    position: fixed;
+    right: 0;
+    z-index: 12;
+  }
+
+  .barra_envio_movil > span {
+    color: var(--color_muted);
+    font-size: 0.8rem;
+  }
+
+  .barra_envio_movil > p {
+    color: var(--color_azul_texto);
+    font-size: 0.76rem;
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+
+  .pagina_revision {
+    padding-bottom: 7rem;
+  }
+
   .composicion_disposicion,
   .disposicion_formulario,
   .hero,
@@ -1249,7 +1372,7 @@
   .resultados_disposicion,
   .revision_disposicion,
   .seccion_destacada {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .hero {
@@ -1342,6 +1465,17 @@
   }
 
   .sugerencia_tarjeta_cabecera {
-    flex-wrap: wrap;
+    align-items: start;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .sugerencia_tarjeta_cabecera .pildora_puntuacion {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .lista_coincidencias {
+    padding: var(--espacio_4);
   }
 }

@@ -325,7 +325,16 @@ function iniciarSimulacion(tipo) {
 }
 
 function configurarSimulacion() {
-  document.querySelector("#iniciar-simulacion").addEventListener("click", () => iniciarSimulacion("envio"));
+  const iniciarEnvio = () => {
+    if (document.querySelector("#iniciar-simulacion").dataset.modoConsulta === "sgva") {
+      document.querySelector("#aviso-envio-pendiente").hidden = false;
+      document.querySelector("#aviso-envio-movil").hidden = false;
+      return;
+    }
+    iniciarSimulacion("envio");
+  };
+  document.querySelector("#iniciar-simulacion").addEventListener("click", iniciarEnvio);
+  document.querySelector("#iniciar-envio-movil").addEventListener("click", iniciarEnvio);
   document.querySelector("#cancelar-simulacion").addEventListener("click", () => {
     if (haySeguimiento()) {
       detenerSeguimiento();

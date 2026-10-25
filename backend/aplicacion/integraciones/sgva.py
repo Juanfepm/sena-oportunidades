@@ -156,12 +156,12 @@ async def _buscar_departamento(pagina, departamento: str, ciudad: str, antigueda
         await selector_ciudad.select_option(valor_ciudad)
     filas = await _filas_busqueda(pagina)
     if avance and not filas:
-        await avance(min(95, 20 + len(ofertas)), f"Sin solicitudes recientes en {departamento}")
+        await avance(min(70, 20 + len(ofertas)), f"Sin solicitudes recientes en {departamento}")
     # El JSON de SGVA contiene todas las páginas. Invertirlo equivale a entrar
     # por la última página; ordenar por fecha evita depender del orden de empates.
     for indice, fila in enumerate(filas_recientes(filas, hoy)):
         if avance and indice % 10 == 0:
-            await avance(min(95, 20 + len(ofertas)), f"Revisando solicitudes de {departamento}")
+            await avance(min(70, 20 + len(ofertas)), f"Revisando solicitudes de {departamento}")
         if not isinstance(fila, list) or len(fila) < 6:
             continue
         coincidencia = ID_SOLICITUD.search(str(fila[0]))

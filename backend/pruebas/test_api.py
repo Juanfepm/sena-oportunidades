@@ -12,7 +12,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from backend.aplicacion.base_datos import Base
 from backend.aplicacion.configuracion import Configuracion
-from backend.aplicacion.modelos import Campana, ConexionGmail, HistorialEnvio, NavegadorSGVA, Usuario
+from backend.aplicacion.modelos import Campana, ConexionGmail, Destinatario, HistorialEnvio, NavegadorSGVA, Usuario
 from backend.aplicacion.principal import crear_aplicacion
 
 
@@ -292,6 +292,49 @@ def test_un_usuario_no_puede_leer_una_campana_ajena(cliente: TestClient):
         identificador = ajena.id
     assert cliente.get(f"/api/v1/campanas/{identificador}", headers=acceso()).status_code == 404
     assert cliente.get(f"/api/v1/campanas/{identificador}/destinatarios", headers=acceso()).status_code == 404
+
+
+def test_plan_gratis_muestra_nueve_ofertas_y_premium_todas(cliente: TestClient):
+    primera = cliente.post("/api/v1/campanas", json=solicitud_valida(), headers=acceso()).json()
+    with cliente.app.state.fabrica_sesiones() as sesion:
+        campana = sesion.get(Campana, primera["id"])
+        campana.estado = "esperando_confirmacion"
+        sesion.add_all(Destinatario(
+            campana_id=campana.id, nombre_empresa=f"Empresa {indice}",
+            correo=f"empresa{indice}@ejemplo.com", motivo="Coincidencia de prueba",
+            puntuacion=99 - indice,
+        ) for indice in range(12))
+        sesion.commit()
+        usuario_id = campana.usuario_id
+
+    gratis = cliente.get(f"/api/v1/campanas/{primera['id']}/destinatarios", headers=acceso())
+    assert gratis.status_code == 200
+    assert len(gratis.json()) == 9
+    assert gratis.headers["X-DEBUPA-RESULTADOS-OCULTOS"] == "3"
+    assert gratis.headers["X-DEBUPA-PLAN"] == "gratis"
+    assert [oferta["puntuacion"] for oferta in gratis.json()] == list(range(99, 90, -1))
+
+    with cliente.app.state.fabrica_sesiones() as sesion:
+        sesion.get(Usuario, usuario_id).plan = "premium"
+        sesion.commit()
+    segunda = cliente.post("/api/v1/campanas", json=solicitud_valida(), headers=acceso()).json()
+    assert segunda["limite_contactos"] == 70
+    with cliente.app.state.fabrica_sesiones() as sesion:
+        campana = sesion.get(Campana, segunda["id"])
+        campana.estado = "esperando_confirmacion"
+        sesion.add_all(Destinatario(
+            campana_id=campana.id, nombre_empresa=f"Premium {indice}",
+            correo=f"premium{indice}@ejemplo.com", motivo="Coincidencia de prueba",
+            puntuacion=99 - indice,
+        ) for indice in range(12))
+        sesion.commit()
+    premium = cliente.get(f"/api/v1/campanas/{segunda['id']}/destinatarios", headers=acceso())
+    assert premium.status_code == 200
+    assert len(premium.json()) == 12
+    assert premium.headers["X-DEBUPA-RESULTADOS-OCULTOS"] == "0"
+    assert premium.headers["X-DEBUPA-PLAN"] == "premium"
+    assert premium.headers["X-DEBUPA-LIMITE-CONTACTOS"] == "70"
+    assert len(cliente.get(f"/api/v1/campanas/{primera['id']}/destinatarios", headers=acceso()).json()) == 12
 
 
 def test_trabajador_demo_persiste_resultados_sin_enviar(cliente: TestClient):

@@ -101,5 +101,10 @@ export async function consultarDestinatarios(campanaId) {
     credentials: "same-origin", cache: "no-store",
   });
   if (!respuesta.ok) throw new Error((await leerMensajeError(respuesta)).mensaje);
-  return respuesta.json();
+  return {
+    destinatarios: await respuesta.json(),
+    resultadosOcultos: Number(respuesta.headers.get("X-DEBUPA-RESULTADOS-OCULTOS") || 0),
+    planActual: respuesta.headers.get("X-DEBUPA-PLAN"),
+    limiteContactos: Number(respuesta.headers.get("X-DEBUPA-LIMITE-CONTACTOS") || 8),
+  };
 }

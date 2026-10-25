@@ -7,14 +7,14 @@ from time import monotonic, sleep
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.pool import StaticPool
 
 from backend.aplicacion.base_datos import Base
 from backend.aplicacion.configuracion import Configuracion
 from backend.aplicacion.integraciones.contratos import EvaluacionIA, OfertaSGVA, SGVAEntornoIncompatible
 from backend.aplicacion.integraciones.sgva import _buscar_departamento, consultar_sgva, dias_desde, filas_recientes, seleccionar_opcion
-from backend.aplicacion.modelos import NavegadorSGVA
+from backend.aplicacion.modelos import Campana, NavegadorSGVA
 from backend.aplicacion.principal import crear_aplicacion
 
 
@@ -94,10 +94,14 @@ def test_campana_sgva_recibe_credenciales_solo_en_memoria(monkeypatch, usar_ia) 
     from backend.aplicacion.servicios import trabajador_sgva
 
     recibidas = []
+    progresos = []
 
     async def consulta_ficticia(documento, clave, departamento, ciudad, antiguedad, avance=None):
         recibidas.append((documento, clave, departamento, ciudad, antiguedad))
-        await avance(50, "Leyendo detalle")
+        await avance(80, "Leyendo detalle")
+        await avance(72, "Analizando coincidencias")
+        with cliente.app.state.fabrica_sesiones() as sesion:
+            progresos.append(sesion.scalar(select(Campana.progreso)))
         return [OfertaSGVA("Empresa excluida", "fuera@empresa.invalid", "3001234567",
                            "Perfil excluido", "BOGOTA D.C.", "BOGOTA D. C.", 1),
                 OfertaSGVA("Empresa de prueba", "contacto@empresa.invalid", "3001234567",
@@ -158,4 +162,5 @@ def test_campana_sgva_recibe_credenciales_solo_en_memoria(monkeypatch, usar_ia) 
         assert "clave-sgva-solo-prueba" not in str(datos_persistidos)
         assert "Aprendí hojas de cálculo y análisis" not in str(datos_persistidos)
         assert recibidas == [("1234567890", "clave-sgva-solo-prueba", "Bogotá D. C.", "todas", 7)]
+        assert progresos == [80]
     motor.dispose()

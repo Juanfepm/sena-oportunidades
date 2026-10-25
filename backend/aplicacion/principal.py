@@ -16,7 +16,7 @@ import httpx
 from starlette.formparsers import MultiPartParser
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import Response
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -479,6 +479,7 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
     @api.get("/api/v1/campanas/{campana_id}/destinatarios", response_model=list[ResumenDestinatario])
     def destinatarios_campana(
         campana_id: str,
+        respuesta: Response,
         usuario: Usuario = Depends(obtener_usuario_actual),
         sesion: Session = Depends(obtener_sesion),
     ) -> list[ResumenDestinatario]:
@@ -487,7 +488,19 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
             raise HTTPException(404, "Campaña no encontrada.")
         if campana.estado != EstadoCampana.ESPERANDO_CONFIRMACION:
             raise HTTPException(409, "Los resultados aún no están listos para revisión.")
-        consulta = select(Destinatario).where(Destinatario.campana_id == campana_id).order_by(Destinatario.puntuacion.desc())
+        filtro = Destinatario.campana_id == campana_id
+        consulta = select(Destinatario).where(filtro).order_by(
+            Destinatario.puntuacion.desc().nulls_last(), Destinatario.id,
+        )
+        plan_actual = Plan(usuario.plan)
+        respuesta.headers["X-DEBUPA-PLAN"] = plan_actual.value
+        respuesta.headers["X-DEBUPA-LIMITE-CONTACTOS"] = str(LIMITES_CONTACTO[plan_actual])
+        if plan_actual == Plan.GRATIS:
+            total = sesion.scalar(select(func.count()).select_from(Destinatario).where(filtro)) or 0
+            respuesta.headers["X-DEBUPA-RESULTADOS-OCULTOS"] = str(max(0, total - 9))
+            consulta = consulta.limit(9)
+        else:
+            respuesta.headers["X-DEBUPA-RESULTADOS-OCULTOS"] = "0"
         return [ResumenDestinatario.model_validate(destino) for destino in sesion.scalars(consulta)]
 
     @api.get("/api/v1/correos-excluidos", response_model=list[str])

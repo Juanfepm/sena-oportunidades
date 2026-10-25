@@ -101,7 +101,7 @@ async def procesar_acceso(fabrica: sessionmaker[Session], acceso: AccesoEnCola,
                 if actual is None or actual.estado != EstadoCampana.CONSULTANDO:
                     raise RuntimeError("La consulta ya no está activa.")
                 renovar_reserva(sesion, actual, datetime.now(timezone.utc))
-                actual.progreso = porcentaje
+                actual.progreso = max(actual.progreso, porcentaje)
                 actual.etapa = etapa[:80]
                 sesion.commit()
 

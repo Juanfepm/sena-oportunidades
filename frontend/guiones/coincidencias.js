@@ -1,6 +1,7 @@
 const seleccion = new Set();
 let visibles = [];
 let resultadosCargados = false;
+let limiteSeleccion = 8;
 
 function elemento(etiqueta, clase, texto) {
   const nodo = document.createElement(etiqueta);
@@ -13,7 +14,10 @@ function actualizarConteo() {
   const cantidad = seleccion.size;
   document.querySelector("#conteo-seleccion").textContent = String(cantidad);
   document.querySelector("#total-seleccion").textContent = `${cantidad} ${cantidad === 1 ? "empresa" : "empresas"}`;
-  document.querySelector("#iniciar-simulacion").disabled = cantidad === 0 || visibles.some(({ pendienteIa }) => pendienteIa);
+  document.querySelectorAll("#iniciar-simulacion, #iniciar-envio-movil").forEach((boton) => {
+    boton.disabled = cantidad === 0;
+  });
+  document.querySelector("#conteo-envio-movil").textContent = `${cantidad} ${cantidad === 1 ? "seleccionada" : "seleccionadas"}`;
 }
 
 function tarjetaEmpresa(empresa) {
@@ -35,6 +39,8 @@ function tarjetaEmpresa(empresa) {
   const boton = elemento("button", seleccionada ? "accion_quitar" : "accion_agregar",
     seleccionada ? "Quitar de la lista" : "Añadir a la lista");
   boton.type = "button";
+  boton.disabled = !empresa.correo && !seleccionada;
+  if (!empresa.correo) boton.textContent = "Sin correo disponible";
   boton.addEventListener("click", () => alternarEmpresa(empresa.id));
   pie.append(detalle, boton);
   tarjeta.append(cabecera, motivo);
@@ -74,7 +80,15 @@ function pintarEmpresas() {
 
 function alternarEmpresa(id) {
   if (seleccion.has(id)) seleccion.delete(id);
-  else seleccion.add(id);
+  else {
+    if (!visibles.some((empresa) => empresa.id === id && empresa.correo)) return;
+    if (seleccion.size >= limiteSeleccion) {
+      document.querySelector("#aviso-limite-seleccion").hidden = false;
+      return;
+    }
+    seleccion.add(id);
+  }
+  document.querySelector("#aviso-limite-seleccion").hidden = true;
   pintarEmpresas();
 }
 
@@ -113,9 +127,12 @@ export function configurarCoincidencias() {
   pintarEmpresas();
 }
 
-export function cargarCoincidencias(destinatarios, campana) {
+export function cargarCoincidencias(destinatarios, campana, resultadosOcultos = 0) {
   const modalidades = { remoto: "Remoto por confirmar", hibrido: "Híbrido por confirmar", presencial: "Presencial por confirmar" };
-  visibles = destinatarios.map((destinatario) => ({
+  const gratis = campana.plan_aplicado === "gratis";
+  limiteSeleccion = gratis ? Math.min(8, campana.limite_contactos) : Infinity;
+  const mostrados = gratis ? destinatarios.slice(0, 9) : destinatarios;
+  visibles = mostrados.map((destinatario) => ({
     id: destinatario.id,
     nombre: destinatario.nombre_empresa,
     inicial: destinatario.nombre_empresa.charAt(0),
@@ -131,10 +148,21 @@ export function cargarCoincidencias(destinatarios, campana) {
   }));
   resultadosCargados = true;
   seleccion.clear();
-  visibles.filter(({ estado, correo, puntaje, pendienteIa }) => campana.modo_consulta === "sgva"
-    ? estado === "alta_coincidencia" && correo
-    : !pendienteIa && puntaje >= 80).forEach(({ id }) => seleccion.add(id));
-  document.querySelector("#iniciar-simulacion").hidden = campana.modo_consulta === "sgva";
+  visibles.filter(({ correo, puntaje, pendienteIa }) => correo && !pendienteIa && puntaje > 80)
+    .slice(0, limiteSeleccion).forEach(({ id }) => seleccion.add(id));
+  const botonEnvio = document.querySelector("#iniciar-simulacion");
+  const botonMovil = document.querySelector("#iniciar-envio-movil");
+  botonEnvio.dataset.modoConsulta = campana.modo_consulta;
+  botonEnvio.firstChild.textContent = campana.modo_consulta === "sgva" ? "Enviar correos " : "Simular envío aprobado ";
+  botonMovil.textContent = campana.modo_consulta === "sgva" ? "Enviar correos" : "Simular envío";
+  document.querySelector("#plan-revision").textContent = gratis ? "Gratis" : "Premium";
+  const avisoPlan = document.querySelector("#aviso-plan-gratis");
+  const ocultas = Math.max(0, resultadosOcultos + destinatarios.length - mostrados.length);
+  avisoPlan.hidden = !gratis || ocultas === 0;
+  document.querySelector("#cantidad-ocultas").textContent = `${ocultas} ${ocultas === 1 ? "empresa más" : "empresas más"}`;
+  document.querySelector("#aviso-limite-seleccion").hidden = true;
+  document.querySelector("#aviso-envio-pendiente").hidden = true;
+  document.querySelector("#aviso-envio-movil").hidden = true;
   document.querySelector("#aviso-sin-resultados strong").textContent = campana.modo_consulta === "sgva"
     ? "No encontramos solicitudes recientes con estos filtros."
     : "No encontramos coincidencias suficientemente buenas con estos filtros.";
@@ -153,7 +181,7 @@ export function pintarResumen(plan) {
   const empresas = visibles.filter(({ id }) => seleccion.has(id));
   const fecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" }).format(new Date());
 
-  tarjetas.replaceChildren(...empresas.slice(0, plan === "premium" ? 30 : 2).map((empresa) => {
+  tarjetas.replaceChildren(...(plan === "premium" ? empresas : empresas.slice(0, 2)).map((empresa) => {
     const tarjeta = elemento("article", "resultado_tarjeta");
     const cabecera = elemento("div", "resultado_tarjeta_cabecera");
     cabecera.append(elemento("span", "avatar_empresa", empresa.inicial), elemento("span", "pildora_puntuacion", `${empresa.puntaje}% estimado`));

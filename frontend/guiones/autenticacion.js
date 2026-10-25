@@ -7,6 +7,15 @@ let gmailConectado = false;
 let pruebaGmailSolicitada = false;
 let tokenCsrf = null;
 
+function actualizarPlan(plan) {
+  const selector = document.querySelector("#plan-campana");
+  const opcionPremium = selector.querySelector('option[value="premium"]');
+  opcionPremium.disabled = plan !== "premium";
+  opcionPremium.textContent = plan === "premium" ? "Premium · activo" : "Premium · pendiente de activación";
+  selector.value = plan === "premium" ? "premium" : "gratis";
+  selector.dispatchEvent(new Event("change"));
+}
+
 async function obtenerJson(ruta) {
   const respuesta = await fetch(ruta, { cache: "no-store", credentials: "same-origin" });
   if (respuesta.status >= 500) {
@@ -54,6 +63,7 @@ async function actualizarCuenta() {
     const cuenta = await obtenerJson("/api/v1/autenticacion/yo");
     if (cuenta.datos) {
       cuentaActiva = cuenta.datos;
+      actualizarPlan(cuenta.datos.plan);
       const nombre = cuenta.datos.nombre || cuenta.datos.correo;
       estadoCuenta.textContent = `${nombre} · ${cuenta.datos.plan}`;
       estadoCuenta.title = cuenta.datos.correo;
@@ -73,6 +83,7 @@ async function actualizarCuenta() {
     }
 
     cuentaActiva = null;
+    actualizarPlan("gratis");
     tokenCsrf = null;
     ocultarGmail();
     const capacidades = await obtenerJson("/api/v1/capacidades");
@@ -85,6 +96,7 @@ async function actualizarCuenta() {
     window.dispatchEvent(new CustomEvent("debupa:cuenta-actualizada", { detail: null }));
   } catch (error) {
     cuentaActiva = null;
+    actualizarPlan("gratis");
     tokenCsrf = null;
     ocultarGmail();
     estadoCuenta.textContent = "Abre DEBUPA desde la API para iniciar sesión";
