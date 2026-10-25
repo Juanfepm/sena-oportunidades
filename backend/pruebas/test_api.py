@@ -1,6 +1,7 @@
 """La API no acepta plan, claves ni contenido del correo desde un borrador."""
 
 import pytest
+from time import monotonic, sleep
 from datetime import datetime, timezone
 from fastapi.testclient import TestClient
 import httpx
@@ -57,7 +58,8 @@ def test_capacidades_no_prometen_integraciones(cliente: TestClient):
     assert capacidades["borradores"] is True
     assert capacidades["sgva"] is False
     assert capacidades["gmail"] is False
-    assert capacidades["trabajador_activo"] is False
+    assert capacidades["trabajador_activo"] is True
+    assert capacidades["trabajador_demo"] is True
 
 
 def test_google_oauth_requiere_configuracion(cliente: TestClient):
@@ -272,7 +274,8 @@ def test_borrador_persistente_y_exclusiones_normalizadas(cliente: TestClient):
     assert cliente.get("/api/v1/correos-excluidos", headers=acceso()).json() == ["empresa@ejemplo.com"]
     iniciada = cliente.post(f"/api/v1/campanas/{datos['id']}/iniciar", headers=acceso())
     assert iniciada.status_code == 200
-    assert iniciada.json()["estado"] == "borrador"
+    assert iniciada.json()["estado"] == "en_cola"
+    assert cliente.post(f"/api/v1/campanas/{datos['id']}/iniciar", headers=acceso()).status_code == 409
     assert cliente.get("/api/v1/historial", headers=acceso()).json() == []
     assert cliente.delete("/api/v1/correos-excluidos/empresa@ejemplo.com", headers=acceso()).status_code == 204
 
@@ -288,6 +291,32 @@ def test_un_usuario_no_puede_leer_una_campana_ajena(cliente: TestClient):
         sesion.commit()
         identificador = ajena.id
     assert cliente.get(f"/api/v1/campanas/{identificador}", headers=acceso()).status_code == 404
+    assert cliente.get(f"/api/v1/campanas/{identificador}/destinatarios", headers=acceso()).status_code == 404
+
+
+def test_trabajador_demo_persiste_resultados_sin_enviar(cliente: TestClient):
+    primera = cliente.post("/api/v1/campanas", json=solicitud_valida(), headers=acceso()).json()
+    sin_resultados = {**solicitud_valida(), "modalidad": "hibrido", "departamento": "Bogotá D. C.",
+                      "ciudad": "todas", "antiguedad_dias": 0}
+    segunda = cliente.post("/api/v1/campanas", json=sin_resultados, headers=acceso()).json()
+    for campana in (primera, segunda):
+        assert cliente.post(f"/api/v1/campanas/{campana['id']}/iniciar", headers=acceso()).status_code == 200
+    assert cliente.get(f"/api/v1/campanas/{primera['id']}/destinatarios", headers=acceso()).status_code == 409
+
+    plazo = monotonic() + 12
+    while monotonic() < plazo:
+        estados = [cliente.get(f"/api/v1/campanas/{campana['id']}", headers=acceso()).json()["estado"]
+                   for campana in (primera, segunda)]
+        if estados == ["esperando_confirmacion", "esperando_confirmacion"]:
+            break
+        sleep(0.2)
+    assert estados == ["esperando_confirmacion", "esperando_confirmacion"]
+    resultados = cliente.get(f"/api/v1/campanas/{primera['id']}/destinatarios", headers=acceso())
+    assert resultados.status_code == 200
+    assert [destino["correo"] for destino in resultados.json()] == ["ejemplo@nexo.invalid"]
+    assert resultados.json()[0]["estado"] == "ejemplo_no_enviado"
+    assert cliente.get(f"/api/v1/campanas/{segunda['id']}/destinatarios", headers=acceso()).json() == []
+    assert cliente.get("/api/v1/historial", headers=acceso()).json() == []
 
 
 def test_ubicacion_valida_del_formulario(cliente: TestClient):

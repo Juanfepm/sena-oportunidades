@@ -72,6 +72,18 @@ class ResumenCampana(BaseModel):
     creado_en: datetime
 
 
+class ResumenDestinatario(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    nombre_empresa: str
+    correo: str
+    telefono_original: str | None
+    motivo: str
+    puntuacion: int
+    estado: str
+
+
 class SolicitudContenidoTemporal(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 

@@ -98,6 +98,13 @@
             <p id="estado-borradores-temporales" role="status" aria-live="polite"></p>
           </section>
         </div>
+        <div id="reanudar-campana" class="contenedor borradores_temporales" hidden>
+          <section class="panel_ayuda" aria-labelledby="titulo-reanudar-campana">
+            <h2 id="titulo-reanudar-campana">Tu campaña de ejemplo</h2>
+            <p id="texto-reanudar-campana">Puedes consultar su estado aunque hayas cerrado el navegador.</p>
+            <button id="boton-reanudar-campana" class="boton boton_secundario" type="button">Ver progreso</button>
+          </section>
+        </div>
         <div class="contenedor seccion_destacada">
           <div><span class="ceja">Pensado para aprendices</span><h2>Una herramienta cercana, sin pasos innecesarios.</h2></div>
           <p>El SGVA ya reúne ofertas afines a tu formación. DEBUPA te ayuda a organizar la información, entender por qué una empresa podría encajar contigo y preparar un contacto externo con tu autorización.</p>
@@ -179,7 +186,7 @@
             <div class="correo_cuerpo"><label for="cuerpo-correo">Mensaje</label><textarea id="cuerpo-correo" name="cuerpo" rows="11" minlength="40" maxlength="5000" placeholder="Hola, mi nombre es... Me interesa conocer más sobre la oportunidad porque... Muchas gracias por tu tiempo." required></textarea></div>
             <div class="correo_adjunto"><label for="archivos-correo"><svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#adjunto"></use></svg> Adjuntar hoja de vida o portafolio</label><input id="archivos-correo" name="archivos" type="file" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.webp" aria-describedby="ayuda-archivos"><p id="ayuda-archivos">Plan gratis: 1 archivo de hasta 5 MB. PDF, Word, texto o imagen.</p><ul id="lista-archivos" class="lista_archivos" aria-live="polite"></ul></div>
             <div class="correo_temporal">
-              <p>Si quieres probar el almacenamiento, usa datos ficticios y guarda este borrador cifrado durante 24 horas. Puedes conservar hasta dos a la vez y eliminarlos mientras sean borradores. Los adjuntos no se enviarán a empresas.</p>
+              <p>Si quieres probar el almacenamiento, usa datos ficticios y guarda este borrador cifrado durante 24 horas. Puedes conservar hasta dos a la vez y eliminarlos antes de cualquier envío. Los adjuntos no se enviarán a empresas en esta demostración.</p>
               <div class="correo_temporal_acciones">
                 <button id="guardar-contenido-temporal" class="boton boton_secundario" type="button">Guardar borrador cifrado</button>
                 <button id="borrar-contenido-temporal" class="boton boton_secundario" type="button" hidden>Eliminar borrador guardado</button>
@@ -193,7 +200,7 @@
       </section>
 
       <section id="confirmacion" class="pagina pagina_revision" data-pagina hidden>
-        <div class="contenedor pagina_encabezado pagina_encabezado_corto"><span class="ceja">Paso 3 de 3 · Confirmación</span><h1>Tú decides a quién escribir.</h1><p>Estas empresas son datos ficticios para probar la interfaz. La coincidencia es orientativa y la modalidad remota requiere confirmación con la empresa.</p></div>
+        <div class="contenedor pagina_encabezado pagina_encabezado_corto"><span class="ceja">Paso 3 de 3 · Confirmación</span><h1>Tú decides a quién escribir.</h1><p>Estas empresas y porcentajes son ficticios. El perfil que redactaste todavía no interviene en la puntuación; la modalidad requiere confirmación con la empresa.</p></div>
         <div id="aviso-sin-resultados" class="contenedor aviso_sin_resultados" role="alert" hidden><div class="alerta alerta_error"><strong>No encontramos coincidencias suficientemente buenas con estos filtros.</strong><p>Puedes cambiar la ubicación o el periodo y hacer otra búsqueda, incluso si usas el plan gratis.</p><a class="boton boton_secundario" href="#campana">Ajustar y buscar de nuevo</a></div></div>
         <div class="contenedor revision_disposicion">
           <div class="panel_revision">
@@ -215,8 +222,8 @@
 
       <section id="progreso" class="pagina pagina_progreso" data-pagina hidden>
         <div class="contenedor progreso_disposicion">
-          <div class="progreso_principal"><span class="ceja">Simulación de campaña</span><h1>Así verás cada avance.</h1><p>Cuando el servicio esté conectado, esta pantalla mostrará el estado real incluso si vuelves después de cerrar el navegador.</p><div class="barra_progreso" role="progressbar" aria-label="Progreso de ejemplo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="barra-progreso-relleno"></span></div><p id="texto-progreso" class="texto_progreso" role="status">Preparando la demostración…</p><p id="dato-progreso" class="dato_progreso" aria-live="off"></p><ol id="pasos-progreso" class="pasos_progreso"></ol><button id="cancelar-simulacion" class="boton boton_secundario" type="button">Detener ejemplo</button></div>
-          <aside class="panel_ayuda panel_ayuda_progreso"><span class="icono_circulo"><svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#reloj"></use></svg></span><h2>Una consulta a la vez.</h2><p>Si otra campaña utiliza el navegador de SGVA, las siguientes esperan su turno. La posición y los cambios de estado serán visibles aquí.</p><p class="nota_fina">En esta demostración no se abre SGVA ni se envía ningún correo.</p></aside>
+          <div class="progreso_principal"><span class="ceja">Campaña de demostración</span><h1>Así avanza tu búsqueda de ejemplo.</h1><p>El estado se guarda en la base de datos. Puedes cerrar el navegador y consultar el avance mientras el servidor siga activo.</p><div class="barra_progreso" role="progressbar" aria-label="Progreso de ejemplo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="barra-progreso-relleno"></span></div><p id="texto-progreso" class="texto_progreso" role="status">Preparando la demostración…</p><p id="dato-progreso" class="dato_progreso" aria-live="off"></p><ol id="pasos-progreso" class="pasos_progreso"></ol><button id="cancelar-simulacion" class="boton boton_secundario" type="button">Volver al inicio</button></div>
+          <aside class="panel_ayuda panel_ayuda_progreso"><span class="icono_circulo"><svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#reloj"></use></svg></span><h2>Una campaña a la vez.</h2><p>Las campañas de ejemplo esperan su turno y su estado permanece disponible en tu cuenta.</p><p class="nota_fina">En esta demostración no se abre SGVA ni se envía ningún correo.</p></aside>
         </div>
       </section>
 

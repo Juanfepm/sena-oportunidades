@@ -1,20 +1,15 @@
-import { actualizarEjemplos, configurarCoincidencias, pintarResumen } from "./coincidencias.js";
+import { configurarCoincidencias, pintarResumen } from "./coincidencias.js";
 import { configurarAutenticacion } from "./autenticacion.js";
 import { configurarBorradoresTemporales } from "./borradores-temporales.js";
-import { borrarContenidoTemporal, guardarContenidoTemporal, guardarPreferencias } from "./campanas.js";
+import { borrarContenidoTemporal, guardarContenidoTemporal, guardarPreferencias, iniciarCampana } from "./campanas.js";
 import { configurarErrores, mostrarErrorProceso } from "./errores.js";
 import { configurarPruebaGmail } from "./prueba-gmail.js";
 import { configurarRutas, irA } from "./rutas.js";
+import { configurarSeguimiento, detenerDatosDuranteEspera, detenerSeguimiento, haySeguimiento, iniciarDatosDuranteEspera, iniciarSeguimiento } from "./seguimiento.js";
 import { configurarUbicaciones } from "./ubicaciones.js";
 import { activarCorreccion, validarAdjuntos, validarFormulario } from "./validacion.js";
 
 const etapas = {
-  busqueda: [
-    "Campaña en cola de ejemplo",
-    "Turno del único navegador de ejemplo",
-    "Consulta simulada de empresas",
-    "Análisis ilustrativo de coincidencias",
-  ],
   envio: [
     "Selección aprobada en esta demostración",
     "Comprobación ilustrativa de destinatarios",
@@ -25,31 +20,6 @@ const etapas = {
 
 let simulacionActiva = null;
 let proximaBusquedaGratis = null;
-let intervaloDatos = null;
-
-const datosDuranteEspera = [
-  "DEBUPA es un proyecto independiente y no está afiliado al SENA.",
-  "Tus preferencias ayudan a ordenar oportunidades; tú decides a quién contactar.",
-  "El permiso de Gmail se solicita para enviar mensajes, sin leer tu bandeja.",
-  "Contactar por correo no equivale a postularte dentro del SGVA.",
-  "Puedes retirar empresas de la selección antes de confirmar un envío.",
-];
-
-function detenerDatosDuranteEspera() {
-  if (intervaloDatos) window.clearInterval(intervaloDatos);
-  intervaloDatos = null;
-}
-
-function iniciarDatosDuranteEspera() {
-  detenerDatosDuranteEspera();
-  const destino = document.querySelector("#dato-progreso");
-  let indice = 0;
-  destino.textContent = datosDuranteEspera[indice];
-  intervaloDatos = window.setInterval(() => {
-    indice = (indice + 1) % datosDuranteEspera.length;
-    destino.textContent = datosDuranteEspera[indice];
-  }, 2500);
-}
 
 function fechaUnMesDespues(fecha) {
   const ultimoDia = new Date(fecha.getFullYear(), fecha.getMonth() + 2, 0).getDate();
@@ -170,13 +140,6 @@ function configurarFormularios() {
       boton.disabled = false;
       boton.textContent = textoOriginal;
     }
-    actualizarEjemplos({
-      modalidad: formularioCampana.elements.modalidad.value,
-      departamento: formularioCampana.elements.departamento.value,
-      ciudad: formularioCampana.elements.ciudad.value,
-      antiguedad: formularioCampana.elements.antiguedad.value,
-      correosExcluidos,
-    });
     irA("correo");
   });
 
@@ -244,11 +207,26 @@ function configurarFormularios() {
   actualizarArchivos();
   activarCorreccion(formularioCorreo, erroresCorreo);
   entradaArchivos.addEventListener("change", actualizarArchivos);
-  formularioCorreo.addEventListener("submit", (evento) => {
+  formularioCorreo.addEventListener("submit", async (evento) => {
     evento.preventDefault();
     const archivosValidos = validarAdjuntos(entradaArchivos, erroresCorreo, listaArchivos, limiteArchivos());
     if (!archivosValidos) return;
-    if (validarFormulario(formularioCorreo, erroresCorreo)) iniciarSimulacion("busqueda");
+    if (!validarFormulario(formularioCorreo, erroresCorreo)) return;
+    const campanaId = formularioCampana.dataset.campanaId;
+    if (!campanaId) {
+      mostrarErrorProceso("servicio", "Guarda primero las preferencias de esta campaña.");
+      return;
+    }
+    const boton = formularioCorreo.querySelector("button[type='submit']");
+    boton.disabled = true;
+    try {
+      await iniciarCampana(campanaId);
+      iniciarSeguimiento(campanaId);
+    } catch (error) {
+      mostrarErrorProceso("servicio", error.message);
+    } finally {
+      boton.disabled = false;
+    }
   });
 }
 
@@ -271,6 +249,7 @@ function actualizarProgreso(tipo, indice) {
 function iniciarSimulacion(tipo) {
   if (simulacionActiva) clearInterval(simulacionActiva.intervalo);
   iniciarDatosDuranteEspera();
+  document.querySelector("#cancelar-simulacion").textContent = "Detener ejemplo";
   const lista = document.querySelector("#pasos-progreso");
   lista.replaceChildren(...etapas[tipo].map((nombre) => {
     const paso = document.createElement("li");
@@ -290,13 +269,11 @@ function iniciarSimulacion(tipo) {
     clearInterval(intervalo);
     detenerDatosDuranteEspera();
     simulacionActiva = null;
-    if (tipo === "envio") {
-      pintarResumen(document.querySelector("#plan-campana").value);
-      if (document.querySelector("#plan-campana").value === "gratis") {
-        proximaBusquedaGratis = fechaUnMesDespues(new Date());
-      }
+    pintarResumen(document.querySelector("#plan-campana").value);
+    if (document.querySelector("#plan-campana").value === "gratis") {
+      proximaBusquedaGratis = fechaUnMesDespues(new Date());
     }
-    irA(tipo === "busqueda" ? "confirmacion" : "resultados");
+    irA("resultados");
   }, 1200);
   simulacionActiva = { intervalo, tipo };
 }
@@ -304,12 +281,16 @@ function iniciarSimulacion(tipo) {
 function configurarSimulacion() {
   document.querySelector("#iniciar-simulacion").addEventListener("click", () => iniciarSimulacion("envio"));
   document.querySelector("#cancelar-simulacion").addEventListener("click", () => {
+    if (haySeguimiento()) {
+      detenerSeguimiento();
+      irA("inicio");
+      return;
+    }
     if (!simulacionActiva) return;
     clearInterval(simulacionActiva.intervalo);
     detenerDatosDuranteEspera();
-    const destino = simulacionActiva.tipo === "busqueda" ? "correo" : "confirmacion";
     simulacionActiva = null;
-    irA(destino);
+    irA("confirmacion");
   });
   window.addEventListener("hashchange", () => {
     if (simulacionActiva && window.location.hash !== "#progreso") {
@@ -346,3 +327,4 @@ configurarCoincidencias();
 configurarErrores();
 configurarFormularios();
 configurarSimulacion();
+configurarSeguimiento();

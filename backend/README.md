@@ -16,7 +16,7 @@ Base local en FastAPI y SQLAlchemy. El código, las rutas y los modelos usan nom
 - Migraciones de PostgreSQL para el esquema inicial, identidad de Google y permiso de Gmail cifrado, con acceso a las tablas cerrado para los roles públicos de Supabase.
 - Guardado opcional y cifrado de perfil, mensaje y adjuntos por campaña durante 24 horas; máximo dos borradores activos por cuenta, borrado manual y limpieza periódica.
 
-`POST /api/v1/campanas` guarda únicamente los filtros. El contenido opcional se recibe por una ruta separada y se cifra antes de persistirlo. Las contraseñas SGVA todavía no se aceptan. El endpoint `/api/v1/campanas/{id}/iniciar` encola la campaña y ejecuta un trabajador de demostración que deja el estado en «Resultados listos para revisión»; todavía no consulta SGVA ni envía Gmail.
+`POST /api/v1/campanas` guarda únicamente los filtros. El contenido opcional se recibe por una ruta separada y se cifra antes de persistirlo. Las contraseñas SGVA todavía no se aceptan. El endpoint `/api/v1/campanas/{id}/iniciar` encola la campaña. Un trabajador activo durante la vida del servidor toma una campaña por vez, guarda contactos ficticios con dominios `.invalid` y deja el estado en «Resultados listos para revisión». La interfaz consulta el estado y permite reabrirlo tras cerrar el navegador. Si el servidor se interrumpe, las campañas en cola se procesan al reiniciar; una reserva interrumpida se recupera cuando vence, como máximo 15 minutos después. No consulta SGVA ni envía Gmail.
 
 La interfaz recuerda que un patrocinio activo o una postulación en curso pueden impedir la búsqueda de empresas en SGVA. Estas condiciones todavía no se comprueban automáticamente. El adaptador futuro distinguirá un rechazo de cuenta (`sgva_restringido`) de una caída del servicio (`sgva_no_disponible`), sin atribuir una causa específica que SGVA no confirme.
 
@@ -131,13 +131,14 @@ Activa Gmail API en Google Cloud y declara únicamente el permiso `https://www.g
 | `PUT /api/v1/campanas/{id}/contenido` | Sesión + CSRF | Guarda perfil, mensaje y adjuntos cifrados durante 24 horas. |
 | `GET /api/v1/contenidos-temporales` | Sesión | Lista los borradores temporales propios vigentes. |
 | `GET /api/v1/campanas/{id}/contenido` | Sesión | Consulta fecha y nombres de adjuntos propios. |
-| `DELETE /api/v1/campanas/{id}/contenido` | Sesión + CSRF | Borra contenido propio mientras es borrador. |
+| `DELETE /api/v1/campanas/{id}/contenido` | Sesión + CSRF | Borra contenido propio antes de la etapa de envío, incluso después de encolar. |
 | `GET /api/v1/capacidades` | Público | Declara claramente qué integraciones faltan. |
 | `GET /api/v1/planes` | Público | Muestra los límites, no promete una cantidad mínima. |
 | `GET /api/v1/disponibilidad` | Sesión | Indica si el aprendiz puede crear otra búsqueda y la próxima fecha. |
 | `POST /api/v1/campanas` | Sesión | Guarda solo un borrador de filtros. |
 | `GET /api/v1/campanas` y `GET /api/v1/campanas/{id}` | Sesión | Muestra solo campañas del usuario. |
 | `POST /api/v1/campanas/{id}/iniciar` | Sesión + CSRF | Encola la campaña y ejecuta el flujo de demostración; no consulta SGVA ni envía mensajes. |
+| `GET /api/v1/campanas/{id}/destinatarios` | Sesión | Devuelve solo los resultados ficticios de la campaña propia cuando están listos. |
 | `GET /api/v1/correos-excluidos` y `DELETE /api/v1/correos-excluidos/{correo}` | Sesión | Gestiona exclusiones propias. |
 | `GET /api/v1/historial` | Sesión | Lee solo envíos propios registrados por DEBUPA. |
 

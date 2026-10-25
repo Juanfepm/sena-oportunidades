@@ -110,6 +110,9 @@ def borrar_contenido_temporal(
     campana = consultar_campana(sesion, usuario, campana_id)
     if campana is None:
         raise HTTPException(404, "Campaña no encontrada.")
-    if campana.estado != EstadoCampana.BORRADOR:
-        raise HTTPException(409, "No puedes borrar el contenido mientras la campaña está activa.")
+    if campana.estado not in {
+        EstadoCampana.BORRADOR, EstadoCampana.EN_COLA,
+        EstadoCampana.CONSULTANDO, EstadoCampana.ESPERANDO_CONFIRMACION,
+    }:
+        raise HTTPException(409, "No puedes borrar el contenido durante un envío.")
     eliminar_contenido(sesion, campana)

@@ -23,10 +23,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from .base_datos import crear_motor, obtener_sesion
 from .configuracion import Configuracion
 from .dominio.archivos import MAXIMO_BYTES
-from .dominio.estados import LIMITES_ARCHIVOS, LIMITES_CONTACTO, TARJETAS_RESUMEN, Plan
-from .esquemas import ResumenCampana, ResumenHistorial, SolicitudBorrador
+from .dominio.estados import EstadoCampana, LIMITES_ARCHIVOS, LIMITES_CONTACTO, TARJETAS_RESUMEN, Plan
+from .esquemas import ResumenCampana, ResumenDestinatario, ResumenHistorial, SolicitudBorrador
 from .integraciones.contratos import AccesoSGVARestringido, IntegracionNoDisponible, SGVANoDisponible
-from .modelos import ConexionGmail, HistorialEnvio, Usuario
+from .modelos import Campana, ConexionGmail, Destinatario, HistorialEnvio, Usuario
 from .rutas.temporales import router as router_temporales
 from .seguridad import obtener_token_csrf, obtener_usuario_actual, verificar_csrf
 from .servicios.campanas import EsperaPlanGratis, consultar_campana, consultar_disponibilidad, crear_borrador, listar_borradores
@@ -40,7 +40,8 @@ from .servicios.envio_gmail import (
 )
 from .servicios.gmail import ClaveCifradoInvalida, cifrar_token, descifrar_token, obtener_cifrador
 from .servicios.temporales import limpiar_expirados
-from .servicios.trabajador_demo import ejecutar_campana_demo
+from .servicios.cola import encolar
+from .servicios.trabajador_demo import vigilar_cola
 
 
 PERMISO_ENVIO_GMAIL = "https://www.googleapis.com/auth/gmail.send"
@@ -82,18 +83,21 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
 
         await asyncio.to_thread(depurar)
         tarea = asyncio.create_task(repetir())
+        trabajador = asyncio.create_task(vigilar_cola(api.state.fabrica_sesiones, api.state.aviso_cola))
         try:
             yield
         finally:
-            tarea.cancel()
-            with suppress(asyncio.CancelledError):
-                await tarea
+            for activa in (tarea, trabajador):
+                activa.cancel()
+            for activa in (tarea, trabajador):
+                with suppress(asyncio.CancelledError):
+                    await activa
 
     api = FastAPI(title="API de DEBUPA", version="0.1.0", lifespan=ciclo_limpieza)
     api.state.configuracion = configuracion
     api.state.cifrado_disponible = cifrado_disponible
     api.state.fabrica_sesiones = sessionmaker(motor, expire_on_commit=False)
-    api.state.trabajos_campana = set()
+    api.state.aviso_cola = asyncio.Event()
     api.add_middleware(
         SessionMiddleware,
         secret_key=configuracion.secreto_sesion or configuracion.clave_pruebas or "clave-sesion-pruebas-locales",
@@ -375,7 +379,8 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
             "borradores": True,
             "historial_local": True,
             "cola_persistente": True,
-            "trabajador_activo": False,
+            "trabajador_activo": True,
+            "trabajador_demo": True,
             "google_oauth": bool(configuracion.google_cliente_id and configuracion.google_cliente_secreto and cifrado_disponible),
             "sgva": False,
             "gmail": gmail_configurado,
@@ -439,16 +444,29 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
         usuario: Usuario = Depends(obtener_usuario_actual),
         sesion: Session = Depends(obtener_sesion),
     ) -> ResumenCampana:
+        campana = sesion.scalar(select(Campana).where(Campana.id == campana_id, Campana.usuario_id == usuario.id).with_for_update())
+        if campana is None:
+            raise HTTPException(404, "Campaña no encontrada.")
+        if campana.estado != EstadoCampana.BORRADOR:
+            raise HTTPException(409, "La campaña ya fue iniciada o no puede volver a la cola.")
+        encolar(sesion, campana)
+        sesion.commit()
+        api.state.aviso_cola.set()
+        return ResumenCampana.model_validate(campana)
+
+    @api.get("/api/v1/campanas/{campana_id}/destinatarios", response_model=list[ResumenDestinatario])
+    def destinatarios_campana(
+        campana_id: str,
+        usuario: Usuario = Depends(obtener_usuario_actual),
+        sesion: Session = Depends(obtener_sesion),
+    ) -> list[ResumenDestinatario]:
         campana = consultar_campana(sesion, usuario, campana_id)
         if campana is None:
             raise HTTPException(404, "Campaña no encontrada.")
-        if campana.estado != "borrador":
-            raise HTTPException(409, "La campaña ya fue iniciada o no puede volver a la cola.")
-        tarea = asyncio.create_task(ejecutar_campana_demo(api.state.fabrica_sesiones, campana_id))
-        api.state.trabajos_campana.add(tarea)
-        tarea.add_done_callback(api.state.trabajos_campana.discard)
-        sesion.refresh(campana)
-        return ResumenCampana.model_validate(campana)
+        if campana.estado != EstadoCampana.ESPERANDO_CONFIRMACION:
+            raise HTTPException(409, "Los resultados aún no están listos para revisión.")
+        consulta = select(Destinatario).where(Destinatario.campana_id == campana_id).order_by(Destinatario.puntuacion.desc())
+        return [ResumenDestinatario.model_validate(destino) for destino in sesion.scalars(consulta)]
 
     @api.get("/api/v1/correos-excluidos", response_model=list[str])
     def correos_excluidos(

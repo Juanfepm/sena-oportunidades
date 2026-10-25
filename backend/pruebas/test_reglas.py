@@ -19,6 +19,7 @@ from backend.aplicacion.dominio.ubicaciones import MUNICIPIOS_POR_DEPARTAMENTO, 
 from backend.aplicacion.integraciones.contratos import OfertaSGVA
 from backend.aplicacion.modelos import Campana, NavegadorSGVA, PagoPremium, Usuario
 from backend.aplicacion.servicios.cola import encolar, liberar, renovar_reserva, reservar_siguiente
+from backend.aplicacion.servicios.trabajador_demo import recuperar_reserva_vencida
 from backend.aplicacion.servicios.pagos import verificar_pago
 
 
@@ -87,6 +88,27 @@ def test_cola_reserva_un_solo_navegador(sesion: Session):
     liberar(sesion, primera, EstadoCampana.ESPERANDO_CONFIRMACION)
     segunda = reservar_siguiente(sesion, ahora)
     assert segunda is not None and segunda.id != primera.id
+
+
+def test_demostracion_reencola_reserva_vencida(sesion: Session):
+    usuario = Usuario(identificador_externo="desarrollo:recuperacion")
+    sesion.add(usuario)
+    sesion.flush()
+    campana = Campana(usuario_id=usuario.id, plan_aplicado=Plan.GRATIS, limite_contactos=8,
+                      modalidad="remoto", departamento="todos", ciudad="todas", antiguedad_dias=7,
+                      estado=EstadoCampana.CONSULTANDO)
+    sesion.add(campana)
+    sesion.flush()
+    ahora = datetime(2026, 10, 23, tzinfo=timezone.utc)
+    navegador = sesion.get(NavegadorSGVA, 1)
+    navegador.campana_id = campana.id
+    navegador.reserva_hasta = ahora - timedelta(seconds=1)
+    sesion.commit()
+
+    recuperar_reserva_vencida(sesion, ahora)
+    assert campana.estado == EstadoCampana.EN_COLA
+    assert navegador.campana_id is None
+    assert navegador.reserva_hasta is None
 
 
 def test_pago_requiere_administrador_y_revision_pendiente(sesion: Session):

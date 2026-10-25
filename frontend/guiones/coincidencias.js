@@ -1,64 +1,6 @@
-const ejemplos = [
-  {
-    id: "nexo",
-    nombre: "Nexo Digital",
-    inicial: "N",
-    ubicacion: "Bogotá",
-    departamento: "Bogotá D. C.",
-    diasPublicacion: 0,
-    modalidadClave: "remoto",
-    correo: "ejemplo@nexo.invalid",
-    telefono: "300 000 0000",
-    puntaje: 88,
-    modalidad: "Remoto por confirmar",
-    motivo: "Sus actividades de contenido y organización digital se parecen a las que indicaste.",
-  },
-  {
-    id: "alamo",
-    nombre: "Álamo Creativo",
-    inicial: "A",
-    ubicacion: "Medellín",
-    departamento: "Antioquia",
-    diasPublicacion: 4,
-    modalidadClave: "hibrido",
-    correo: "ejemplo@alamo.invalid",
-    telefono: "(604) 000 0000",
-    puntaje: 82,
-    modalidad: "Híbrido por confirmar",
-    motivo: "La descripción menciona diseño y apoyo a proyectos; faltan detalles de la jornada.",
-  },
-  {
-    id: "brisa",
-    nombre: "Brisa Estudio",
-    inicial: "B",
-    ubicacion: "Cali",
-    departamento: "Valle del Cauca",
-    diasPublicacion: 13,
-    modalidadClave: "presencial",
-    correo: "ejemplo@brisa.invalid",
-    telefono: "310 000 0000",
-    puntaje: 76,
-    modalidad: "Presencial",
-    motivo: "El perfil solicitado comparte algunas tareas con tus intereses de práctica.",
-  },
-  {
-    id: "savia",
-    nombre: "Savia Lab",
-    inicial: "S",
-    ubicacion: "Bogotá",
-    departamento: "Bogotá D. C.",
-    diasPublicacion: 25,
-    modalidadClave: "remoto",
-    correo: "ejemplo@savia.invalid",
-    telefono: "601 000 0000",
-    puntaje: 71,
-    modalidad: "Remoto por confirmar",
-    motivo: "Puede encajar con tu perfil, pero la ubicación y las funciones necesitan confirmación.",
-  },
-];
-
-const seleccion = new Set(ejemplos.map(({ id }) => id));
-let visibles = ejemplos;
+const seleccion = new Set();
+let visibles = [];
+let resultadosCargados = false;
 
 function elemento(etiqueta, clase, texto) {
   const nodo = document.createElement(etiqueta);
@@ -110,8 +52,8 @@ function elementoSeleccionado(empresa) {
 function pintarEmpresas() {
   const listado = document.querySelector("#lista-coincidencias");
   const seleccionadas = document.querySelector("#lista-seleccion");
-  document.querySelector("#aviso-sin-resultados").hidden = visibles.length > 0;
-  document.querySelector(".revision_disposicion").hidden = visibles.length === 0;
+  document.querySelector("#aviso-sin-resultados").hidden = !resultadosCargados || visibles.length > 0;
+  document.querySelector(".revision_disposicion").hidden = !resultadosCargados || visibles.length === 0;
   listado.replaceChildren(...visibles.map(tarjetaEmpresa));
   if (visibles.length === 0) {
     listado.append(elemento("p", "estado_vacio", "No hay empresas de ejemplo para estos filtros. Ajusta la ubicación o el periodo para continuar la demostración."));
@@ -165,17 +107,22 @@ export function configurarCoincidencias() {
   pintarEmpresas();
 }
 
-export function actualizarEjemplos(filtros) {
-  const excluidos = new Set(filtros.correosExcluidos);
-  visibles = ejemplos.filter((empresa) => {
-    const modalidadCoincide = empresa.modalidadClave === filtros.modalidad;
-    const departamentoCoincide = filtros.modalidad === "remoto" || filtros.departamento === "todos" || empresa.departamento === filtros.departamento;
-    const ciudadCoincide = filtros.modalidad === "remoto" || filtros.ciudad === "todas" || empresa.ubicacion === filtros.ciudad;
-    const periodoCoincide = empresa.diasPublicacion <= Number(filtros.antiguedad);
-    return empresa.puntaje >= 60 && modalidadCoincide && departamentoCoincide && ciudadCoincide && periodoCoincide && !excluidos.has(empresa.correo);
-  });
+export function cargarCoincidencias(destinatarios, campana) {
+  const modalidades = { remoto: "Remoto por confirmar", hibrido: "Híbrido por confirmar", presencial: "Presencial por confirmar" };
+  visibles = destinatarios.map((destinatario) => ({
+    id: destinatario.id,
+    nombre: destinatario.nombre_empresa,
+    inicial: destinatario.nombre_empresa.charAt(0),
+    ubicacion: "Oferta ficticia",
+    correo: destinatario.correo,
+    telefono: destinatario.telefono_original || "Sin número",
+    puntaje: destinatario.puntuacion,
+    modalidad: modalidades[campana.modalidad],
+    motivo: destinatario.motivo,
+  }));
+  resultadosCargados = true;
   seleccion.clear();
-  visibles.forEach(({ id }) => seleccion.add(id));
+  visibles.filter(({ puntaje }) => puntaje >= 80).forEach(({ id }) => seleccion.add(id));
   pintarEmpresas();
 }
 

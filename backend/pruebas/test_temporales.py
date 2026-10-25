@@ -98,6 +98,17 @@ def test_guarda_recupera_y_borra_sin_exponer_texto(cliente_temporal) -> None:
         assert sesion.scalar(select(AdjuntoTemporal)) is None
 
 
+def test_el_aprendiz_puede_borrar_contenido_despues_de_encolar(cliente_temporal) -> None:
+    cliente, _ = cliente_temporal
+    campana_id = crear_campana(cliente)
+    cabeceras = {"Authorization": "Bearer clave-local-para-probar-contenido-2026"}
+    ruta = f"/api/v1/campanas/{campana_id}/contenido"
+    assert cliente.put(ruta, headers=cabeceras, data=datos_formulario()).status_code == 200
+    assert cliente.post(f"/api/v1/campanas/{campana_id}/iniciar", headers=cabeceras).status_code == 200
+    assert cliente.delete(ruta, headers=cabeceras).status_code == 204
+    assert cliente.get(ruta, headers=cabeceras).status_code == 404
+
+
 def test_rechaza_archivos_invalidos_y_ajenos(cliente_temporal) -> None:
     cliente, _ = cliente_temporal
     campana_id = crear_campana(cliente)
