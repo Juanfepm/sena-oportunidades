@@ -31,6 +31,9 @@
           <div class="cabecera_cuenta">
             <span id="estado-cuenta" class="estado_cuenta" role="status" aria-live="polite">Comprobando sesión…</span>
             <a id="iniciar-google" class="boton boton_secundario boton_pequeno" href="/api/v1/autenticacion/google/iniciar" hidden>Entrar con Google</a>
+            <span id="estado-gmail" class="estado_cuenta" role="status" aria-live="polite" hidden></span>
+            <a id="conectar-gmail" class="boton boton_secundario boton_pequeno" href="/api/v1/gmail/conectar" hidden>Conectar Gmail</a>
+            <button id="desconectar-gmail" class="boton boton_secundario boton_pequeno" type="button" hidden>Desconectar Gmail</button>
             <button id="cerrar-sesion" class="boton boton_secundario boton_pequeno" type="button" hidden>Cerrar sesión</button>
           </div>
           <a class="boton boton_pequeno" href="#campana">Crear campaña <svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#flecha"></use></svg></a>

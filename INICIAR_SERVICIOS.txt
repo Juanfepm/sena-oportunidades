@@ -59,12 +59,32 @@ $env:DEBUPA_ENTORNO = "desarrollo"
 $env:GOOGLE_CLIENTE_ID = "PEGA_AQUI_TU_CLIENT_ID"
 $env:GOOGLE_CLIENTE_SECRETO = "PEGA_AQUI_TU_CLIENT_SECRET"
 $env:GOOGLE_URI_REDIRECCION = "http://127.0.0.1:8000/api/v1/autenticacion/google/callback"
+$env:GOOGLE_URI_REDIRECCION_GMAIL = "http://127.0.0.1:8000/api/v1/gmail/callback"
 $env:GOOGLE_URL_INICIO = "/#inicio"
 
 Genera un secreto temporal nuevo para firmar la sesión. Ejecuta esta línea tal
 cual una vez por terminal:
 
 $env:DEBUPA_SECRETO_SESION = ((New-Guid).Guid + (New-Guid).Guid).Replace("-", "")
+
+
+3.1 CLAVE DE CIFRADO PARA GMAIL
+--------------------------------
+
+Solo necesitas esto si vas a conectar Gmail. La primera vez, genera una clave:
+
+.\.venv\Scripts\python.exe -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+
+Copia el resultado en un gestor de contraseñas. En cada terminal, usa exactamente
+la misma clave guardada; no generes una nueva porque impediría usar permisos ya
+conectados:
+
+$env:DEBUPA_CLAVE_CIFRADO = "PEGA_AQUI_TU_MISMA_CLAVE_GUARDADA"
+
+En Google Cloud, dentro del cliente OAuth web, registra también esta URI de
+redirección autorizada para Gmail:
+
+http://127.0.0.1:8000/api/v1/gmail/callback
 
 
 4. INSTALAR DEPENDENCIAS (SOLO SI ES UNA COMPUTADORA NUEVA O FALTAN PAQUETES)
@@ -111,7 +131,7 @@ NOTAS IMPORTANTES
 - No abras el frontend con Live Server ni con el archivo index.html directamente.
   Debe abrirse desde http://127.0.0.1:8000/ para que Google OAuth y la sesión
   funcionen correctamente.
-- Si cierras la terminal, tendrás que repetir los pasos 1, 2, 3, 5 y 6.
+- Si cierras la terminal, tendrás que repetir los pasos 1, 2, 3, 3.1, 5 y 6.
 - Si GitHub tiene cambios nuevos, antes del paso 5 ejecuta:
 
   git pull origin main

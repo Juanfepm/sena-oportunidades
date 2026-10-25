@@ -13,8 +13,10 @@ class Configuracion:
     google_cliente_id: str | None = None
     google_cliente_secreto: str | None = None
     google_uri_redireccion: str = "http://127.0.0.1:8000/api/v1/autenticacion/google/callback"
+    google_uri_redireccion_gmail: str = "http://127.0.0.1:8000/api/v1/gmail/callback"
     google_url_inicio: str = "/#inicio"
     secreto_sesion: str | None = None
+    clave_cifrado: str | None = None
 
     def __post_init__(self) -> None:
         if self.clave_pruebas and len(self.clave_pruebas) < 32:
@@ -35,8 +37,13 @@ class Configuracion:
                 "GOOGLE_URI_REDIRECCION",
                 "http://127.0.0.1:8000/api/v1/autenticacion/google/callback",
             ),
+            google_uri_redireccion_gmail=getenv(
+                "GOOGLE_URI_REDIRECCION_GMAIL",
+                "http://127.0.0.1:8000/api/v1/gmail/callback",
+            ),
             google_url_inicio=getenv("GOOGLE_URL_INICIO", "/#inicio"),
             secreto_sesion=getenv("DEBUPA_SECRETO_SESION"),
+            clave_cifrado=getenv("DEBUPA_CLAVE_CIFRADO"),
         )
         if configuracion.entorno not in {"desarrollo", "pruebas", "produccion"}:
             raise ValueError("DEBUPA_ENTORNO debe ser desarrollo, pruebas o produccion.")

@@ -4,7 +4,7 @@ Prototipo de una herramienta independiente para ayudar a aprendices del SENA a o
 
 ## Estado actual
 
-El frontend es una vista previa navegable con empresas ficticias. El backend sirve la página y permite iniciar y cerrar sesión con Google; la cabecera muestra la cuenta y el plan. También ofrece borradores, exclusiones persistentes, historial mínimo, reglas de selección, cola para un navegador y verificación manual de pagos como servicios internos. Los formularios de búsqueda aún son una simulación: faltan SGVA, Gmail, almacenamiento temporal cifrado y el trabajador de la cola. Las credenciales SGVA siguen desactivadas en el frontend.
+El frontend es una vista previa navegable con empresas ficticias. El backend sirve la página y permite iniciar y cerrar sesión con Google; la cabecera muestra la cuenta y el plan. También permite conectar Gmail con el permiso mínimo de envío y conserva su token de renovación cifrado. Aún no lee Gmail ni envía mensajes. Los formularios de búsqueda aún son una simulación: faltan SGVA, almacenamiento temporal cifrado del contenido de campaña y el trabajador de la cola. Las credenciales SGVA siguen desactivadas en el frontend.
 
 El selector muestra una selección práctica de ciudades y municipios principales, verificada con DIVIPOLA. Si una población no aparece, se puede elegir «Todos los municipios». Para actualizar la selección desde la fuente oficial, ejecuta `python -m herramientas.actualizar_municipios` desde la raíz del repositorio. El script actualiza las copias del frontend y el backend.
 

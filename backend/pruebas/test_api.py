@@ -4,13 +4,14 @@ import pytest
 from datetime import datetime, timezone
 from fastapi.testclient import TestClient
 import httpx
+from cryptography.fernet import Fernet
 from sqlalchemy import create_engine, select
 from sqlalchemy.pool import StaticPool
 from urllib.parse import parse_qs, urlsplit
 
 from backend.aplicacion.base_datos import Base
 from backend.aplicacion.configuracion import Configuracion
-from backend.aplicacion.modelos import Campana, HistorialEnvio, NavegadorSGVA, Usuario
+from backend.aplicacion.modelos import Campana, ConexionGmail, HistorialEnvio, NavegadorSGVA, Usuario
 from backend.aplicacion.principal import crear_aplicacion
 
 
@@ -134,6 +135,71 @@ def test_google_inicia_sesion_y_permita_cerrarla(monkeypatch: pytest.MonkeyPatch
             ).status_code == 201
             assert cliente.post("/api/v1/autenticacion/cerrar-sesion", headers={"X-CSRF-Token": csrf}).status_code == 204
             assert cliente.get("/api/v1/autenticacion/yo").status_code == 401
+    finally:
+        motor.dispose()
+
+
+def test_gmail_guarda_solo_token_cifrado_y_permite_desconectar(monkeypatch: pytest.MonkeyPatch):
+    from backend.aplicacion import principal
+
+    motor = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(motor)
+    configuracion = Configuracion(
+        entorno="pruebas",
+        base_datos="sqlite://",
+        google_cliente_id="cliente-prueba.apps.googleusercontent.com",
+        google_cliente_secreto="secreto-ficticio",
+        secreto_sesion="clave-firmada-para-pruebas-de-gmail-2026",
+        clave_cifrado=Fernet.generate_key().decode(),
+    )
+
+    def responder(peticion: httpx.Request) -> httpx.Response:
+        if peticion.url.path == "/token":
+            return httpx.Response(200, json={"access_token": "token-ficticio", "refresh_token": "renovacion-secreta"})
+        if peticion.url.path == "/v1/userinfo":
+            return httpx.Response(200, json={
+                "sub": "identificador-estable",
+                "email": "aprendiz@ejemplo.com",
+                "email_verified": True,
+                "name": "Aprendiz de prueba",
+            })
+        return httpx.Response(404)
+
+    cliente_httpx = httpx.AsyncClient
+    monkeypatch.setattr(
+        principal.httpx,
+        "AsyncClient",
+        lambda **opciones: cliente_httpx(transport=httpx.MockTransport(responder), **opciones),
+    )
+    try:
+        with TestClient(crear_aplicacion(configuracion, motor)) as cliente:
+            inicio = cliente.get("/api/v1/autenticacion/google/iniciar", follow_redirects=False)
+            estado = parse_qs(urlsplit(inicio.headers["location"]).query)["state"][0]
+            cliente.get(f"/api/v1/autenticacion/google/callback?code=identidad&state={estado}")
+
+            conectar = cliente.get("/api/v1/gmail/conectar", follow_redirects=False)
+            assert conectar.status_code == 307
+            parametros = parse_qs(urlsplit(conectar.headers["location"]).query)
+            assert "https://www.googleapis.com/auth/gmail.send" in parametros["scope"][0]
+            assert parametros["redirect_uri"] == ["http://127.0.0.1:8000/api/v1/gmail/callback"]
+            estado_gmail = parametros["state"][0]
+            respuesta = cliente.get(
+                f"/api/v1/gmail/callback?code=gmail&state={estado_gmail}", follow_redirects=False
+            )
+            assert respuesta.status_code == 303
+            assert cliente.get("/api/v1/gmail/estado").json() == {
+                "conectado": True,
+                "correo": "aprendiz@ejemplo.com",
+            }
+            with cliente.app.state.fabrica_sesiones() as sesion:
+                conexion = sesion.scalar(select(ConexionGmail))
+                assert conexion is not None
+                assert conexion.token_renovacion_cifrado != "renovacion-secreta"
+                assert "renovacion-secreta" not in conexion.token_renovacion_cifrado
+            assert cliente.delete("/api/v1/gmail/conexion").status_code == 403
+            csrf = cliente.get("/api/v1/autenticacion/csrf").json()["token"]
+            assert cliente.delete("/api/v1/gmail/conexion", headers={"X-CSRF-Token": csrf}).status_code == 204
+            assert cliente.get("/api/v1/gmail/estado").json()["conectado"] is False
     finally:
         motor.dispose()
 

@@ -13,7 +13,7 @@ Base local en FastAPI y SQLAlchemy. El código, las rutas y los modelos usan nom
 - Selección local de ciudades y municipios principales verificada con [DIVIPOLA](https://www.datos.gov.co/Mapas-Nacionales/DIVIPOLA-C-digos-municipios/gdxc-w37w), sincronizada con el frontend mediante `python -m herramientas.actualizar_municipios`.
 - Reserva persistente y renovable de un único navegador para el futuro trabajador SGVA.
 - Modelo y servicio de aprobación manual del pago. El cliente nunca puede asignarse premium.
-- Migraciones de PostgreSQL para el esquema inicial y la identidad de Google, con acceso a las tablas cerrado para los roles públicos de Supabase.
+- Migraciones de PostgreSQL para el esquema inicial, identidad de Google y permiso de Gmail cifrado, con acceso a las tablas cerrado para los roles públicos de Supabase.
 
 No se aceptan contraseñas SGVA, cuerpos de correo ni archivos en los borradores. El endpoint `/api/v1/campanas/{id}/iniciar` devuelve 503 hasta que existan las integraciones seguras. La cola es una base de datos y reglas; todavía no hay un trabajador que consulte SGVA o envíe Gmail.
 
@@ -67,7 +67,7 @@ Remove-Variable direccionProtegida
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini check
 ```
 
-`current` debe mostrar `0002_identidad_google (head)` después de aplicar ambas migraciones; `check` debe indicar que no hay operaciones nuevas. En el editor SQL de Supabase puedes comprobarlo sin modificar datos:
+`current` debe mostrar `0003_conexion_gmail_cifrada (head)` después de aplicar las migraciones; `check` debe indicar que no hay operaciones nuevas. En el editor SQL de Supabase puedes comprobarlo sin modificar datos:
 
 ```sql
 select version_num from alembic_version;
@@ -76,14 +76,15 @@ select id from navegador_sgva;
 
 La segunda consulta debe devolver únicamente `1`. Cierra la terminal cuando termines para retirar la cadena de su entorno. En Supabase Free debes organizar copias de seguridad externas antes de almacenar datos reales. No ejecutes `downgrade` en una base con información: eliminaría tablas.
 
-## Google OAuth
+## Google OAuth y permiso de Gmail
 
-La API usa OpenID Connect de Google únicamente para identificar al aprendiz. No guarda contraseñas ni tokens de Google. El callback crea o actualiza el usuario local con el identificador estable de Google, el correo verificado y el nombre visible.
+La API usa OpenID Connect de Google para identificar al aprendiz. El callback crea o actualiza el usuario local con el identificador estable de Google, el correo verificado y el nombre visible. El permiso de Gmail se solicita después, por separado, y su token de renovación se cifra antes de persistirse.
 
 En Google Cloud Console crea un cliente OAuth de tipo **Aplicación web** y registra exactamente:
 
 ```text
 http://127.0.0.1:8000/api/v1/autenticacion/google/callback
+http://127.0.0.1:8000/api/v1/gmail/callback
 ```
 
 En la terminal donde se levanta la API configura:
@@ -92,8 +93,10 @@ En la terminal donde se levanta la API configura:
 $env:GOOGLE_CLIENTE_ID = "tu-cliente-id.apps.googleusercontent.com"
 $env:GOOGLE_CLIENTE_SECRETO = "tu-secreto"
 $env:GOOGLE_URI_REDIRECCION = "http://127.0.0.1:8000/api/v1/autenticacion/google/callback"
+$env:GOOGLE_URI_REDIRECCION_GMAIL = "http://127.0.0.1:8000/api/v1/gmail/callback"
 $env:GOOGLE_URL_INICIO = "/#inicio"
 $env:DEBUPA_SECRETO_SESION = "genera-un-secreto-aleatorio-de-al-menos-32-caracteres"
+$env:DEBUPA_CLAVE_CIFRADO = "una-clave-Fernet-estable-y-guardada-fuera-del-repositorio"
 ```
 
 Después aplica la migración de identidad:
@@ -113,7 +116,7 @@ $env:DEBUPA_SECRETO_SESION = ((New-Guid).Guid + (New-Guid).Guid).Replace("-", ""
 .\.venv\Scripts\python.exe -m uvicorn backend.aplicacion.principal:aplicacion --reload --host 127.0.0.1 --port 8000
 ```
 
-Abre `http://127.0.0.1:8000/` y pulsa «Entrar con Google». La cabecera mostrará tu nombre y tu plan. El frontend consulta `/api/v1/autenticacion/yo` y cierra sesión con `POST /api/v1/autenticacion/cerrar-sesion`. La búsqueda y el envío del formulario siguen siendo ejemplos; no se transmiten a SGVA ni Gmail.
+Activa Gmail API en Google Cloud y declara únicamente el permiso `https://www.googleapis.com/auth/gmail.send`. Con la clave de cifrado configurada, la cabecera permitirá conectar o desconectar Gmail. DEBUPA comprueba que sea la misma cuenta de Google, solicita acceso offline y guarda únicamente el token de renovación cifrado. Aún no envía mensajes ni lee la bandeja.
 
 ## Rutas disponibles
 
@@ -122,6 +125,8 @@ Abre `http://127.0.0.1:8000/` y pulsa «Entrar con Google». La cabecera mostrar
 | `GET /api/v1/salud` | Público | Comprueba que la API y la base responden. |
 | `GET /api/v1/autenticacion/google/iniciar` y callback | Público | Completa el inicio de sesión con Google. |
 | `GET /api/v1/autenticacion/yo` y `POST /api/v1/autenticacion/cerrar-sesion` | Sesión | Muestra la cuenta actual y cierra sesión. |
+| `GET /api/v1/gmail/estado`, conexión y callback | Sesión | Conecta Gmail con solo `gmail.send`; el token de renovación se cifra antes de persistirse. |
+| `DELETE /api/v1/gmail/conexion` | Sesión + CSRF | Borra localmente el permiso almacenado. |
 | `GET /api/v1/capacidades` | Público | Declara claramente qué integraciones faltan. |
 | `GET /api/v1/planes` | Público | Muestra los límites, no promete una cantidad mínima. |
 | `GET /api/v1/disponibilidad` | Sesión | Indica si el aprendiz puede crear otra búsqueda y la próxima fecha. |

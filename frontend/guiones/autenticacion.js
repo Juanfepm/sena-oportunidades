@@ -1,6 +1,9 @@
 const estadoCuenta = document.querySelector("#estado-cuenta");
 const enlaceGoogle = document.querySelector("#iniciar-google");
 const botonCerrar = document.querySelector("#cerrar-sesion");
+const estadoGmail = document.querySelector("#estado-gmail");
+const enlaceGmail = document.querySelector("#conectar-gmail");
+const botonDesconectarGmail = document.querySelector("#desconectar-gmail");
 let cuentaActiva = null;
 let tokenCsrf = null;
 
@@ -8,6 +11,35 @@ async function obtenerJson(ruta) {
   const respuesta = await fetch(ruta, { cache: "no-store", credentials: "same-origin" });
   if (!respuesta.ok) return { codigo: respuesta.status, datos: null };
   return { codigo: respuesta.status, datos: await respuesta.json() };
+}
+
+function ocultarGmail() {
+  estadoGmail.hidden = true;
+  enlaceGmail.hidden = true;
+  botonDesconectarGmail.hidden = true;
+}
+
+async function actualizarGmail() {
+  const [capacidades, gmail] = await Promise.all([
+    obtenerJson("/api/v1/capacidades"),
+    obtenerJson("/api/v1/gmail/estado"),
+  ]);
+  if (capacidades.datos?.gmail !== true) {
+    ocultarGmail();
+    return;
+  }
+  estadoGmail.hidden = false;
+  if (gmail.datos?.conectado) {
+    estadoGmail.textContent = "Gmail conectado";
+    estadoGmail.title = gmail.datos.correo ?? "";
+    enlaceGmail.hidden = true;
+    botonDesconectarGmail.hidden = false;
+    return;
+  }
+  estadoGmail.textContent = "Gmail pendiente";
+  estadoGmail.removeAttribute("title");
+  enlaceGmail.hidden = false;
+  botonDesconectarGmail.hidden = true;
 }
 
 async function actualizarCuenta() {
@@ -22,12 +54,14 @@ async function actualizarCuenta() {
       botonCerrar.hidden = false;
       const seguridad = await obtenerJson("/api/v1/autenticacion/csrf");
       tokenCsrf = seguridad.datos?.token ?? null;
+      await actualizarGmail();
       window.dispatchEvent(new CustomEvent("debupa:cuenta-actualizada", { detail: cuentaActiva }));
       return;
     }
 
     cuentaActiva = null;
     tokenCsrf = null;
+    ocultarGmail();
     const capacidades = await obtenerJson("/api/v1/capacidades");
     const disponible = capacidades.datos?.google_oauth === true;
     estadoCuenta.textContent = disponible ? "Sin sesión" : "Google aún no está configurado";
@@ -37,6 +71,7 @@ async function actualizarCuenta() {
   } catch {
     cuentaActiva = null;
     tokenCsrf = null;
+    ocultarGmail();
     estadoCuenta.textContent = "Abre DEBUPA desde la API para iniciar sesión";
     enlaceGoogle.hidden = true;
     botonCerrar.hidden = true;
@@ -60,6 +95,20 @@ export async function enviarConCsrf(ruta, opciones = {}) {
 }
 
 export function configurarAutenticacion() {
+  botonDesconectarGmail.addEventListener("click", async () => {
+    botonDesconectarGmail.disabled = true;
+    estadoGmail.textContent = "Desconectando Gmail…";
+    try {
+      const respuesta = await enviarConCsrf("/api/v1/gmail/conexion", { method: "DELETE" });
+      if (!respuesta.ok) throw new Error("No se pudo desconectar Gmail.");
+      await actualizarGmail();
+    } catch {
+      estadoGmail.textContent = "No se pudo desconectar Gmail.";
+    } finally {
+      botonDesconectarGmail.disabled = false;
+    }
+  });
+
   botonCerrar.addEventListener("click", async () => {
     botonCerrar.disabled = true;
     estadoCuenta.textContent = "Cerrando sesión…";

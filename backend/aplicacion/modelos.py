@@ -89,6 +89,20 @@ class HistorialEnvio(Base):
     __table_args__ = (Index("ix_historial_usuario_correo_fecha", "usuario_id", "correo", "enviado_en"),)
 
 
+class ConexionGmail(Base):
+    """Permiso de envío: el token se cifra antes de llegar a esta tabla."""
+
+    __tablename__ = "conexiones_gmail"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=nuevo_id)
+    usuario_id: Mapped[str] = mapped_column(ForeignKey("usuarios.id"), unique=True, nullable=False)
+    correo_google: Mapped[str] = mapped_column(String(254), nullable=False)
+    token_renovacion_cifrado: Mapped[str] = mapped_column(Text, nullable=False)
+    permisos: Mapped[str] = mapped_column(String(500), nullable=False)
+    conectado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora_utc, nullable=False)
+    actualizado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora_utc, onupdate=ahora_utc, nullable=False)
+
+
 class PagoPremium(Base):
     __tablename__ = "pagos_premium"
 
