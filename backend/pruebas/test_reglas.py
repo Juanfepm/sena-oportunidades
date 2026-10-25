@@ -130,6 +130,8 @@ def test_adjuntos_limita_cantidad_tamano_y_tipo():
         validar_adjuntos([ArchivoAdjunto("hoja-de-vida.pdf", "application/pdf", 6 * 1024 * 1024)])
     with pytest.raises(ValueError):
         validar_adjuntos([ArchivoAdjunto("hoja-de-vida.exe", "application/pdf", 100)])
+    with pytest.raises(ValueError):
+        validar_adjuntos([ArchivoAdjunto("..\\hoja-de-vida.pdf", "application/pdf", 100)])
 
 
 def test_espera_gratis_un_mes_calendario_y_premium_sin_espera():

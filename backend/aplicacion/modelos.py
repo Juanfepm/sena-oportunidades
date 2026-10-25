@@ -1,9 +1,9 @@
-"""Datos persistentes mínimos; no se guardan contraseñas ni adjuntos."""
+"""Datos persistentes mínimos y contenido temporal cifrado por campaña."""
 
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, LargeBinary, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base_datos import Base
@@ -50,6 +50,25 @@ class Campana(Base):
     permitir_recontacto: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora_utc, nullable=False)
     actualizado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora_utc, onupdate=ahora_utc, nullable=False)
+
+
+class ContenidoTemporal(Base):
+    __tablename__ = "contenidos_temporales"
+
+    campana_id: Mapped[str] = mapped_column(ForeignKey("campanas.id"), primary_key=True)
+    contenido_cifrado: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    vence_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
+    actualizado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora_utc, nullable=False)
+
+
+class AdjuntoTemporal(Base):
+    __tablename__ = "adjuntos_temporales"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=nuevo_id)
+    campana_id: Mapped[str] = mapped_column(ForeignKey("contenidos_temporales.campana_id"), index=True, nullable=False)
+    metadatos_cifrados: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    tamano_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    contenido_cifrado: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
 
 
 class Destinatario(Base):

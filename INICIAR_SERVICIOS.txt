@@ -73,7 +73,7 @@ $env:DEBUPA_SECRETO_SESION = ((New-Guid).Guid + (New-Guid).Guid).Replace("-", ""
 .\.venv\Scripts\python.exe -m pip install -r backend\requirements-postgresql.txt
 
 
-5. CLAVE DE CIFRADO PARA GMAIL
+5. CLAVE DE CIFRADO PARA GMAIL Y BORRADORES TEMPORALES
 -----------------------------
 
 El inicio de sesión vincula Google y Gmail en un solo paso. La primera vez,
@@ -82,8 +82,8 @@ genera una clave:
 .\.venv\Scripts\python.exe -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 
 Copia el resultado en un gestor de contraseñas. En cada terminal, usa exactamente
-la misma clave guardada; no generes una nueva porque impediría usar permisos ya
-conectados:
+la misma clave guardada; no generes una nueva porque impediría abrir permisos
+de Gmail y borradores temporales ya cifrados:
 
 $env:DEBUPA_CLAVE_CIFRADO = "PEGA_AQUI_TU_MISMA_CLAVE_GUARDADA"
 

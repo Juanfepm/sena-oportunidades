@@ -152,9 +152,20 @@ def test_google_inicia_sesion_y_permita_cerrarla(monkeypatch: pytest.MonkeyPatch
             assert cliente.post("/api/v1/autenticacion/cerrar-sesion").status_code == 403
             csrf = cliente.get("/api/v1/autenticacion/csrf").json()["token"]
             assert cliente.post("/api/v1/campanas", json=solicitud_valida()).status_code == 403
-            assert cliente.post(
+            creada = cliente.post(
                 "/api/v1/campanas", json=solicitud_valida(), headers={"X-CSRF-Token": csrf}
-            ).status_code == 201
+            )
+            assert creada.status_code == 201
+            ruta_contenido = f"/api/v1/campanas/{creada.json()['id']}/contenido"
+            datos_contenido = {
+                "habilidades": "Sé organizar documentos y manejar hojas de cálculo.",
+                "actividades_deseadas": "Quiero apoyar procesos administrativos.",
+                "asunto": "Solicitud de práctica",
+                "cuerpo": "Hola, me interesa conocer las funciones de esta oportunidad de práctica. Gracias por su tiempo.",
+            }
+            assert cliente.put(ruta_contenido, data=datos_contenido).status_code == 403
+            assert cliente.put(ruta_contenido, data=datos_contenido,
+                               headers={"X-CSRF-Token": csrf}).status_code == 200
             assert cliente.post("/api/v1/autenticacion/cerrar-sesion", headers={"X-CSRF-Token": csrf}).status_code == 204
             assert cliente.get("/api/v1/autenticacion/yo").status_code == 401
             assert cliente.get("/api/v1/gmail/estado").status_code == 401

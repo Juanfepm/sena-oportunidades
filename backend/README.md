@@ -14,8 +14,9 @@ Base local en FastAPI y SQLAlchemy. El código, las rutas y los modelos usan nom
 - Reserva persistente y renovable de un único navegador para el futuro trabajador SGVA.
 - Modelo y servicio de aprobación manual del pago. El cliente nunca puede asignarse premium.
 - Migraciones de PostgreSQL para el esquema inicial, identidad de Google y permiso de Gmail cifrado, con acceso a las tablas cerrado para los roles públicos de Supabase.
+- Guardado opcional y cifrado de perfil, mensaje y adjuntos por campaña durante 24 horas; máximo dos borradores activos por cuenta, borrado manual y limpieza periódica.
 
-No se aceptan contraseñas SGVA, cuerpos de correo ni archivos en los borradores. El endpoint `/api/v1/campanas/{id}/iniciar` devuelve 503 hasta que existan las integraciones seguras. La cola es una base de datos y reglas; todavía no hay un trabajador que consulte SGVA o envíe Gmail.
+`POST /api/v1/campanas` guarda únicamente los filtros. El contenido opcional se recibe por una ruta separada y se cifra antes de persistirlo. Las contraseñas SGVA todavía no se aceptan. El endpoint `/api/v1/campanas/{id}/iniciar` devuelve 503 hasta que exista el trabajador. Las campañas aún no consultan SGVA ni envían Gmail.
 
 La interfaz recuerda que un patrocinio activo o una postulación en curso pueden impedir la búsqueda de empresas en SGVA. Estas condiciones todavía no se comprueban automáticamente. El adaptador futuro distinguirá un rechazo de cuenta (`sgva_restringido`) de una caída del servicio (`sgva_no_disponible`), sin atribuir una causa específica que SGVA no confirme.
 
@@ -43,7 +44,7 @@ La base local SQLite se crea en `backend/datos/` y Git la ignora. Para producci�
 
 ## Preparar PostgreSQL en Supabase
 
-DEBUPA usa PostgreSQL desde el backend; **no utiliza la Data API de Supabase desde el navegador**. La configuración siguiente prepara la base, pero **no habilita aún el servicio para usuarios reales**: faltan inicio de sesión, trabajador, almacenamiento temporal y política de datos definitiva.
+DEBUPA usa PostgreSQL desde el backend; **no utiliza la Data API de Supabase desde el navegador**. La configuración siguiente prepara la base, pero **no habilita aún el servicio para usuarios reales**: faltan el trabajador SGVA, las campañas reales y la política de datos definitiva.
 
 1. Crea un proyecto nuevo en [Supabase](https://supabase.com/dashboard), elige una región apropiada y genera una contraseña larga y única. Guárdala en tu gestor de contraseñas. Si aparece «Automatically expose new tables», déjalo desactivado.
 2. En el proyecto, ve a **Integrations → Data API** y desactiva **Enable Data API**. Así las tablas no tendrán endpoints REST automáticos. En **Database Settings → SSL Configuration**, activa la obligación de SSL y descarga el certificado CA a una carpeta privada fuera del repositorio.
@@ -60,7 +61,7 @@ $env:DEBUPA_BASE_DATOS = [System.Net.NetworkCredential]::new("", $direccionProte
 Remove-Variable direccionProtegida
 ```
 
-6. Comprueba la conexión y aplica la migración **solo en una base nueva y vacía**:
+6. Comprueba la conexión y aplica las migraciones pendientes en la base de este proyecto. Si ya llegaste a `0003`, `upgrade head` añade `0004` sin borrar las tablas anteriores:
 
 ```powershell
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini current
@@ -69,7 +70,7 @@ Remove-Variable direccionProtegida
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini check
 ```
 
-`current` debe mostrar `0003_conexion_gmail_cifrada (head)` después de aplicar las migraciones; `check` debe indicar que no hay operaciones nuevas. En el editor SQL de Supabase puedes comprobarlo sin modificar datos:
+`current` debe mostrar `0004_contenido_temporal (head)` después de aplicar las migraciones; `check` debe indicar que no hay operaciones nuevas. En el editor SQL de Supabase puedes comprobarlo sin modificar datos:
 
 ```sql
 select version_num from alembic_version;
@@ -127,6 +128,10 @@ Activa Gmail API en Google Cloud y declara únicamente el permiso `https://www.g
 | `GET /api/v1/autenticacion/yo` y `POST /api/v1/autenticacion/cerrar-sesion` | Sesión | Muestra la cuenta actual; al salir elimina la conexión de Gmail. |
 | `GET /api/v1/gmail/estado` | Sesión | Indica si Gmail quedó vinculado en el inicio de sesión. |
 | `POST /api/v1/gmail/prueba` | Sesión + CSRF, solo local | Envía una prueba fija a la propia cuenta, una vez por sesión. |
+| `PUT /api/v1/campanas/{id}/contenido` | Sesión + CSRF | Guarda perfil, mensaje y adjuntos cifrados durante 24 horas. |
+| `GET /api/v1/contenidos-temporales` | Sesión | Lista los borradores temporales propios vigentes. |
+| `GET /api/v1/campanas/{id}/contenido` | Sesión | Consulta fecha y nombres de adjuntos propios. |
+| `DELETE /api/v1/campanas/{id}/contenido` | Sesión + CSRF | Borra contenido propio mientras es borrador. |
 | `GET /api/v1/capacidades` | Público | Declara claramente qué integraciones faltan. |
 | `GET /api/v1/planes` | Público | Muestra los límites, no promete una cantidad mínima. |
 | `GET /api/v1/disponibilidad` | Sesión | Indica si el aprendiz puede crear otra búsqueda y la próxima fecha. |
@@ -144,7 +149,7 @@ El navegador no recibe CORS abierto: el frontend y la API comparten origen. Ante
 2. **SGVA:** confirmar con SENA si ofrece una integración autorizada. Si no, un adaptador Playwright con una sola sesión, límites y manejo de caídas. Nunca se pulsará «Aplicar» automáticamente.
 3. **IA:** un adaptador de clasificación que devuelva puntuación, motivo y grado de certeza. Una modalidad remota no mencionada expresamente quedará «por revisar», no confirmada.
 4. **Gmail API:** el envío local de prueba ya renueva el permiso y usa `users.messages.send`. Para campañas faltan envíos individuales confirmados e historial idempotente que evite duplicar destinatarios ante reintentos.
-5. **Almacenamiento temporal cifrado:** contraseña SGVA, perfil, asunto, cuerpo y hasta dos adjuntos deben sobrevivir al cierre del navegador solo mientras dure la campaña, con TTL, claves fuera del repositorio, borrado y pruebas de recuperación. La validación actual de adjuntos no sustituye inspección real de contenido ni análisis antimalware.
+5. **Almacenamiento temporal cifrado:** el perfil, asunto, cuerpo y hasta dos adjuntos ya se pueden guardar de forma opcional durante 24 horas. El servidor borra vencidos al arrancar y cada 15 minutos mientras está activo; el usuario puede borrar antes. Las credenciales SGVA se añadirán solo cuando exista el trabajador. La comprobación de firmas de archivo no sustituye un análisis antimalware. Las copias de seguridad del proveedor pueden conservar datos cifrados más tiempo que las tablas activas.
 6. **Nequi:** QR y comprobante en almacenamiento privado. El administrador contrastará el movimiento real y aprobará desde un panel protegido; no se necesita API de Nequi para la verificación manual.
 7. **PostgreSQL:** la migración inicial está lista, pero aún falta verificarla contra una instancia PostgreSQL real y preparar copias de seguridad. La reserva de un solo navegador usa bloqueo de fila. SQLite queda limitada a desarrollo y pruebas.
 

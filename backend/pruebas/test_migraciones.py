@@ -42,5 +42,7 @@ def test_migracion_genera_sql_postgresql_sin_conectarse(monkeypatch: MonkeyPatch
     assert "CREATE TABLE navegador_sgva" in sentencia
     assert "INSERT INTO navegador_sgva" in sentencia
     assert "ALTER TABLE usuarios ENABLE ROW LEVEL SECURITY" in sentencia
+    assert "ALTER TABLE contenidos_temporales ENABLE ROW LEVEL SECURITY" in sentencia
+    assert "ALTER TABLE adjuntos_temporales ENABLE ROW LEVEL SECURITY" in sentencia
     assert "REVOKE ALL ON TABLE usuarios FROM PUBLIC" in sentencia
     assert "clave-ficticia" not in sentencia

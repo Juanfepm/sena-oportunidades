@@ -4,7 +4,7 @@ Prototipo de una herramienta independiente para ayudar a aprendices del SENA a o
 
 ## Estado actual
 
-El frontend es una vista previa navegable con empresas ficticias. Un único acceso con Google vincula el permiso mínimo de envío de Gmail; su token de renovación se conserva cifrado. La cabecera muestra la cuenta y permite cerrar la sesión y desconectar Gmail con el mismo botón, que elimina el token guardado. En desarrollo local hay una prueba que envía un mensaje predeterminado con un adjunto de texto solo a la propia cuenta. El primer formulario guarda los filtros en la base de datos. La búsqueda, selección de empresas y envíos de campañas siguen siendo demostraciones: faltan SGVA, almacenamiento temporal cifrado del contenido de campaña y el trabajador de la cola. Las credenciales SGVA siguen desactivadas en el frontend.
+El frontend es una vista previa navegable con empresas ficticias. Un único acceso con Google vincula el permiso mínimo de envío de Gmail; su token de renovación se conserva cifrado. La cabecera muestra la cuenta y permite cerrar la sesión y desconectar Gmail con el mismo botón, que elimina el token guardado. En desarrollo local hay una prueba que envía un mensaje predeterminado con un adjunto de texto solo a la propia cuenta. El primer formulario guarda los filtros en la base de datos; el segundo permite guardar, de forma opcional, el perfil, mensaje y adjuntos cifrados durante 24 horas. La búsqueda, selección de empresas y envíos de campañas siguen siendo demostraciones: faltan SGVA y el trabajador de la cola. Las credenciales SGVA siguen desactivadas en el frontend.
 
 El selector muestra una selección práctica de ciudades y municipios principales, verificada con DIVIPOLA. Si una población no aparece, se puede elegir «Todos los municipios». Para actualizar la selección desde la fuente oficial, ejecuta `python -m herramientas.actualizar_municipios` desde la raíz del repositorio. El script actualiza las copias del frontend y el backend.
 
@@ -27,6 +27,8 @@ Estas órdenes suponen que ya configuraste la conexión PostgreSQL, el certifica
 
 Para comprobar Gmail, en la portada pulsa «Enviar prueba a mi correo». Se enviará un solo mensaje a tu propia dirección, con un adjunto de texto pequeño; revisa «Recibidos» y «Enviados». El botón funciona una vez por sesión local y no consume el límite mensual de campañas. Si Gmail no confirma el resultado, revisa «Enviados» antes de iniciar otra sesión: repetir una solicitud incierta podría duplicar el mensaje. No se necesita una nueva migración para esta prueba.
 
+Para probar el guardado temporal, actualiza la base con `.\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini upgrade head`, llena las preferencias y el correo con **datos ficticios** y pulsa «Guardar borrador cifrado». Puedes eliminarlo desde esa pantalla o desde «Tus datos temporales guardados» al volver a entrar. El servidor elimina los borradores vencidos al iniciarse y cada 15 minutos mientras está activo. La vista previa muestra metadatos, pero todavía no permite reabrir el texto para editarlo. Las credenciales SGVA aún no se solicitan.
+
 ## Estructura actual
 
 ```text
@@ -47,7 +49,7 @@ backend/
 
 - Envío individual de correos tras la confirmación del aprendiz.
 - Integración autorizada con SGVA y trabajador Playwright de una sola sesión.
-- Carga temporal cifrada de credenciales, correo y adjuntos, con eliminación verificable.
+- Consulta SGVA y carga temporal de sus credenciales solo cuando exista el trabajador que pueda usarlas.
 - Clasificación explicable, revisión humana y envío individual real.
 - Panel administrativo protegido, almacenamiento privado de comprobantes Nequi y migraciones PostgreSQL.
 

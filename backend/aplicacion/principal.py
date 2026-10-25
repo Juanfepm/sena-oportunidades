@@ -1,5 +1,7 @@
 """API preparada para integraciones futuras, sin simulaciones engañosas."""
 
+import asyncio
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
 from hmac import compare_digest
 from pathlib import Path
@@ -11,6 +13,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 import httpx
+from starlette.formparsers import MultiPartParser
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import Response
 from sqlalchemy import Engine, select
@@ -19,10 +22,12 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from .base_datos import crear_motor, obtener_sesion
 from .configuracion import Configuracion
+from .dominio.archivos import MAXIMO_BYTES
 from .dominio.estados import LIMITES_ARCHIVOS, LIMITES_CONTACTO, TARJETAS_RESUMEN, Plan
 from .esquemas import ResumenCampana, ResumenHistorial, SolicitudBorrador
 from .integraciones.contratos import AccesoSGVARestringido, IntegracionNoDisponible, SGVANoDisponible
 from .modelos import ConexionGmail, HistorialEnvio, Usuario
+from .rutas.temporales import router as router_temporales
 from .seguridad import obtener_token_csrf, obtener_usuario_actual, verificar_csrf
 from .servicios.campanas import EsperaPlanGratis, consultar_campana, consultar_disponibilidad, crear_borrador, listar_borradores
 from .servicios.exclusiones import listar_exclusiones, quitar_exclusion
@@ -34,9 +39,11 @@ from .servicios.envio_gmail import (
     enviar_gmail,
 )
 from .servicios.gmail import ClaveCifradoInvalida, cifrar_token, descifrar_token, obtener_cifrador
+from .servicios.temporales import limpiar_expirados
 
 
 PERMISO_ENVIO_GMAIL = "https://www.googleapis.com/auth/gmail.send"
+MAXIMO_PETICION_TEMPORAL = 11 * 1024 * 1024
 
 
 def pagina_error(tipo: str) -> RedirectResponse:
@@ -56,8 +63,34 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
     except ClaveCifradoInvalida:
         cifrado_disponible = False
     motor = motor or crear_motor(configuracion)
-    api = FastAPI(title="API de DEBUPA", version="0.1.0")
+    MultiPartParser.spool_max_size = MAXIMO_BYTES + 1  # Los adjuntos permitidos permanecen en memoria durante la carga.
+
+    @asynccontextmanager
+    async def ciclo_limpieza(_: FastAPI):
+        def depurar() -> None:
+            try:
+                with api.state.fabrica_sesiones() as sesion:
+                    limpiar_expirados(sesion)
+            except SQLAlchemyError:
+                pass  # La API informará de la caída al recibir una solicitud.
+
+        async def repetir() -> None:
+            while True:
+                await asyncio.sleep(15 * 60)
+                await asyncio.to_thread(depurar)
+
+        await asyncio.to_thread(depurar)
+        tarea = asyncio.create_task(repetir())
+        try:
+            yield
+        finally:
+            tarea.cancel()
+            with suppress(asyncio.CancelledError):
+                await tarea
+
+    api = FastAPI(title="API de DEBUPA", version="0.1.0", lifespan=ciclo_limpieza)
     api.state.configuracion = configuracion
+    api.state.cifrado_disponible = cifrado_disponible
     api.state.fabrica_sesiones = sessionmaker(motor, expire_on_commit=False)
     api.add_middleware(
         SessionMiddleware,
@@ -306,7 +339,16 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
     @api.middleware("http")
     async def proteger_respuestas(peticion: Request, siguiente) -> Response:
         try:
-            respuesta = await siguiente(peticion)
+            if peticion.method == "PUT" and peticion.url.path.endswith("/contenido"):
+                longitud = peticion.headers.get("content-length", "")
+                if not longitud.isdigit():
+                    respuesta = JSONResponse({"detail": "Indica el tamaño total de la solicitud."}, status_code=411)
+                elif int(longitud) > MAXIMO_PETICION_TEMPORAL:
+                    respuesta = JSONResponse({"detail": "El contenido supera el límite permitido."}, status_code=413)
+                else:
+                    respuesta = await siguiente(peticion)
+            else:
+                respuesta = await siguiente(peticion)
         except SQLAlchemyError:
             if peticion.method == "GET" and peticion.url.path == "/api/v1/autenticacion/google/callback":
                 respuesta = pagina_error("base-datos")
@@ -429,6 +471,8 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
             .limit(limite)
         )
         return [ResumenHistorial.model_validate(envio) for envio in sesion.scalars(consulta)]
+
+    api.include_router(router_temporales)
 
     ruta_frontend = Path(__file__).resolve().parents[2] / "frontend"
     api.mount("/", StaticFiles(directory=ruta_frontend, html=True), name="frontend")

@@ -11,6 +11,7 @@ from .dominio.ubicaciones import MUNICIPIOS_POR_DEPARTAMENTO
 
 PATRON_CORREO = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 PATRON_CONTROL = re.compile(r"[\x00-\x1f\x7f]")
+PATRON_CONTROL_TEXTO = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
 
 class SolicitudBorrador(BaseModel):
@@ -69,6 +70,36 @@ class ResumenCampana(BaseModel):
     antiguedad_dias: int
     permitir_recontacto: bool
     creado_en: datetime
+
+
+class SolicitudContenidoTemporal(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    habilidades: str = Field(min_length=20, max_length=500)
+    actividades_deseadas: str = Field(min_length=10, max_length=300)
+    actividades_no_deseadas: str = Field(default="", max_length=240)
+    asunto: str = Field(min_length=3, max_length=100)
+    cuerpo: str = Field(min_length=40, max_length=5000)
+
+    @field_validator("habilidades", "actividades_deseadas", "actividades_no_deseadas", "cuerpo")
+    @classmethod
+    def validar_texto(cls, valor: str) -> str:
+        if PATRON_CONTROL_TEXTO.search(valor):
+            raise ValueError("El texto contiene caracteres de control.")
+        return valor
+
+    @field_validator("asunto")
+    @classmethod
+    def validar_asunto(cls, valor: str) -> str:
+        if PATRON_CONTROL.search(valor):
+            raise ValueError("El asunto no admite saltos de línea ni caracteres de control.")
+        return valor
+
+
+class ResumenContenidoTemporal(BaseModel):
+    campana_id: str
+    vence_en: datetime
+    archivos: list[str]
 
 
 class ResumenHistorial(BaseModel):

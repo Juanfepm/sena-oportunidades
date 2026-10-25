@@ -1,6 +1,7 @@
 import { actualizarEjemplos, configurarCoincidencias, pintarResumen } from "./coincidencias.js";
 import { configurarAutenticacion } from "./autenticacion.js";
-import { guardarPreferencias } from "./campanas.js";
+import { configurarBorradoresTemporales } from "./borradores-temporales.js";
+import { borrarContenidoTemporal, guardarContenidoTemporal, guardarPreferencias } from "./campanas.js";
 import { configurarErrores, mostrarErrorProceso } from "./errores.js";
 import { configurarPruebaGmail } from "./prueba-gmail.js";
 import { configurarRutas, irA } from "./rutas.js";
@@ -154,6 +155,8 @@ function configurarFormularios() {
     try {
       const campana = await guardarPreferencias(formularioCampana, correosExcluidos);
       formularioCampana.dataset.campanaId = campana.id;
+      botonBorrarTemporal.hidden = true;
+      estadoTemporal.textContent = "";
     } catch (error) {
       erroresCampana.textContent = error instanceof Error ? error.message : "No se pudieron guardar tus preferencias.";
       erroresCampana.dataset.origen = "servidor";
@@ -181,6 +184,54 @@ function configurarFormularios() {
   const erroresCorreo = document.querySelector("#errores-correo");
   const entradaArchivos = document.querySelector("#archivos-correo");
   const listaArchivos = document.querySelector("#lista-archivos");
+  const botonGuardarTemporal = document.querySelector("#guardar-contenido-temporal");
+  const botonBorrarTemporal = document.querySelector("#borrar-contenido-temporal");
+  const estadoTemporal = document.querySelector("#estado-contenido-temporal");
+  const guardarTemporal = async () => {
+    const campanaId = formularioCampana.dataset.campanaId;
+    if (!campanaId) {
+      estadoTemporal.textContent = "Primero completa y guarda tus preferencias.";
+      return;
+    }
+    if (!validarAdjuntos(entradaArchivos, erroresCorreo, listaArchivos, limiteArchivos())) return;
+    if (!validarFormulario(formularioCorreo, erroresCorreo)) return;
+    botonGuardarTemporal.disabled = true;
+    estadoTemporal.textContent = "Guardando contenido cifrado…";
+    try {
+      const resumen = await guardarContenidoTemporal(campanaId, formularioCampana, formularioCorreo);
+      const fecha = new Date(resumen.vence_en).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
+      estadoTemporal.textContent = `Borrador cifrado guardado hasta el ${fecha}. No se ha enviado a empresas.`;
+      botonBorrarTemporal.hidden = false;
+      window.dispatchEvent(new CustomEvent("debupa:contenidos-actualizados", { detail: { campanaId, accion: "guardado" } }));
+    } catch (error) {
+      estadoTemporal.textContent = error instanceof Error ? error.message : "No se pudo guardar el borrador.";
+    } finally {
+      botonGuardarTemporal.disabled = false;
+    }
+  };
+  botonGuardarTemporal.addEventListener("click", guardarTemporal);
+  botonBorrarTemporal.addEventListener("click", async () => {
+    botonBorrarTemporal.disabled = true;
+    estadoTemporal.textContent = "Eliminando contenido guardado…";
+    try {
+      await borrarContenidoTemporal(formularioCampana.dataset.campanaId);
+      botonBorrarTemporal.hidden = true;
+      estadoTemporal.textContent = "Borrador temporal eliminado.";
+      window.dispatchEvent(new CustomEvent("debupa:contenidos-actualizados", {
+        detail: { campanaId: formularioCampana.dataset.campanaId, accion: "borrado" },
+      }));
+    } catch (error) {
+      estadoTemporal.textContent = error instanceof Error ? error.message : "No se pudo eliminar el borrador.";
+    } finally {
+      botonBorrarTemporal.disabled = false;
+    }
+  });
+  window.addEventListener("debupa:contenidos-actualizados", (evento) => {
+    if (evento.detail?.accion === "borrado" && evento.detail.campanaId === formularioCampana.dataset.campanaId) {
+      botonBorrarTemporal.hidden = true;
+      estadoTemporal.textContent = "Borrador temporal eliminado.";
+    }
+  });
   const plan = document.querySelector("#plan-campana");
   const limiteArchivos = () => plan.value === "premium" ? 2 : 1;
   const actualizarArchivos = () => {
@@ -286,6 +337,7 @@ if (["correo", "confirmacion", "progreso", "resultados"].includes(window.locatio
 
 document.querySelector("#anio-actual").textContent = String(new Date().getFullYear());
 configurarRutas();
+configurarBorradoresTemporales();
 configurarPruebaGmail();
 configurarAutenticacion();
 configurarUbicaciones();

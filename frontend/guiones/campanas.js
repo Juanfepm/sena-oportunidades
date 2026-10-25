@@ -46,3 +46,27 @@ export async function guardarPreferencias(formulario, correosExcluidos) {
   }
   return respuesta.json();
 }
+
+export async function guardarContenidoTemporal(campanaId, formularioCampana, formularioCorreo) {
+  const datos = new FormData();
+  for (const nombre of ["habilidades", "actividades_deseadas", "actividades_no_deseadas"]) {
+    datos.set(nombre, formularioCampana.elements[nombre].value);
+  }
+  for (const nombre of ["asunto", "cuerpo"]) {
+    datos.set(nombre, formularioCorreo.elements[nombre].value);
+  }
+  for (const archivo of formularioCorreo.elements.archivos.files) datos.append("archivos", archivo);
+  const respuesta = await enviarConCsrf(`/api/v1/campanas/${encodeURIComponent(campanaId)}/contenido`, {
+    method: "PUT",
+    body: datos,
+  });
+  if (!respuesta.ok) throw new Error((await leerMensajeError(respuesta)).mensaje);
+  return respuesta.json();
+}
+
+export async function borrarContenidoTemporal(campanaId) {
+  const respuesta = await enviarConCsrf(`/api/v1/campanas/${encodeURIComponent(campanaId)}/contenido`, {
+    method: "DELETE",
+  });
+  if (!respuesta.ok) throw new Error((await leerMensajeError(respuesta)).mensaje);
+}
