@@ -137,6 +137,8 @@ def test_campana_sgva_recibe_credenciales_solo_en_memoria(monkeypatch, usar_ia) 
         assert cliente.post(ruta, headers=acceso).status_code == 422
         datos_acceso = {"numero_documento": "1234567890", "clave_sgva": "clave-sgva-solo-prueba"}
         if usar_ia:
+            assert cliente.post(ruta, headers=acceso, json=datos_acceso).status_code == 422
+            assert cliente.post(ruta, headers=acceso, json={**datos_acceso, "numero_documento": "1.235.678"}).status_code == 422
             datos_acceso.update({"acepta_ia": True, "perfil_ia": {
                 "habilidades": "Aprendí hojas de cálculo y análisis", "actividades_deseadas": "Analizar datos",
                 "actividades_no_deseadas": "Ventas"}})

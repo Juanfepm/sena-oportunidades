@@ -140,7 +140,7 @@ class SolicitudAccesoSGVA(BaseModel):
     """Solo existe durante la petición y en la cola de memoria del proceso."""
 
     model_config = ConfigDict(extra="forbid")
-    numero_documento: str = Field(pattern=r"^\d{5,15}$")
+    numero_documento: str = Field(pattern=r"^[0-9]{5,15}$")
     clave_sgva: SecretStr = Field(min_length=1, max_length=128)
     acepta_ia: bool = False
     perfil_ia: PerfilTemporalIA | None = None

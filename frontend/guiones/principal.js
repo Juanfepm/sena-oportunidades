@@ -29,7 +29,11 @@ async function configurarConsultaSgva() {
     const capacidades = await respuesta.json();
     consultaSgvaActiva = capacidades.sgva === true;
     if (!consultaSgvaActiva) return;
-    document.querySelector("#opcion-ia").hidden = capacidades.clasificacion_ia !== true;
+    const opcionIa = document.querySelector("#opcion-ia");
+    const aceptarIa = document.querySelector("#aceptar-ia");
+    // Cuando Gemini está habilitado, la autorización es obligatoria tanto en la vista como en la API.
+    opcionIa.hidden = capacidades.clasificacion_ia !== true;
+    aceptarIa.required = capacidades.clasificacion_ia === true;
     const documento = document.querySelector("#numero-documento");
     const clave = document.querySelector("#clave-sgva");
     for (const campo of [documento, clave]) { campo.disabled = false; campo.required = true; }
@@ -39,6 +43,21 @@ async function configurarConsultaSgva() {
     clave.placeholder = "Tu contraseña de SGVA";
     documento.nextElementSibling.textContent = "Se usa solo durante la consulta.";
     clave.nextElementSibling.textContent = "Se borra del formulario al iniciar y no se guarda en la base de datos.";
+    documento.addEventListener("input", () => {
+      const posicion = documento.selectionStart;
+      const valorAnterior = documento.value;
+      documento.value = valorAnterior.replace(/[^0-9]/g, "").slice(0, 15);
+      if (posicion !== null) documento.setSelectionRange(Math.min(posicion, documento.value.length), Math.min(posicion, documento.value.length));
+    });
+    documento.addEventListener("keydown", (evento) => {
+      if (evento.ctrlKey || evento.metaKey || evento.altKey) return;
+      const teclasEdicion = new Set(["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Home", "End", "Tab"]);
+      if (!/^\d$/.test(evento.key) && !teclasEdicion.has(evento.key)) evento.preventDefault();
+    });
+    documento.addEventListener("paste", (evento) => {
+      const texto = evento.clipboardData?.getData("text") ?? "";
+      if (/[^0-9]/.test(texto)) evento.preventDefault();
+    });
     document.querySelector("#formulario-correo button[type='submit']").textContent = "Consultar ofertas en SGVA";
     document.querySelector(".correo_borrador").textContent = "Se enviará solo tras tu confirmación";
     document.querySelector(".correo_temporal > p").textContent = "Tu mensaje y adjuntos se guardarán cifrados al iniciar la consulta, hasta 24 horas. Puedes borrarlos antes de confirmar. Tras el envío se eliminan.";

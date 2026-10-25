@@ -139,7 +139,7 @@
               <legend>Acceso a SGVA</legend>
               <p class="ayuda_grupo">En la versión operativa se solicitarán una vez por campaña y se eliminarán al terminar la consulta.</p>
               <div class="fila_campos">
-                <div class="campo"><label for="numero-documento">Número de documento</label><input id="numero-documento" name="numero_documento" type="text" inputmode="numeric" autocomplete="off" placeholder="Disponible al conectar SGVA" disabled><small>Desactivado en esta vista previa.</small></div>
+                <div class="campo"><label for="numero-documento">Número de documento</label><input id="numero-documento" name="numero_documento" type="text" inputmode="numeric" pattern="[0-9]{5,15}" maxlength="15" autocomplete="off" placeholder="Disponible al conectar SGVA" disabled><small>Solo números, sin puntos, espacios ni signos.</small></div>
                 <div class="campo"><label for="clave-sgva">Contraseña SGVA</label><input id="clave-sgva" name="clave_sgva" type="password" autocomplete="off" placeholder="Disponible al conectar SGVA" disabled><small>Nunca se guardará en el navegador.</small></div>
               </div>
             </fieldset>

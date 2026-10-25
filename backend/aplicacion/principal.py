@@ -471,6 +471,8 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
         if configuracion.sgva_activo:
             if acceso is None:
                 raise HTTPException(422, "Introduce tu documento y contraseña de SGVA para esta consulta.")
+            if configuracion.gemini_clave and (not acceso.acepta_ia or acceso.perfil_ia is None):
+                raise HTTPException(422, "Debes autorizar el análisis de IA y completar tu perfil para esta consulta.")
             if acceso.acepta_ia and (not configuracion.gemini_clave or acceso.perfil_ia is None):
                 raise HTTPException(422, "La IA requiere tu perfil y una clave de servicio configurada.")
             if api.state.cola_sgva.full():
