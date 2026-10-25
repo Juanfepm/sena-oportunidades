@@ -1,140 +1,130 @@
-DEBUPA - COMANDOS PARA INICIAR EL PROYECTO
-============================================
+DEBUPA - INSTRUCCIONES ACTUALIZADAS PARA INICIAR EL PROYECTO
+==============================================================
 
-Usa una terminal nueva de PowerShell en VS Code.
-Ejecuta los bloques en este orden. Las variables configuradas aquí solo duran
-mientras esta terminal esté abierta.
+Estas instrucciones son para iniciar DEBUPA desde una terminal nueva de PowerShell.
+No abras el HTML directamente: el frontend y la API deben servirse juntos desde Uvicorn.
 
-1. UBICARSE EN EL PROYECTO Y ACTIVAR EL ENTORNO
-------------------------------------------------
+Las variables $env: solo duran mientras esta terminal esté abierta. No pegues cadenas
+con contraseñas en GitHub, capturas ni chats.
 
+1. UBICARSE EN EL PROYECTO
+--------------------------
 cd "C:\Users\juanf\Downloads\Trabajo Programación\sena-oportunidades"
+
+Si recibiste cambios nuevos:
+git pull origin main
+
+2. CREAR O ACTIVAR EL ENTORNO VIRTUAL
+-------------------------------------
+Si .venv todavía no existe:
+python -m venv .venv
+
+Activa el entorno:
 .\.venv\Scripts\Activate.ps1
 
+Si PowerShell bloquea Activate.ps1, ejecuta solo para esta terminal:
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
-2. CONFIGURAR POSTGRESQL DE SUPABASE
+Después vuelve a ejecutar:
+.\.venv\Scripts\Activate.ps1
+
+3. INSTALAR DEPENDENCIAS
+------------------------
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r backend\requirements-postgresql.txt
+
+4. CONFIGURAR POSTGRESQL DE SUPABASE
 ------------------------------------
-
 En Supabase abre Connect, elige Session pooler y copia la cadena completa.
-Debe incluir un usuario con el formato postgres.TU_PROJECT_REF, no solo postgres.
-La contraseña debe ser la contraseña actual de la base de datos.
+Debe incluir un usuario postgres.TU_PROJECT_REF y la contraseña actual.
 
-$env:DEBUPA_BASE_DATOS = "PEGA_AQUI_LA_CADENA_DE_SUPABASE"
+$env:DEBUPA_BASE_DATOS = "PEGA_AQUI_LA_CADENA_COMPLETA_DE_SUPABASE"
 
-Si la cadena copiada comienza por postgresql://, ejecuta esta conversión:
-
+Si comienza por postgresql://, conviértela:
 $env:DEBUPA_BASE_DATOS = $env:DEBUPA_BASE_DATOS -replace "^postgresql://", "postgresql+psycopg://"
 
-SSL es obligatorio para el pooler. Agrega sslmode=verify-full al final. Si la
-cadena no tiene un signo ?, ejecuta:
-
+Si no tiene ?, agrega:
 $env:DEBUPA_BASE_DATOS += "?sslmode=verify-full"
 
-Si la cadena ya tiene ?, ejecuta en su lugar:
-
+Si ya tiene ?, agrega:
 $env:DEBUPA_BASE_DATOS += "&sslmode=verify-full"
 
-Indica dónde guardaste el certificado descargado de Supabase:
+Si la contraseña tiene caracteres especiales, codifícalos para una URL. No cambies
+el usuario, servidor ni puerto de Supabase.
 
+Indica la ruta del certificado CA descargado desde Supabase:
 $env:PGSSLROOTCERT = "C:\Users\juanf\Downloads\prod-ca-2021.crt"
 
-Comprobación rápida. Debe mostrar True:
-
+Comprueba sin imprimir la cadena completa:
 $env:DEBUPA_BASE_DATOS.StartsWith("postgresql+psycopg://")
 $env:DEBUPA_BASE_DATOS -match "^postgresql\+psycopg://postgres\.[a-z0-9]+:"
 $env:DEBUPA_BASE_DATOS -match "sslmode=verify-full"
 Test-Path $env:PGSSLROOTCERT
 
-Los cuatro comandos deben devolver True. No imprimas la cadena completa porque
-contiene tu contraseña.
+Los cuatro comandos deben devolver True.
 
-
-3. CONFIGURAR GOOGLE OAUTH
+5. CONFIGURAR GOOGLE OAUTH
 --------------------------
+En Google Cloud usa un cliente OAuth de tipo Aplicación web. Para el uso local,
+registra exactamente esta URI autorizada:
+http://127.0.0.1:8000/api/v1/autenticacion/google/callback
 
-Reemplaza solo el contenido entre comillas por los valores de tu cliente web
-de Google Cloud. No subas estas claves a GitHub ni las pegues en archivos.
-
+Configura los valores en esta terminal, sin escribirlos en archivos del repositorio:
 $env:DEBUPA_ENTORNO = "desarrollo"
 $env:GOOGLE_CLIENTE_ID = "PEGA_AQUI_TU_CLIENT_ID"
 $env:GOOGLE_CLIENTE_SECRETO = "PEGA_AQUI_TU_CLIENT_SECRET"
 $env:GOOGLE_URI_REDIRECCION = "http://127.0.0.1:8000/api/v1/autenticacion/google/callback"
 $env:GOOGLE_URL_INICIO = "/#inicio"
-
-Genera un secreto temporal nuevo para firmar la sesión. Ejecuta esta línea tal
-cual una vez por terminal:
-
 $env:DEBUPA_SECRETO_SESION = ((New-Guid).Guid + (New-Guid).Guid).Replace("-", "")
 
-
-4. INSTALAR DEPENDENCIAS (SOLO SI ES UNA COMPUTADORA NUEVA O FALTAN PAQUETES)
--------------------------------------------------------------------------------
-
-.\.venv\Scripts\python.exe -m pip install -r backend\requirements-postgresql.txt
-
-
-5. CLAVE DE CIFRADO PARA GMAIL Y BORRADORES TEMPORALES
------------------------------
-
-El inicio de sesión vincula Google y Gmail en un solo paso. La primera vez,
-genera una clave:
-
+6. CONFIGURAR LA CLAVE DE CIFRADO
+----------------------------------
+Protege el permiso de Gmail y los borradores temporales. La primera vez genera una
+clave y guárdala en un gestor de contraseñas:
 .\.venv\Scripts\python.exe -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 
-Copia el resultado en un gestor de contraseñas. En cada terminal, usa exactamente
-la misma clave guardada; no generes una nueva porque impediría abrir permisos
-de Gmail y borradores temporales ya cifrados:
+En cada terminal usa exactamente la misma clave guardada:
+$env:DEBUPA_CLAVE_CIFRADO = "PEGA_AQUI_LA_CLAVE_GUARDADA"
 
-$env:DEBUPA_CLAVE_CIFRADO = "PEGA_AQUI_TU_MISMA_CLAVE_GUARDADA"
+No generes una nueva si ya existen conexiones de Gmail o borradores cifrados.
 
-6. ACTUALIZAR LA BASE DE DATOS
+7. ACTUALIZAR LA BASE DE DATOS
 ------------------------------
-
+Aplica las migraciones pendientes. Ejecutar upgrade head otra vez es seguro:
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini upgrade head
+.\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini current
+.\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini check
 
+current debe mostrar 0004_contenido_temporal (head).
+check debe terminar con No new upgrade operations detected.
 
-7. INICIAR EL SERVIDOR
+8. INICIAR EL SERVIDOR
 ----------------------
-
 .\.venv\Scripts\python.exe -m uvicorn backend.aplicacion.principal:aplicacion --reload --host 127.0.0.1 --port 8000
 
+Mantén esta terminal abierta mientras usas la aplicación.
 
-8. ABRIR LA APLICACIÓN
-----------------------
+9. ABRIR DEBUPA
+---------------
+Aplicación: http://127.0.0.1:8000/
+Documentación técnica: http://127.0.0.1:8000/docs
 
-En el navegador entra a:
+Inicia sesión con «Entrar con Google». La prueba local de Gmail envía un mensaje
+fijo únicamente a tu propia cuenta. Las campañas SGVA aún no están habilitadas.
 
-http://127.0.0.1:8000/
+10. DETENER EL SERVIDOR
+-----------------------
+En la terminal donde está Uvicorn, presiona Ctrl + C.
 
-La documentación técnica de la API queda en:
-
-http://127.0.0.1:8000/docs
-
-
-DETENER EL SERVIDOR
--------------------
-
-En la terminal que tiene Uvicorn activo, presiona:
-
-Ctrl + C
-
-
-NOTAS IMPORTANTES
------------------
-
-- No abras el frontend con Live Server ni con el archivo index.html directamente.
-  Debe abrirse desde http://127.0.0.1:8000/ para que Google OAuth y la sesión
-  funcionen correctamente.
-- Si cierras la terminal, tendrás que repetir los pasos 1, 2, 3, 5, 6 y 7.
-- Si GitHub tiene cambios nuevos, antes de instalar dependencias y aplicar
-  migraciones ejecuta:
-
-  git pull origin main
-
-- Si PowerShell bloquea Activate.ps1, ejecuta una sola vez:
-
-  Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-
-  Luego vuelve a ejecutar:
-
-  .\.venv\Scripts\Activate.ps1
+PROBLEMAS FRECUENTES
+--------------------
+- «DEBUPA_BASE_DATOS no configurada»: repite el paso 4 en la misma terminal de
+  Alembic y Uvicorn.
+- Error de certificado: verifica que PGSSLROOTCERT apunte a un archivo existente y
+  que la cadena use sslmode=verify-full.
+- redirect_uri_mismatch: la URI de Google Cloud debe coincidir exactamente con
+  GOOGLE_URI_REDIRECCION.
+- «No module named alembic»: activa .venv y repite el paso 3.
+- Página incorrecta: abre http://127.0.0.1:8000/, no frontend/index.html ni un
+  servidor separado para el frontend.
+- Si cambiaste de terminal, repite los pasos 4, 5 y 6 antes de migrar y levantar Uvicorn.
