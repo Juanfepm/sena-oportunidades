@@ -74,7 +74,7 @@ Remove-Variable direccionProtegida
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini check
 ```
 
-`current` debe mostrar `0006_seleccion_revision (head)` después de aplicar las migraciones; `check` debe indicar que no hay operaciones nuevas. En el editor SQL de Supabase puedes comprobarlo sin modificar datos:
+`current` debe mostrar `0007_envios_confirmados (head)` después de aplicar las migraciones; `check` debe indicar que no hay operaciones nuevas. En el editor SQL de Supabase puedes comprobarlo sin modificar datos:
 
 ```sql
 select version_num from alembic_version;
@@ -121,7 +121,7 @@ $env:DEBUPA_SECRETO_SESION = ((New-Guid).Guid + (New-Guid).Guid).Replace("-", ""
 .\.venv\Scripts\python.exe -m uvicorn backend.aplicacion.principal:aplicacion --host 127.0.0.1 --port 8000
 ```
 
-Activa Gmail API en Google Cloud y declara únicamente el permiso `https://www.googleapis.com/auth/gmail.send`. Con la clave de cifrado configurada, «Entrar con Google» autoriza la cuenta y Gmail en un solo paso. DEBUPA solicita acceso offline y guarda únicamente el token de renovación cifrado. «Cerrar sesión» elimina ese token local e intenta revocar el permiso en Google; si Google no responde, el acceso local queda eliminado. Para volver a vincular Gmail, inicia sesión de nuevo. En desarrollo local puedes enviar una prueba únicamente a tu propia cuenta; las campañas todavía no envían mensajes y DEBUPA no lee la bandeja.
+Activa Gmail API en Google Cloud y declara únicamente el permiso `https://www.googleapis.com/auth/gmail.send`. Con la clave de cifrado configurada, «Entrar con Google» autoriza la cuenta y Gmail en un solo paso. DEBUPA solicita acceso offline y guarda únicamente el token de renovación cifrado. «Cerrar sesión» elimina ese token local e intenta revocar el permiso en Google; si Google no responde, el acceso local queda eliminado. Para volver a vincular Gmail, inicia sesión de nuevo. En desarrollo local puedes enviar una prueba únicamente a tu propia cuenta. Las campañas consultadas en SGVA pueden enviar mensajes reales después de una confirmación final; DEBUPA no lee la bandeja.
 
 ## Rutas disponibles
 
@@ -144,6 +144,10 @@ Activa Gmail API en Google Cloud y declara únicamente el permiso `https://www.g
 | `POST /api/v1/campanas/{id}/iniciar` | Sesión + CSRF | En modo SGVA recibe credenciales y, si el usuario autoriza IA, `acepta_ia` y `perfil_ia`; en modo demo prepara ejemplos. No envía mensajes. |
 | `GET /api/v1/campanas/{id}/destinatarios` | Sesión | Muestra hasta nueve ofertas al plan gratis y todas al premium, con el estado de selección guardado. |
 | `PUT /api/v1/campanas/{id}/seleccion` | Sesión + CSRF | Guarda la selección propia; valida límites del plan, visibilidad y correo antes de aceptarla. No envía mensajes. |
+| `GET /api/v1/campanas/{id}/contenido/edicion` | Sesión | Recupera texto y nombres de adjuntos para editar antes de la confirmación; no entrega los archivos. |
+| `GET /api/v1/campanas/{id}/preparacion-envio` | Sesión | Muestra remitente, mensaje, adjuntos y destinatarios aptos u omitidos; entrega una confirmación temporal firmada. |
+| `POST /api/v1/campanas/{id}/enviar` | Sesión + CSRF | Con confirmación explícita, reserva los destinatarios y pone los envíos individuales en cola. |
+| `GET /api/v1/campanas/{id}/resultado-envio` | Sesión | Muestra estados y contactos de la campaña sin exponer el contenido cifrado. |
 | `GET /api/v1/correos-excluidos` y `DELETE /api/v1/correos-excluidos/{correo}` | Sesión | Gestiona exclusiones propias. |
 | `GET /api/v1/historial` | Sesión | Lee solo envíos propios registrados por DEBUPA. |
 
@@ -154,8 +158,8 @@ El navegador no recibe CORS abierto: el frontend y la API comparten origen. Ante
 1. **Google Identity Services / OAuth 2.0:** inicio de sesión verificable con permiso `gmail.send` y acceso offline. No se necesita `gmail.readonly` si el historial se basa en los envíos registrados por DEBUPA. Para campañas que sigan cuando el usuario cierre el navegador se usará el token de renovación cifrado.
 2. **SGVA:** confirmar con SENA si ofrece una integración autorizada. Si no, un adaptador Playwright con una sola sesión, límites y manejo de caídas. Nunca se pulsará «Aplicar» automáticamente.
 3. **IA:** el adaptador Gemini 3.5 Flash-Lite clasifica en lotes con una clave `GEMINI_API_KEY` creada en Google AI Studio y autorización específica en el formulario. El perfil y las funciones se transmiten al proveedor tras retirar patrones de contacto; no se envían credenciales, correo redactado ni adjuntos. La modalidad no mencionada queda «posible» y requiere revisión. En el nivel gratuito Google puede usar las entradas para mejorar sus productos. Los límites gratuitos varían y el servicio puede devolver ofertas sin puntuación. Esta integración se ha probado con respuestas simuladas; falta comprobar una llamada real con una clave propia antes de un piloto.
-4. **Gmail API:** el envío local de prueba ya renueva el permiso y usa `users.messages.send`. Para campañas faltan envíos individuales confirmados e historial idempotente que evite duplicar destinatarios ante reintentos.
-5. **Almacenamiento temporal cifrado:** el perfil, asunto, cuerpo y hasta dos adjuntos ya se pueden guardar de forma opcional durante 24 horas. El servidor borra vencidos al arrancar y cada 15 minutos mientras está activo; el usuario puede borrar antes. Las credenciales SGVA no se escriben en tablas ni archivos y se pierden si el proceso se reinicia. La comprobación de firmas de archivo no sustituye un análisis antimalware. Las copias de seguridad del proveedor pueden conservar datos cifrados más tiempo que las tablas activas.
+4. **Gmail API:** el envío local de prueba y las campañas autorizadas usan `users.messages.send`. Se registra cada intento antes de llamar a Gmail; si la respuesta es incierta, no se reintenta automáticamente. El usuario debe revisar «Enviados». Al terminar, se envía al propio aprendiz un resumen de números válidos.
+5. **Almacenamiento temporal cifrado:** el perfil, asunto, cuerpo y hasta dos adjuntos se guardan al iniciar una consulta SGVA durante un máximo de 24 horas y se eliminan al terminar el envío. El servidor borra vencidos al arrancar y cada 15 minutos mientras está activo; el usuario puede borrar antes. Las credenciales SGVA no se escriben en tablas ni archivos y se pierden si el proceso se reinicia. La comprobación de firmas de archivo no sustituye un análisis antimalware. Las copias de seguridad del proveedor pueden conservar datos cifrados más tiempo que las tablas activas.
 6. **Nequi:** QR y comprobante en almacenamiento privado. El administrador contrastará el movimiento real y aprobará desde un panel protegido; no se necesita API de Nequi para la verificación manual.
 7. **PostgreSQL:** la migración inicial está lista, pero aún falta verificarla contra una instancia PostgreSQL real y preparar copias de seguridad. La reserva de un solo navegador usa bloqueo de fila. SQLite queda limitada a desarrollo y pruebas.
 

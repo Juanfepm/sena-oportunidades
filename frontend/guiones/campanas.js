@@ -71,6 +71,14 @@ export async function borrarContenidoTemporal(campanaId) {
   if (!respuesta.ok) throw new Error((await leerMensajeError(respuesta)).mensaje);
 }
 
+export async function consultarContenidoParaEdicion(campanaId) {
+  const respuesta = await fetch(`/api/v1/campanas/${encodeURIComponent(campanaId)}/contenido/edicion`, {
+    credentials: "same-origin", cache: "no-store",
+  });
+  if (!respuesta.ok) throw new Error((await leerMensajeError(respuesta)).mensaje);
+  return respuesta.json();
+}
+
 export async function iniciarCampana(campanaId, acceso = null) {
   const respuesta = await enviarConCsrf(`/api/v1/campanas/${encodeURIComponent(campanaId)}/iniciar`, {
     method: "POST",
@@ -114,6 +122,32 @@ export async function guardarSeleccion(campanaId, destinatarios) {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ destinatarios }),
+  });
+  if (!respuesta.ok) throw new Error((await leerMensajeError(respuesta)).mensaje);
+  return respuesta.json();
+}
+
+export async function prepararEnvio(campanaId) {
+  const respuesta = await fetch(`/api/v1/campanas/${encodeURIComponent(campanaId)}/preparacion-envio`, {
+    credentials: "same-origin", cache: "no-store",
+  });
+  if (!respuesta.ok) throw new Error((await leerMensajeError(respuesta)).mensaje);
+  return respuesta.json();
+}
+
+export async function confirmarEnvio(campanaId, destinatarios, confirmacion) {
+  const respuesta = await enviarConCsrf(`/api/v1/campanas/${encodeURIComponent(campanaId)}/enviar`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ destinatarios, confirmado: true, confirmacion }),
+  });
+  if (!respuesta.ok) throw new Error((await leerMensajeError(respuesta)).mensaje);
+  return respuesta.json();
+}
+
+export async function consultarResultadoEnvio(campanaId) {
+  const respuesta = await fetch(`/api/v1/campanas/${encodeURIComponent(campanaId)}/resultado-envio`, {
+    credentials: "same-origin", cache: "no-store",
   });
   if (!respuesta.ok) throw new Error((await leerMensajeError(respuesta)).mensaje);
   return respuesta.json();

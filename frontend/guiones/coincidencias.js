@@ -7,6 +7,16 @@ let limiteSeleccion = 8;
 let campanaActual = null;
 let seleccionGuardada = false;
 
+export async function asegurarSeleccionGuardada() {
+  if (!campanaActual || seleccion.size === 0) throw new Error("Selecciona al menos una empresa.");
+  if (!seleccionGuardada) {
+    await guardarSeleccion(campanaActual, [...seleccion]);
+    seleccionGuardada = true;
+    actualizarEstadoSeleccion();
+  }
+  return campanaActual;
+}
+
 function elemento(etiqueta, clase, texto) {
   const nodo = document.createElement(etiqueta);
   if (clase) nodo.className = clase;
@@ -170,6 +180,10 @@ export function cargarCoincidencias(destinatarios, campana, resultadosOcultos = 
   const modalidades = { remoto: "Remoto por confirmar", hibrido: "Híbrido por confirmar", presencial: "Presencial por confirmar" };
   const gratis = campana.plan_aplicado === "gratis";
   campanaActual = campana.id;
+  document.querySelector("#formulario-campana").dataset.campanaId = campana.id;
+  const planFormulario = document.querySelector("#plan-campana");
+  planFormulario.value = campana.plan_aplicado;
+  planFormulario.dispatchEvent(new Event("change"));
   seleccionGuardada = campana.seleccion_guardada === true;
   limiteSeleccion = gratis ? Math.min(8, campana.limite_contactos) : Infinity;
   const mostrados = gratis ? destinatarios.slice(0, 9) : destinatarios;
@@ -214,12 +228,13 @@ export function cargarCoincidencias(destinatarios, campana, resultadosOcultos = 
     ? "Estas ofertas se consultaron en SGVA. Las que muestran porcentaje fueron analizadas con IA, si autorizaste su uso. Comprueba la modalidad con la empresa. Todavía no se envía ningún correo."
     : "Estas empresas y porcentajes son ficticios. El perfil que redactaste todavía no interviene en la puntuación; la modalidad requiere confirmación con la empresa.";
   document.querySelector("#confirmacion .resumen_revision > p").textContent = campana.modo_consulta === "sgva"
-    ? "Puedes revisar contactos, descripciones y motivos de coincidencia. El envío de campañas se habilitará en una etapa posterior."
+    ? "Revisa contactos, descripciones y motivos. Al continuar verás el mensaje y la lista final antes de autorizar Gmail."
     : "Revisaremos los destinatarios excluidos y los contactos recientes. La versión operativa solicitará una confirmación final antes de enviar.";
   pintarEmpresas();
 }
 
 export function pintarResumen(plan) {
+  document.querySelector("#resultados").dataset.modoConsulta = "demo";
   const tarjetas = document.querySelector("#tarjetas-resultado");
   const registro = document.querySelector("#lista-envios-resumen");
   const empresas = visibles.filter(({ id }) => seleccion.has(id));
@@ -244,4 +259,44 @@ export function pintarResumen(plan) {
     fila.append(elemento("strong", "", empresa.nombre), elemento("span", "", `${empresa.correo} · no enviado`));
     return fila;
   }));
+}
+
+export function pintarResultadoEnvio(resultados, plan, estadoCampana) {
+  document.querySelector("#resultados").dataset.modoConsulta = "sgva";
+  const tarjetas = document.querySelector("#tarjetas-resultado");
+  const registro = document.querySelector("#lista-envios-resumen");
+  const confirmados = resultados.filter(({ estado }) => estado === "enviado");
+  const destacados = plan === "premium" ? confirmados : confirmados.slice(0, 2);
+  tarjetas.replaceChildren(...destacados.map((empresa) => {
+    const tarjeta = elemento("article", "resultado_tarjeta");
+    const cabecera = elemento("div", "resultado_tarjeta_cabecera");
+    cabecera.append(elemento("span", "avatar_empresa", empresa.nombre_empresa.charAt(0)),
+      elemento("span", "pildora_puntuacion", empresa.puntuacion == null ? "Revisada" : `${empresa.puntuacion}% estimado`));
+    const detalles = elemento("dl");
+    [["Correo", empresa.correo], ["Contacto", empresa.telefono_original || "Sin número"],
+      ["Estado", "Confirmado por Gmail"],
+      ["Fecha", new Date(empresa.enviado_en).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" })]]
+      .forEach(([clave, valor]) => {
+        const fila = elemento("div");
+        fila.append(elemento("dt", "", clave), elemento("dd", "", valor));
+        detalles.append(fila);
+      });
+    tarjeta.append(cabecera, elemento("h2", "", empresa.nombre_empresa), elemento("p", "", empresa.motivo), detalles);
+    return tarjeta;
+  }));
+  const textos = { enviado: "Confirmado por Gmail", incierto: "Sin confirmar: revisa Enviados",
+    cancelado: "No enviado", fallido: "No enviado" };
+  registro.replaceChildren(...resultados.map((empresa) => {
+    const fila = elemento("li");
+    fila.append(elemento("strong", "", empresa.nombre_empresa),
+      elemento("span", "", `${empresa.correo} · ${textos[empresa.estado] || "En curso"}`));
+    return fila;
+  }));
+  document.querySelector("#resultados .pagina_encabezado .ceja").textContent = "Resultado de la campaña";
+  document.querySelector("#resultados .pagina_encabezado p").textContent = estadoCampana.estado === "completada"
+    ? `${confirmados.length} mensajes confirmados por Gmail. ${estadoCampana.etapa}`
+    : `${confirmados.length} mensajes confirmados. ${estadoCampana.etapa}`;
+  document.querySelector("#resultados .resultados_siguiente h2").textContent = "Contactos confirmados";
+  document.querySelector("#resultados .resultados_siguiente > p").textContent = "Los números se muestran tal como los publicó cada empresa.";
+  document.querySelector("#resultados .resultados_siguiente h3").textContent = "Registro de destinatarios";
 }

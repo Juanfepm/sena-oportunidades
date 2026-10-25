@@ -1,5 +1,5 @@
-import { consultarCampana, consultarDestinatarios, listarCampanas } from "./campanas.js";
-import { cargarCoincidencias } from "./coincidencias.js";
+import { consultarCampana, consultarDestinatarios, consultarResultadoEnvio, listarCampanas } from "./campanas.js";
+import { cargarCoincidencias, pintarResultadoEnvio } from "./coincidencias.js";
 import { mostrarErrorProceso } from "./errores.js";
 import { irA } from "./rutas.js";
 
@@ -69,6 +69,17 @@ async function abrirResultados(campana, referencia) {
   irA("confirmacion");
 }
 
+async function abrirResultadoEnvio(campana, referencia) {
+  const resultados = await consultarResultadoEnvio(campana.id);
+  if (referencia && seguimiento !== referencia) return;
+  pintarResultadoEnvio(resultados, campana.plan_aplicado, campana);
+  campañaReanudable = campana;
+  document.querySelector("#texto-reanudar-campana").textContent = "Consulta el resultado de tu envío.";
+  document.querySelector("#boton-reanudar-campana").textContent = "Ver resultado del envío";
+  detenerSeguimiento();
+  irA("resultados");
+}
+
 async function revisar(referencia) {
   try {
     const campana = await consultarCampana(referencia.id);
@@ -76,6 +87,10 @@ async function revisar(referencia) {
     pintarEstado(campana, referencia);
     if (campana.estado === "esperando_confirmacion") {
       await abrirResultados(campana, referencia);
+      return;
+    }
+    if (referencia.tipo === "envio" && ["completada", "interrumpida", "error"].includes(campana.estado)) {
+      await abrirResultadoEnvio(campana, referencia);
       return;
     }
     if (["error", "cancelada", "interrumpida"].includes(campana.estado)) {
@@ -90,13 +105,21 @@ async function revisar(referencia) {
   if (seguimiento === referencia) referencia.temporizador = window.setTimeout(() => revisar(referencia), 1200);
 }
 
-export function iniciarSeguimiento(campanaId) {
+export function iniciarSeguimiento(campanaId, tipo = "consulta") {
   detenerSeguimiento();
   campañaReanudable = { id: campanaId, estado: "en_cola" };
-  document.querySelector("#texto-reanudar-campana").textContent = "Tu consulta sigue en curso en el servidor.";
+  document.querySelector("#texto-reanudar-campana").textContent = tipo === "envio" ? "Gmail está procesando tus mensajes." : "Tu consulta sigue en curso en el servidor.";
   document.querySelector("#boton-reanudar-campana").textContent = "Ver progreso";
   document.querySelector("#reanudar-campana").hidden = false;
-  document.querySelector("#pasos-progreso").replaceChildren(...etapas.map((etapa) => {
+  document.querySelector("#progreso .progreso_principal .ceja").textContent = tipo === "envio" ? "Envío por Gmail" : "Consulta de SGVA";
+  document.querySelector("#progreso h1").textContent = tipo === "envio"
+    ? "Enviando tus mensajes autorizados." : "Buscando ofertas visibles para ti.";
+  document.querySelector("#progreso .panel_ayuda_progreso p").textContent = tipo === "envio"
+    ? "Puedes cerrar el navegador. El servidor continuará mientras siga encendido y conservará el resultado." : "Las consultas esperan su turno y su estado queda disponible mientras el servidor siga activo.";
+  document.querySelector("#progreso .nota_fina").textContent = tipo === "envio"
+    ? "Si Gmail no confirma un mensaje, se detendrá el proceso para evitar duplicados." : "Se lee SGVA sin postularte ni enviar correos durante la consulta.";
+  const nombresEtapas = tipo === "envio" ? ["En cola para enviar", "Preparando los mensajes", "Enviando uno a uno", "Resultado disponible"] : etapas;
+  document.querySelector("#pasos-progreso").replaceChildren(...nombresEtapas.map((etapa) => {
     const paso = document.createElement("li");
     paso.textContent = etapa;
     return paso;
@@ -106,7 +129,7 @@ export function iniciarSeguimiento(campanaId) {
   document.querySelector("#barra-progreso-relleno").style.width = "0%";
   document.querySelector(".barra_progreso").setAttribute("aria-valuenow", "0");
   iniciarDatosDuranteEspera();
-  seguimiento = { id: campanaId, temporizador: null, maximoMostrado: 0 };
+  seguimiento = { id: campanaId, tipo, temporizador: null, maximoMostrado: 0 };
   irA("progreso");
   revisar(seguimiento);
 }
@@ -117,10 +140,13 @@ export function configurarSeguimiento() {
   document.querySelector("#boton-reanudar-campana").addEventListener("click", async () => {
     if (!campañaReanudable) return;
     const campana = campañaReanudable;
-    if (campana.estado === "esperando_confirmacion") {
+    if (["completada", "interrumpida", "error"].includes(campana.estado) && campana.modo_consulta === "sgva" && campana.seleccion_guardada) {
+      try { await abrirResultadoEnvio(campana); }
+      catch (error) { mostrarErrorProceso("servicio", error.message); }
+    } else if (campana.estado === "esperando_confirmacion") {
       try { await abrirResultados(campana); }
       catch (error) { mostrarErrorProceso("servicio", error.message); }
-    } else iniciarSeguimiento(campana.id);
+    } else iniciarSeguimiento(campana.id, campana.estado === "enviando" ? "envio" : "consulta");
   });
   window.addEventListener("debupa:cuenta-actualizada", async (evento) => {
     const version = ++versionCuenta;
@@ -133,14 +159,19 @@ export function configurarSeguimiento() {
     try {
       const campanas = await listarCampanas();
       if (version !== versionCuenta || !Array.isArray(campanas)) return;
-      campañaReanudable = campanas.find(({ estado }) => ["en_cola", "consultando", "esperando_confirmacion"].includes(estado));
+      campañaReanudable = campanas.find(({ estado, modo_consulta, seleccion_guardada }) =>
+        ["en_cola", "consultando", "esperando_confirmacion", "enviando"].includes(estado)
+        || (modo_consulta === "sgva" && seleccion_guardada && ["completada", "interrumpida", "error"].includes(estado)));
       if (!campañaReanudable) return;
       const lista = campañaReanudable.estado === "esperando_confirmacion";
+      const resultadoEnvio = ["completada", "interrumpida", "error"].includes(campañaReanudable.estado)
+        && campañaReanudable.modo_consulta === "sgva" && campañaReanudable.seleccion_guardada;
       document.querySelector("#texto-reanudar-campana").textContent = lista
         ? (campañaReanudable.modo_consulta === "sgva" ? "Tienes ofertas de SGVA listas para revisar." : "Tienes ofertas ficticias listas para revisar.")
-        : "Tu consulta sigue en curso en el servidor.";
+        : resultadoEnvio ? "Consulta el resultado de tu envío." : "Tu campaña sigue en curso en el servidor.";
       document.querySelector("#boton-reanudar-campana").textContent = lista
-        ? (campañaReanudable.modo_consulta === "sgva" ? "Ver ofertas consultadas" : "Ver resultados de ejemplo") : "Ver progreso";
+        ? (campañaReanudable.modo_consulta === "sgva" ? "Ver ofertas consultadas" : "Ver resultados de ejemplo")
+        : resultadoEnvio ? "Ver resultado del envío" : "Ver progreso";
       panel.hidden = false;
     } catch {
       panel.hidden = true;

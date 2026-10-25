@@ -1,7 +1,7 @@
-import { configurarCoincidencias, pintarResumen } from "./coincidencias.js";
+import { asegurarSeleccionGuardada, configurarCoincidencias, pintarResumen } from "./coincidencias.js";
 import { configurarAutenticacion } from "./autenticacion.js";
 import { configurarBorradoresTemporales } from "./borradores-temporales.js";
-import { borrarContenidoTemporal, guardarContenidoTemporal, guardarPreferencias, iniciarCampana } from "./campanas.js";
+import { borrarContenidoTemporal, confirmarEnvio, consultarCampana, consultarContenidoParaEdicion, guardarContenidoTemporal, guardarPreferencias, iniciarCampana, prepararEnvio } from "./campanas.js";
 import { configurarErrores, mostrarErrorProceso } from "./errores.js";
 import { configurarPruebaGmail } from "./prueba-gmail.js";
 import { configurarRutas, irA } from "./rutas.js";
@@ -40,15 +40,15 @@ async function configurarConsultaSgva() {
     documento.nextElementSibling.textContent = "Se usa solo durante la consulta.";
     clave.nextElementSibling.textContent = "Se borra del formulario al iniciar y no se guarda en la base de datos.";
     document.querySelector("#formulario-correo button[type='submit']").textContent = "Consultar ofertas en SGVA";
-    document.querySelector(".correo_borrador").textContent = "Borrador sin envío";
-    document.querySelector(".correo_temporal > p").textContent = "Puedes guardar este borrador cifrado durante 24 horas y eliminarlo cuando quieras. La consulta de SGVA no enviará mensajes a empresas.";
+    document.querySelector(".correo_borrador").textContent = "Se enviará solo tras tu confirmación";
+    document.querySelector(".correo_temporal > p").textContent = "Tu mensaje y adjuntos se guardarán cifrados al iniciar la consulta, hasta 24 horas. Puedes borrarlos antes de confirmar. Tras el envío se eliminan.";
     document.querySelector("#progreso .progreso_principal .ceja").textContent = "Consulta de SGVA";
     document.querySelector("#progreso h1").textContent = "Buscando ofertas visibles para ti.";
     document.querySelector("#progreso .panel_ayuda_progreso p").textContent = "Las consultas esperan su turno y su estado permanece disponible en tu cuenta mientras el servidor siga activo.";
     document.querySelector("#progreso .nota_fina").textContent = "Se lee SGVA sin postularte y sin enviar correos.";
     document.querySelector("#campana .aviso_requisitos small").textContent = "DEBUPA todavía no puede comprobar por sí solo si tienes patrocinio o una postulación activa.";
     document.querySelector("#campana .grupo_campo .ayuda_grupo").textContent = "Introduce tus credenciales una vez por consulta; se descartan al terminar y no se guardan en la base de datos.";
-    document.querySelector("#privacidad .texto_legal h2:last-of-type + p").textContent = "El inicio de sesión guarda tu identificador, nombre y correo verificado; también vincula el permiso de Gmail. Documento, contraseña SGVA y perfil usado para IA permanecen solo en memoria durante la consulta. Si autorizas IA, se envían a Gemini únicamente tus intereses y el texto de funciones de las ofertas, sin credenciales, correos ni teléfonos. En el nivel gratuito Google puede usar estos textos para mejorar sus productos. Se guardan las ofertas y puntuaciones para que las revises. No se postula al aprendiz ni se contacta a empresas en esta etapa.";
+    document.querySelector("#privacidad .texto_legal h2:last-of-type + p").textContent = "El inicio de sesión guarda tu identificador, nombre y correo verificado; también vincula el permiso de Gmail. Documento y contraseña SGVA permanecen solo en memoria durante la consulta. Tu perfil, mensaje y adjuntos se guardan cifrados hasta 24 horas o se eliminan al terminar la campaña. Si autorizas IA, se envían a Gemini tus intereses y el texto de funciones, sin credenciales ni datos de contacto. En el nivel gratuito Google puede usar esos textos para mejorar sus productos. Tras tu confirmación final, Gmail enviará a las empresas seleccionadas; se conservará un registro mínimo para evitar duplicados y respetar seis meses entre contactos.";
   } catch { /* La vista de demostración permanece disponible. */ }
 }
 
@@ -181,6 +181,26 @@ function configurarFormularios() {
   const botonGuardarTemporal = document.querySelector("#guardar-contenido-temporal");
   const botonBorrarTemporal = document.querySelector("#borrar-contenido-temporal");
   const estadoTemporal = document.querySelector("#estado-contenido-temporal");
+  document.querySelector("#confirmacion .resumen_revision a[href='#correo']").addEventListener("click", async (evento) => {
+    evento.preventDefault();
+    const campanaId = formularioCampana.dataset.campanaId;
+    try {
+      const contenido = await consultarContenidoParaEdicion(campanaId);
+      for (const nombre of ["habilidades", "actividades_deseadas", "actividades_no_deseadas"]) {
+        formularioCampana.elements[nombre].value = contenido[nombre];
+        formularioCampana.elements[nombre].dispatchEvent(new Event("input"));
+      }
+      formularioCorreo.elements.asunto.value = contenido.asunto;
+      formularioCorreo.elements.cuerpo.value = contenido.cuerpo;
+      estadoTemporal.textContent = contenido.archivos.length
+        ? `Adjuntos guardados: ${contenido.archivos.join(", ")}. Se conservarán si no eliges nuevos archivos.`
+        : "Puedes ajustar el mensaje antes de la confirmación final.";
+      formularioCorreo.querySelector("button[type='submit']").firstChild.textContent = "Guardar cambios del mensaje ";
+      irA("correo");
+    } catch (error) {
+      mostrarErrorProceso("servicio", error.message);
+    }
+  });
   const guardarTemporal = async () => {
     const campanaId = formularioCampana.dataset.campanaId;
     if (!campanaId) {
@@ -251,6 +271,14 @@ function configurarFormularios() {
     const boton = formularioCorreo.querySelector("button[type='submit']");
     boton.disabled = true;
     try {
+      if (consultaSgvaActiva) {
+        const estadoActual = await consultarCampana(campanaId);
+        if (estadoActual.estado === "esperando_confirmacion") {
+          await guardarContenidoTemporal(campanaId, formularioCampana, formularioCorreo);
+          irA("confirmacion");
+          return;
+        }
+      }
       const aceptaIa = document.querySelector("#aceptar-ia").checked;
       const acceso = consultaSgvaActiva ? {
         numero_documento: formularioCampana.elements.numero_documento.value.trim(),
@@ -262,6 +290,7 @@ function configurarFormularios() {
           actividades_no_deseadas: formularioCampana.elements.actividades_no_deseadas.value.trim(),
         } } : {}),
       } : null;
+      if (consultaSgvaActiva) await guardarContenidoTemporal(campanaId, formularioCampana, formularioCorreo);
       await iniciarCampana(campanaId, acceso);
       if (acceso) {
         formularioCampana.elements.numero_documento.value = "";
@@ -325,14 +354,94 @@ function iniciarSimulacion(tipo) {
 }
 
 function configurarSimulacion() {
-  const iniciarEnvio = () => {
+  const panel = document.querySelector("#panel-confirmar-envio");
+  let preparacion = null;
+  let campanaPreparada = null;
+  let focoAnterior = null;
+  const cerrar = (restaurarFoco = true) => {
+    panel.hidden = true;
+    preparacion = null;
+    campanaPreparada = null;
+    if (restaurarFoco) focoAnterior?.focus();
+  };
+  panel.querySelectorAll("[data-cerrar-confirmacion]").forEach((boton) => boton.addEventListener("click", () => cerrar()));
+  document.addEventListener("keydown", (evento) => {
+    if (evento.key === "Escape" && !panel.hidden) cerrar();
+    if (evento.key !== "Tab" || panel.hidden) return;
+    const controles = [...panel.querySelectorAll("button:not([disabled])")];
+    const primero = controles[0];
+    const ultimo = controles.at(-1);
+    if (evento.shiftKey && document.activeElement === primero) {
+      evento.preventDefault();
+      ultimo.focus();
+    } else if (!evento.shiftKey && document.activeElement === ultimo) {
+      evento.preventDefault();
+      primero.focus();
+    }
+  });
+  const iniciarEnvio = async () => {
     if (document.querySelector("#iniciar-simulacion").dataset.modoConsulta === "sgva") {
-      document.querySelector("#aviso-envio-pendiente").hidden = false;
-      document.querySelector("#aviso-envio-movil").hidden = false;
+      const boton = document.querySelector("#iniciar-simulacion");
+      boton.disabled = true;
+      try {
+        campanaPreparada = await asegurarSeleccionGuardada();
+        preparacion = await prepararEnvio(campanaPreparada);
+        const fila = (empresa, omitida = false) => {
+          const item = document.createElement("li");
+          const nombre = document.createElement("strong");
+          const detalle = document.createElement("span");
+          nombre.textContent = empresa.nombre_empresa;
+          detalle.textContent = `${empresa.correo}${omitida ? ` · ${empresa.motivo}` : ""}`;
+          item.append(nombre, detalle);
+          return item;
+        };
+        document.querySelector("#remitente-confirmacion").textContent = preparacion.remitente;
+        document.querySelector("#destinatarios-confirmacion").replaceChildren(...preparacion.aptos.map((empresa) => fila(empresa)));
+        document.querySelector("#lista-omitidos-confirmacion").replaceChildren(...preparacion.omitidos.map((empresa) => fila(empresa, true)));
+        document.querySelector("#omitidos-confirmacion").hidden = preparacion.omitidos.length === 0;
+        document.querySelector("#asunto-confirmacion").textContent = preparacion.asunto;
+        document.querySelector("#cuerpo-confirmacion").textContent = preparacion.cuerpo;
+        document.querySelector("#archivos-confirmacion").textContent = preparacion.archivos.join(", ") || "Ninguno";
+        document.querySelector("#error-confirmacion").hidden = true;
+        const confirmar = document.querySelector("#confirmar-envio-real");
+        confirmar.disabled = preparacion.aptos.length === 0;
+        confirmar.textContent = preparacion.aptos.length
+          ? `Confirmar y enviar a ${preparacion.aptos.length} ${preparacion.aptos.length === 1 ? "empresa" : "empresas"}`
+          : "Sin destinatarios aptos";
+        focoAnterior = document.activeElement;
+        panel.hidden = false;
+        panel.querySelector(".boton_icono").focus();
+      } catch (error) {
+        document.querySelector("#aviso-envio-pendiente").textContent = error.message;
+        document.querySelector("#aviso-envio-pendiente").hidden = false;
+        document.querySelector("#aviso-envio-movil").textContent = error.message;
+        document.querySelector("#aviso-envio-movil").hidden = false;
+      } finally {
+        boton.disabled = false;
+      }
       return;
     }
     iniciarSimulacion("envio");
   };
+  document.querySelector("#confirmar-envio-real").addEventListener("click", async () => {
+    if (!preparacion || !campanaPreparada) return;
+    const boton = document.querySelector("#confirmar-envio-real");
+    boton.disabled = true;
+    boton.textContent = "Autorizando envío…";
+    try {
+      await confirmarEnvio(campanaPreparada, preparacion.aptos.map(({ id }) => id), preparacion.confirmacion);
+      const campanaId = campanaPreparada;
+      cerrar(false);
+      iniciarSeguimiento(campanaId, "envio");
+    } catch (error) {
+      document.querySelector("#error-confirmacion").textContent = error.message;
+      document.querySelector("#error-confirmacion").hidden = false;
+      boton.disabled = true;
+      boton.textContent = "Cierra y revisa el estado de la campaña";
+      preparacion = null;
+      campanaPreparada = null;
+    }
+  });
   document.querySelector("#iniciar-simulacion").addEventListener("click", iniciarEnvio);
   document.querySelector("#iniciar-envio-movil").addEventListener("click", iniciarEnvio);
   document.querySelector("#cancelar-simulacion").addEventListener("click", () => {
@@ -354,8 +463,29 @@ function configurarSimulacion() {
       simulacionActiva = null;
     }
   });
-  document.querySelector("#crear-otra-busqueda").addEventListener("click", () => {
+  document.querySelector("#crear-otra-busqueda").addEventListener("click", async () => {
     const aviso = document.querySelector("#aviso-espera-gratis");
+    if (document.querySelector("#resultados").dataset.modoConsulta === "sgva") {
+      try {
+        const respuesta = await fetch("/api/v1/disponibilidad", { credentials: "same-origin", cache: "no-store" });
+        if (!respuesta.ok) throw new Error("No pudimos verificar cuándo puedes crear otra búsqueda.");
+        const disponibilidad = await respuesta.json();
+        if (!disponibilidad.puede_buscar) {
+          const fecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "long" }).format(new Date(disponibilidad.proxima_fecha));
+          aviso.textContent = `Tu plan gratis permite otra campaña con envíos desde el ${fecha}.`;
+          aviso.hidden = false;
+          aviso.scrollIntoView({ block: "center", behavior: "smooth" });
+          return;
+        }
+      } catch (error) {
+        aviso.textContent = error.message;
+        aviso.hidden = false;
+        return;
+      }
+      aviso.hidden = true;
+      irA("campana");
+      return;
+    }
     if (document.querySelector("#plan-campana").value === "gratis" && proximaBusquedaGratis > new Date()) {
       aviso.textContent = textoEspera();
       aviso.hidden = false;

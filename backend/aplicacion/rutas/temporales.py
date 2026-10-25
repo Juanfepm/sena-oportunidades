@@ -1,6 +1,6 @@
 """API del contenido temporal cifrado de una campaña."""
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
@@ -18,11 +18,35 @@ from ..servicios.temporales import (
     eliminar_contenido,
     guardar_contenido,
     listar_contenidos,
+    recuperar_contenido,
     resumir_contenido,
 )
 
 
 router = APIRouter(prefix="/api/v1")
+
+
+@router.get("/campanas/{campana_id}/contenido/edicion")
+def texto_para_edicion(
+    campana_id: str,
+    request: Request,
+    respuesta: Response,
+    usuario: Usuario = Depends(obtener_usuario_actual),
+    sesion: Session = Depends(obtener_sesion),
+) -> dict:
+    campana = consultar_campana(sesion, usuario, campana_id)
+    if campana is None:
+        raise HTTPException(404, "Campaña no encontrada.")
+    if campana.estado != EstadoCampana.ESPERANDO_CONFIRMACION:
+        raise HTTPException(409, "Solo puedes editar el mensaje antes de confirmar el envío.")
+    try:
+        contenido = recuperar_contenido(sesion, campana, request.app.state.configuracion.clave_cifrado)
+    except ClaveCifradoInvalida as error:
+        raise HTTPException(503, "No fue posible leer el mensaje cifrado.") from error
+    if contenido is None:
+        raise HTTPException(404, "El mensaje temporal venció.")
+    respuesta.headers["Cache-Control"] = "no-store"
+    return {**contenido.mensaje.model_dump(), "archivos": [archivo.nombre for archivo in contenido.archivos]}
 
 
 @router.get("/contenidos-temporales", response_model=list[ResumenContenidoTemporal])

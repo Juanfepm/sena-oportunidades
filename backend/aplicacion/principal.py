@@ -4,6 +4,7 @@ import asyncio
 from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
 from hmac import compare_digest
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from pathlib import Path
 from secrets import token_urlsafe
 from time import time
@@ -24,12 +25,13 @@ from .base_datos import crear_motor, obtener_sesion
 from .configuracion import Configuracion
 from .dominio.archivos import MAXIMO_BYTES
 from .dominio.estados import EstadoCampana, LIMITES_ARCHIVOS, LIMITES_CONTACTO, TARJETAS_RESUMEN, Plan
-from .esquemas import ResumenCampana, ResumenDestinatario, ResumenHistorial, SolicitudAccesoSGVA, SolicitudBorrador, SolicitudSeleccion
+from .esquemas import ResumenCampana, ResumenDestinatario, ResumenHistorial, SolicitudAccesoSGVA, SolicitudBorrador, SolicitudSeleccion, SolicitudConfirmacionEnvio
 from .integraciones.contratos import AccesoSGVARestringido, IntegracionNoDisponible, SGVANoDisponible
 from .modelos import Campana, ConexionGmail, Destinatario, HistorialEnvio, Usuario
 from .rutas.temporales import router as router_temporales
 from .seguridad import obtener_token_csrf, obtener_usuario_actual, verificar_csrf
 from .servicios.campanas import EsperaPlanGratis, consultar_campana, consultar_disponibilidad, crear_borrador, listar_borradores
+from .servicios.campanas_envio import EnvioNoPermitido, autorizar_envio, huella_preparacion, interrumpir_envios, preparar_envio, vigilar_envios
 from .servicios.exclusiones import listar_exclusiones, quitar_exclusion
 from .servicios.envio_gmail import (
     AdjuntoGmail,
@@ -92,12 +94,16 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
                                                                configuracion.gemini_clave))
         else:
             trabajador = asyncio.create_task(vigilar_cola(api.state.fabrica_sesiones, api.state.aviso_cola))
+        with api.state.fabrica_sesiones() as sesion:
+            interrumpir_envios(sesion)
+        trabajador_envios = asyncio.create_task(vigilar_envios(api.state.fabrica_sesiones, configuracion,
+                                                               api.state.cola_envios))
         try:
             yield
         finally:
-            for activa in (tarea, trabajador):
+            for activa in (tarea, trabajador, trabajador_envios):
                 activa.cancel()
-            for activa in (tarea, trabajador):
+            for activa in (tarea, trabajador, trabajador_envios):
                 with suppress(asyncio.CancelledError):
                     await activa
 
@@ -107,6 +113,8 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
     api.state.fabrica_sesiones = sessionmaker(motor, expire_on_commit=False)
     api.state.aviso_cola = asyncio.Event()
     api.state.cola_sgva = asyncio.Queue(maxsize=10)
+    api.state.cola_envios = asyncio.Queue(maxsize=10)
+    firma_envio = URLSafeTimedSerializer(configuracion.secreto_sesion or "solo-pruebas-locales", salt="debupa-confirmar-envio")
     api.add_middleware(
         SessionMiddleware,
         secret_key=configuracion.secreto_sesion or configuracion.clave_pruebas or "clave-sesion-pruebas-locales",
@@ -393,6 +401,7 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
             "google_oauth": bool(configuracion.google_cliente_id and configuracion.google_cliente_secreto and cifrado_disponible),
             "sgva": configuracion.sgva_activo,
             "gmail": gmail_configurado,
+            "envio_campanas": gmail_configurado and configuracion.sgva_activo,
             "gmail_prueba": configuracion.entorno == "desarrollo" and gmail_configurado,
             "clasificacion_ia": bool(configuracion.sgva_activo and configuracion.gemini_clave),
             "comprobantes_nequi": False,
@@ -525,6 +534,78 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
             raise HTTPException(422, str(error)) from error
         return {"seleccionados": cantidad}
 
+    @api.get("/api/v1/campanas/{campana_id}/preparacion-envio")
+    def preparacion_envio(
+        campana_id: str,
+        respuesta: Response,
+        usuario: Usuario = Depends(obtener_usuario_actual),
+        sesion: Session = Depends(obtener_sesion),
+    ) -> dict:
+        campana = consultar_campana(sesion, usuario, campana_id)
+        if campana is None:
+            raise HTTPException(404, "Campaña no encontrada.")
+        if not configuracion.sgva_activo or not cifrado_disponible:
+            raise HTTPException(503, "El envío de campañas no está configurado.")
+        try:
+            vista = preparar_envio(sesion, campana, usuario, configuracion.clave_cifrado)
+        except (EnvioNoPermitido, ClaveCifradoInvalida) as error:
+            raise HTTPException(409, str(error)) from error
+        respuesta.headers["Cache-Control"] = "no-store"
+        vista["confirmacion"] = firma_envio.dumps({"campana": campana.id, "usuario": usuario.id,
+                                                    "huella": huella_preparacion(vista)})
+        return vista
+
+    @api.post("/api/v1/campanas/{campana_id}/enviar", status_code=202)
+    async def confirmar_envio(
+        campana_id: str,
+        solicitud: SolicitudConfirmacionEnvio,
+        _: None = Depends(verificar_csrf),
+        usuario: Usuario = Depends(obtener_usuario_actual),
+        sesion: Session = Depends(obtener_sesion),
+    ) -> dict[str, int]:
+        if not configuracion.sgva_activo or not cifrado_disponible or not configuracion.google_cliente_id:
+            raise HTTPException(503, "El envío de campañas no está configurado.")
+        if api.state.cola_envios.full():
+            raise HTTPException(429, "La cola de envíos está llena.")
+        campana = sesion.scalar(select(Campana).where(
+            Campana.id == campana_id, Campana.usuario_id == usuario.id,
+        ).with_for_update())
+        if campana is None:
+            raise HTTPException(404, "Campaña no encontrada.")
+        try:
+            firma = firma_envio.loads(solicitud.confirmacion, max_age=600)
+        except (BadSignature, SignatureExpired) as error:
+            raise HTTPException(409, "La revisión final venció. Abre de nuevo la lista antes de enviar.") from error
+        if firma.get("campana") != campana.id or firma.get("usuario") != usuario.id:
+            raise HTTPException(409, "La confirmación no corresponde a esta campaña.")
+        try:
+            cantidad = autorizar_envio(sesion, campana, usuario, configuracion.clave_cifrado,
+                                       solicitud.destinatarios, firma["huella"])
+        except (EnvioNoPermitido, ClaveCifradoInvalida) as error:
+            raise HTTPException(409, str(error)) from error
+        api.state.cola_envios.put_nowait(campana.id)
+        return {"autorizados": cantidad}
+
+    @api.get("/api/v1/campanas/{campana_id}/resultado-envio")
+    def resultado_envio(
+        campana_id: str,
+        respuesta: Response,
+        usuario: Usuario = Depends(obtener_usuario_actual),
+        sesion: Session = Depends(obtener_sesion),
+    ) -> list[dict]:
+        campana = consultar_campana(sesion, usuario, campana_id)
+        if campana is None:
+            raise HTTPException(404, "Campaña no encontrada.")
+        respuesta.headers["Cache-Control"] = "no-store"
+        consulta = select(HistorialEnvio, Destinatario).join(
+            Destinatario, HistorialEnvio.destinatario_id == Destinatario.id,
+        ).where(HistorialEnvio.campana_id == campana.id).order_by(HistorialEnvio.enviado_en)
+        return [{"nombre_empresa": destino.nombre_empresa, "correo": envio.correo,
+                 "telefono_original": destino.telefono_original, "motivo": destino.motivo,
+                 "puntuacion": destino.puntuacion, "estado": envio.estado,
+                 "enviado_en": envio.enviado_en.isoformat() if envio.estado == "enviado" else None}
+                for envio, destino in sesion.execute(consulta)]
+
     @api.get("/api/v1/correos-excluidos", response_model=list[str])
     def correos_excluidos(
         usuario: Usuario = Depends(obtener_usuario_actual),
@@ -550,7 +631,7 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
     ) -> list[ResumenHistorial]:
         consulta = (
             select(HistorialEnvio)
-            .where(HistorialEnvio.usuario_id == usuario.id)
+            .where(HistorialEnvio.usuario_id == usuario.id, HistorialEnvio.estado == "enviado")
             .order_by(HistorialEnvio.enviado_en.desc())
             .limit(limite)
         )

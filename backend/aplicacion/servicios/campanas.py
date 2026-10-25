@@ -19,7 +19,7 @@ class EsperaPlanGratis(Exception):
 def consultar_disponibilidad(sesion: Session, usuario: Usuario, ahora: datetime | None = None) -> datetime | None:
     ultimo_envio = sesion.scalar(
         select(HistorialEnvio.enviado_en)
-        .where(HistorialEnvio.usuario_id == usuario.id)
+        .where(HistorialEnvio.usuario_id == usuario.id, HistorialEnvio.estado == "enviado")
         .order_by(HistorialEnvio.enviado_en.desc())
         .limit(1)
     )

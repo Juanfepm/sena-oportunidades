@@ -713,6 +713,29 @@
   position: absolute;
 }
 
+.cuerpo_confirmacion {
+  background: var(--color_verde_suave);
+  border-radius: var(--radio_medio);
+  max-height: 15rem;
+  overflow: auto;
+  padding: var(--espacio_4);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+#panel-confirmar-envio .panel_seleccion_contenido {
+  max-width: 36rem;
+}
+
+#panel-confirmar-envio h3 {
+  font-size: 1rem;
+  margin: var(--espacio_6) 0 var(--espacio_3);
+}
+
+#panel-confirmar-envio li {
+  overflow-wrap: anywhere;
+}
+
 .pagina_revision {
   animation: none;
 }

@@ -106,6 +106,21 @@ class SolicitudSeleccion(BaseModel):
         return identificadores
 
 
+class SolicitudConfirmacionEnvio(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    destinatarios: list[str] = Field(min_length=1, max_length=70)
+    confirmado: Literal[True]
+    confirmacion: str = Field(min_length=20, max_length=500)
+
+    @field_validator("destinatarios")
+    @classmethod
+    def sin_repetidos(cls, identificadores: list[str]) -> list[str]:
+        if len(set(identificadores)) != len(identificadores):
+            raise ValueError("Hay destinatarios repetidos.")
+        return identificadores
+
+
 class PerfilTemporalIA(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 

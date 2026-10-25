@@ -65,10 +65,10 @@ def guardar_contenido(
     archivos: tuple[ArchivoTemporal, ...],
     clave: str | None,
 ) -> ResumenContenidoTemporal:
-    if campana.estado != EstadoCampana.BORRADOR:
-        raise ValueError("Solo se puede cambiar el contenido de un borrador.")
+    if campana.estado not in {EstadoCampana.BORRADOR, EstadoCampana.ESPERANDO_CONFIRMACION}:
+        raise ValueError("Solo se puede cambiar el contenido antes de confirmar el envío.")
     ahora = datetime.now(timezone.utc)
-    temporal = sesion.get(ContenidoTemporal, campana.id)
+    temporal = obtener_temporal(sesion, campana)
     if temporal is None:
         sesion.execute(select(Usuario.id).where(Usuario.id == campana.usuario_id).with_for_update())
         activos = sesion.scalar(
@@ -88,6 +88,8 @@ def guardar_contenido(
 
     cifrador = obtener_cifrador(clave)
     contenido_cifrado = cifrador.encrypt(mensaje.model_dump_json().encode("utf-8"))
+    conservar_adjuntos = campana.estado == EstadoCampana.ESPERANDO_CONFIRMACION and temporal is not None and not archivos
+    nombres_guardados = resumir_contenido(sesion, campana, clave).archivos if conservar_adjuntos else []
     adjuntos_cifrados = [
         (
             cifrador.encrypt(json.dumps({"nombre": archivo.nombre, "tipo": archivo.tipo_declarado}).encode("utf-8")),
@@ -102,7 +104,8 @@ def guardar_contenido(
         sesion.add(temporal)
         sesion.flush()
     else:
-        sesion.execute(delete(AdjuntoTemporal).where(AdjuntoTemporal.campana_id == campana.id))
+        if not conservar_adjuntos:
+            sesion.execute(delete(AdjuntoTemporal).where(AdjuntoTemporal.campana_id == campana.id))
         temporal.contenido_cifrado = contenido_cifrado
         temporal.vence_en = ahora + DURACION_TEMPORAL
         temporal.actualizado_en = ahora
@@ -113,7 +116,7 @@ def guardar_contenido(
     )
     sesion.commit()
     return ResumenContenidoTemporal(campana_id=campana.id, vence_en=_zona(temporal.vence_en),
-                                    archivos=[archivo.nombre for archivo in archivos])
+                                    archivos=nombres_guardados or [archivo.nombre for archivo in archivos])
 
 
 def obtener_temporal(sesion: Session, campana: Campana) -> ContenidoTemporal | None:

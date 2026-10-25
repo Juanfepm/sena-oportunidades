@@ -109,10 +109,16 @@ class HistorialEnvio(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=nuevo_id)
     usuario_id: Mapped[str] = mapped_column(ForeignKey("usuarios.id"), nullable=False)
     campana_id: Mapped[str] = mapped_column(ForeignKey("campanas.id"), nullable=False)
+    destinatario_id: Mapped[str | None] = mapped_column(ForeignKey("destinatarios.id"))
     correo: Mapped[str] = mapped_column(String(254), nullable=False)
+    estado: Mapped[str] = mapped_column(String(20), default="enviado", nullable=False)
+    mensaje_gmail_id: Mapped[str | None] = mapped_column(String(255))
     enviado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora_utc, nullable=False)
 
-    __table_args__ = (Index("ix_historial_usuario_correo_fecha", "usuario_id", "correo", "enviado_en"),)
+    __table_args__ = (
+        Index("ix_historial_usuario_correo_fecha", "usuario_id", "correo", "enviado_en"),
+        Index("ix_historial_destinatario_id", "destinatario_id", unique=True),
+    )
 
 
 class ConexionGmail(Base):
