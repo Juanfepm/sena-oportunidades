@@ -270,7 +270,9 @@ def test_borrador_persistente_y_exclusiones_normalizadas(cliente: TestClient):
     assert datos["limite_contactos"] == 8
     assert cliente.get("/api/v1/campanas", headers=acceso()).json()[0]["id"] == datos["id"]
     assert cliente.get("/api/v1/correos-excluidos", headers=acceso()).json() == ["empresa@ejemplo.com"]
-    assert cliente.post(f"/api/v1/campanas/{datos['id']}/iniciar", headers=acceso()).status_code == 503
+    iniciada = cliente.post(f"/api/v1/campanas/{datos['id']}/iniciar", headers=acceso())
+    assert iniciada.status_code == 200
+    assert iniciada.json()["estado"] == "borrador"
     assert cliente.get("/api/v1/historial", headers=acceso()).json() == []
     assert cliente.delete("/api/v1/correos-excluidos/empresa@ejemplo.com", headers=acceso()).status_code == 204
 

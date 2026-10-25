@@ -40,6 +40,7 @@ from .servicios.envio_gmail import (
 )
 from .servicios.gmail import ClaveCifradoInvalida, cifrar_token, descifrar_token, obtener_cifrador
 from .servicios.temporales import limpiar_expirados
+from .servicios.trabajador_demo import ejecutar_campana_demo
 
 
 PERMISO_ENVIO_GMAIL = "https://www.googleapis.com/auth/gmail.send"
@@ -92,6 +93,7 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
     api.state.configuracion = configuracion
     api.state.cifrado_disponible = cifrado_disponible
     api.state.fabrica_sesiones = sessionmaker(motor, expire_on_commit=False)
+    api.state.trabajos_campana = set()
     api.add_middleware(
         SessionMiddleware,
         secret_key=configuracion.secreto_sesion or configuracion.clave_pruebas or "clave-sesion-pruebas-locales",
@@ -431,15 +433,22 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
         return ResumenCampana.model_validate(encontrada)
 
     @api.post("/api/v1/campanas/{campana_id}/iniciar")
-    def iniciar_campana(
+    async def iniciar_campana(
         campana_id: str,
         _: None = Depends(verificar_csrf),
         usuario: Usuario = Depends(obtener_usuario_actual),
         sesion: Session = Depends(obtener_sesion),
-    ) -> None:
-        if consultar_campana(sesion, usuario, campana_id) is None:
+    ) -> ResumenCampana:
+        campana = consultar_campana(sesion, usuario, campana_id)
+        if campana is None:
             raise HTTPException(404, "Campaña no encontrada.")
-        raise HTTPException(503, {"codigo": "integracion_pendiente", "mensaje": "La búsqueda SGVA aún no está habilitada."})
+        if campana.estado != "borrador":
+            raise HTTPException(409, "La campaña ya fue iniciada o no puede volver a la cola.")
+        tarea = asyncio.create_task(ejecutar_campana_demo(api.state.fabrica_sesiones, campana_id))
+        api.state.trabajos_campana.add(tarea)
+        tarea.add_done_callback(api.state.trabajos_campana.discard)
+        sesion.refresh(campana)
+        return ResumenCampana.model_validate(campana)
 
     @api.get("/api/v1/correos-excluidos", response_model=list[str])
     def correos_excluidos(
