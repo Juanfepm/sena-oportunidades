@@ -21,7 +21,7 @@ def encolar(sesion: Session, campana: Campana) -> None:
     sesion.flush()
 
 
-def reservar_siguiente(sesion: Session, fecha_actual: datetime) -> Campana | None:
+def reservar_siguiente(sesion: Session, fecha_actual: datetime, campana_id: str | None = None) -> Campana | None:
     navegador = sesion.get(NavegadorSGVA, 1, with_for_update=True)
     if navegador is None:
         raise RuntimeError("Inicializa la reserva del navegador antes de iniciar el trabajador.")
@@ -40,6 +40,8 @@ def reservar_siguiente(sesion: Session, fecha_actual: datetime) -> Campana | Non
         .limit(1)
         .with_for_update(skip_locked=True)
     )
+    if campana_id is not None:
+        consulta = consulta.where(Campana.id == campana_id)
     siguiente = sesion.scalar(consulta)
     navegador.campana_id = siguiente.id if siguiente else None
     navegador.reserva_hasta = fecha_actual + timedelta(minutes=15) if siguiente else None

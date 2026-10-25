@@ -3,7 +3,7 @@ import { cargarCoincidencias } from "./coincidencias.js";
 import { mostrarErrorProceso } from "./errores.js";
 import { irA } from "./rutas.js";
 
-const etapas = ["En cola para la demostración", "Validando preferencias", "Preparando ofertas ficticias", "Resultados disponibles"];
+const etapas = ["En cola para la consulta", "Accediendo al servicio", "Revisando solicitudes", "Resultados disponibles"];
 const datos = [
   "DEBUPA es independiente y no está afiliado al SENA.",
   "El permiso de Gmail no permite leer tu bandeja.",
@@ -57,8 +57,8 @@ async function abrirResultados(campana, referencia) {
   if (referencia && seguimiento !== referencia) return;
   cargarCoincidencias(destinatarios, campana);
   campañaReanudable = campana;
-  document.querySelector("#texto-reanudar-campana").textContent = "Tus ofertas ficticias están listas para revisar.";
-  document.querySelector("#boton-reanudar-campana").textContent = "Ver resultados de ejemplo";
+  document.querySelector("#texto-reanudar-campana").textContent = campana.modo_consulta === "sgva" ? "Tus ofertas de SGVA están listas para revisar." : "Tus ofertas ficticias están listas para revisar.";
+  document.querySelector("#boton-reanudar-campana").textContent = campana.modo_consulta === "sgva" ? "Ver ofertas consultadas" : "Ver resultados de ejemplo";
   detenerSeguimiento();
   irA("confirmacion");
 }
@@ -87,7 +87,7 @@ async function revisar(referencia) {
 export function iniciarSeguimiento(campanaId) {
   detenerSeguimiento();
   campañaReanudable = { id: campanaId, estado: "en_cola" };
-  document.querySelector("#texto-reanudar-campana").textContent = "Tu campaña de ejemplo sigue en curso en el servidor.";
+  document.querySelector("#texto-reanudar-campana").textContent = "Tu consulta sigue en curso en el servidor.";
   document.querySelector("#boton-reanudar-campana").textContent = "Ver progreso";
   document.querySelector("#reanudar-campana").hidden = false;
   document.querySelector("#pasos-progreso").replaceChildren(...etapas.map((etapa) => {
@@ -131,9 +131,10 @@ export function configurarSeguimiento() {
       if (!campañaReanudable) return;
       const lista = campañaReanudable.estado === "esperando_confirmacion";
       document.querySelector("#texto-reanudar-campana").textContent = lista
-        ? "Tienes ofertas ficticias listas para revisar." : "Tu campaña de ejemplo sigue en curso en el servidor.";
+        ? (campañaReanudable.modo_consulta === "sgva" ? "Tienes ofertas de SGVA listas para revisar." : "Tienes ofertas ficticias listas para revisar.")
+        : "Tu consulta sigue en curso en el servidor.";
       document.querySelector("#boton-reanudar-campana").textContent = lista
-        ? "Ver resultados de ejemplo" : "Ver progreso";
+        ? (campañaReanudable.modo_consulta === "sgva" ? "Ver ofertas consultadas" : "Ver resultados de ejemplo") : "Ver progreso";
       panel.hidden = false;
     } catch {
       panel.hidden = true;

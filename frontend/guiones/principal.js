@@ -20,6 +20,35 @@ const etapas = {
 
 let simulacionActiva = null;
 let proximaBusquedaGratis = null;
+let consultaSgvaActiva = false;
+
+async function configurarConsultaSgva() {
+  try {
+    const respuesta = await fetch("/api/v1/capacidades", { cache: "no-store" });
+    if (!respuesta.ok) return;
+    consultaSgvaActiva = (await respuesta.json()).sgva === true;
+    if (!consultaSgvaActiva) return;
+    const documento = document.querySelector("#numero-documento");
+    const clave = document.querySelector("#clave-sgva");
+    for (const campo of [documento, clave]) { campo.disabled = false; campo.required = true; }
+    documento.pattern = "[0-9]{5,15}";
+    documento.maxLength = 15;
+    documento.placeholder = "Tu número de documento";
+    clave.placeholder = "Tu contraseña de SGVA";
+    documento.nextElementSibling.textContent = "Se usa solo durante la consulta.";
+    clave.nextElementSibling.textContent = "Se borra del formulario al iniciar y no se guarda en la base de datos.";
+    document.querySelector("#formulario-correo button[type='submit']").textContent = "Consultar ofertas en SGVA";
+    document.querySelector(".correo_borrador").textContent = "Borrador sin envío";
+    document.querySelector(".correo_temporal > p").textContent = "Puedes guardar este borrador cifrado durante 24 horas y eliminarlo cuando quieras. La consulta de SGVA no enviará mensajes a empresas.";
+    document.querySelector("#progreso .progreso_principal .ceja").textContent = "Consulta de SGVA";
+    document.querySelector("#progreso h1").textContent = "Buscando ofertas visibles para ti.";
+    document.querySelector("#progreso .panel_ayuda_progreso p").textContent = "Las consultas esperan su turno y su estado permanece disponible en tu cuenta mientras el servidor siga activo.";
+    document.querySelector("#progreso .nota_fina").textContent = "Se lee SGVA sin postularte y sin enviar correos.";
+    document.querySelector("#campana .aviso_requisitos small").textContent = "DEBUPA todavía no puede comprobar por sí solo si tienes patrocinio o una postulación activa.";
+    document.querySelector("#campana .grupo_campo .ayuda_grupo").textContent = "Introduce tus credenciales una vez por consulta; se descartan al terminar y no se guardan en la base de datos.";
+    document.querySelector("#privacidad .texto_legal h2:last-of-type + p").textContent = "El inicio de sesión guarda tu identificador, nombre y correo verificado; también vincula el permiso de Gmail. Al iniciar una consulta, documento y contraseña SGVA permanecen solo en memoria hasta terminar o reiniciar el servidor. Se guardan las ofertas encontradas para que las revises. No se postula al aprendiz ni se contacta a empresas en esta etapa.";
+  } catch { /* La vista de demostración permanece disponible. */ }
+}
 
 function fechaUnMesDespues(fecha) {
   const ultimoDia = new Date(fecha.getFullYear(), fecha.getMonth() + 2, 0).getDate();
@@ -220,7 +249,15 @@ function configurarFormularios() {
     const boton = formularioCorreo.querySelector("button[type='submit']");
     boton.disabled = true;
     try {
-      await iniciarCampana(campanaId);
+      const acceso = consultaSgvaActiva ? {
+        numero_documento: formularioCampana.elements.numero_documento.value.trim(),
+        clave_sgva: formularioCampana.elements.clave_sgva.value,
+      } : null;
+      await iniciarCampana(campanaId, acceso);
+      if (acceso) {
+        formularioCampana.elements.numero_documento.value = "";
+        formularioCampana.elements.clave_sgva.value = "";
+      }
       iniciarSeguimiento(campanaId);
     } catch (error) {
       mostrarErrorProceso("servicio", error.message);
@@ -321,6 +358,7 @@ configurarRutas();
 configurarBorradoresTemporales();
 configurarPruebaGmail();
 configurarAutenticacion();
+configurarConsultaSgva();
 configurarUbicaciones();
 configurarCookies();
 configurarCoincidencias();

@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 
 from .dominio.ubicaciones import MUNICIPIOS_POR_DEPARTAMENTO
 
@@ -60,6 +60,7 @@ class ResumenCampana(BaseModel):
 
     id: str
     estado: str
+    modo_consulta: str
     etapa: str
     progreso: int
     plan_aplicado: str
@@ -77,11 +78,23 @@ class ResumenDestinatario(BaseModel):
 
     id: str
     nombre_empresa: str
-    correo: str
+    correo: str | None
     telefono_original: str | None
+    descripcion: str | None
+    departamento: str | None
+    ciudad: str | None
+    dias_publicada: int | None
     motivo: str
-    puntuacion: int
+    puntuacion: int | None
     estado: str
+
+
+class SolicitudAccesoSGVA(BaseModel):
+    """Solo existe durante la petición y en la cola de memoria del proceso."""
+
+    model_config = ConfigDict(extra="forbid")
+    numero_documento: str = Field(pattern=r"^\d{5,15}$")
+    clave_sgva: SecretStr = Field(min_length=1, max_length=128)
 
 
 class SolicitudContenidoTemporal(BaseModel):

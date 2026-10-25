@@ -32,6 +32,8 @@ Después vuelve a ejecutar:
 ------------------------
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -r backend\requirements-postgresql.txt
+$env:PLAYWRIGHT_BROWSERS_PATH = Join-Path (Resolve-Path '.venv').Path 'ms-playwright'
+.\.venv\Scripts\python.exe -m playwright install chromium
 
 4. CONFIGURAR POSTGRESQL DE SUPABASE
 ------------------------------------
@@ -71,6 +73,7 @@ http://127.0.0.1:8000/api/v1/autenticacion/google/callback
 
 Configura los valores en esta terminal, sin escribirlos en archivos del repositorio:
 $env:DEBUPA_ENTORNO = "desarrollo"
+$env:DEBUPA_SGVA_ACTIVO = "true"
 $env:GOOGLE_CLIENTE_ID = "PEGA_AQUI_TU_CLIENT_ID"
 $env:GOOGLE_CLIENTE_SECRETO = "PEGA_AQUI_TU_CLIENT_SECRET"
 $env:GOOGLE_URI_REDIRECCION = "http://127.0.0.1:8000/api/v1/autenticacion/google/callback"
@@ -95,7 +98,7 @@ Aplica las migraciones pendientes. Ejecutar upgrade head otra vez es seguro:
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini current
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini check
 
-current debe mostrar 0004_contenido_temporal (head).
+current debe mostrar 0005_consulta_sgva (head).
 check debe terminar con No new upgrade operations detected.
 
 8. INICIAR EL SERVIDOR

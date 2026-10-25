@@ -16,6 +16,7 @@ class Configuracion:
     google_url_inicio: str = "/#inicio"
     secreto_sesion: str | None = None
     clave_cifrado: str | None = None
+    sgva_activo: bool = False
 
     def __post_init__(self) -> None:
         if self.clave_pruebas and len(self.clave_pruebas) < 32:
@@ -39,6 +40,7 @@ class Configuracion:
             google_url_inicio=getenv("GOOGLE_URL_INICIO", "/#inicio"),
             secreto_sesion=getenv("DEBUPA_SECRETO_SESION"),
             clave_cifrado=getenv("DEBUPA_CLAVE_CIFRADO"),
+            sgva_activo=getenv("DEBUPA_SGVA_ACTIVO", "false").lower() == "true",
         )
         if configuracion.entorno not in {"desarrollo", "pruebas", "produccion"}:
             raise ValueError("DEBUPA_ENTORNO debe ser desarrollo, pruebas o produccion.")

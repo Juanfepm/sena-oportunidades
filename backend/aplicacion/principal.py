@@ -24,7 +24,7 @@ from .base_datos import crear_motor, obtener_sesion
 from .configuracion import Configuracion
 from .dominio.archivos import MAXIMO_BYTES
 from .dominio.estados import EstadoCampana, LIMITES_ARCHIVOS, LIMITES_CONTACTO, TARJETAS_RESUMEN, Plan
-from .esquemas import ResumenCampana, ResumenDestinatario, ResumenHistorial, SolicitudBorrador
+from .esquemas import ResumenCampana, ResumenDestinatario, ResumenHistorial, SolicitudAccesoSGVA, SolicitudBorrador
 from .integraciones.contratos import AccesoSGVARestringido, IntegracionNoDisponible, SGVANoDisponible
 from .modelos import Campana, ConexionGmail, Destinatario, HistorialEnvio, Usuario
 from .rutas.temporales import router as router_temporales
@@ -42,6 +42,7 @@ from .servicios.gmail import ClaveCifradoInvalida, cifrar_token, descifrar_token
 from .servicios.temporales import limpiar_expirados
 from .servicios.cola import encolar
 from .servicios.trabajador_demo import vigilar_cola
+from .servicios.trabajador_sgva import interrumpir_sin_credenciales, vigilar_consultas
 
 
 PERMISO_ENVIO_GMAIL = "https://www.googleapis.com/auth/gmail.send"
@@ -83,7 +84,12 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
 
         await asyncio.to_thread(depurar)
         tarea = asyncio.create_task(repetir())
-        trabajador = asyncio.create_task(vigilar_cola(api.state.fabrica_sesiones, api.state.aviso_cola))
+        if configuracion.sgva_activo:
+            with api.state.fabrica_sesiones() as sesion:
+                interrumpir_sin_credenciales(sesion)
+            trabajador = asyncio.create_task(vigilar_consultas(api.state.fabrica_sesiones, api.state.cola_sgva))
+        else:
+            trabajador = asyncio.create_task(vigilar_cola(api.state.fabrica_sesiones, api.state.aviso_cola))
         try:
             yield
         finally:
@@ -98,6 +104,7 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
     api.state.cifrado_disponible = cifrado_disponible
     api.state.fabrica_sesiones = sessionmaker(motor, expire_on_commit=False)
     api.state.aviso_cola = asyncio.Event()
+    api.state.cola_sgva = asyncio.Queue(maxsize=10)
     api.add_middleware(
         SessionMiddleware,
         secret_key=configuracion.secreto_sesion or configuracion.clave_pruebas or "clave-sesion-pruebas-locales",
@@ -380,9 +387,9 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
             "historial_local": True,
             "cola_persistente": True,
             "trabajador_activo": True,
-            "trabajador_demo": True,
+            "trabajador_demo": not configuracion.sgva_activo,
             "google_oauth": bool(configuracion.google_cliente_id and configuracion.google_cliente_secreto and cifrado_disponible),
-            "sgva": False,
+            "sgva": configuracion.sgva_activo,
             "gmail": gmail_configurado,
             "gmail_prueba": configuracion.entorno == "desarrollo" and gmail_configurado,
             "clasificacion_ia": False,
@@ -440,6 +447,7 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
     @api.post("/api/v1/campanas/{campana_id}/iniciar")
     async def iniciar_campana(
         campana_id: str,
+        acceso: SolicitudAccesoSGVA | None = None,
         _: None = Depends(verificar_csrf),
         usuario: Usuario = Depends(obtener_usuario_actual),
         sesion: Session = Depends(obtener_sesion),
@@ -449,9 +457,18 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
             raise HTTPException(404, "Campaña no encontrada.")
         if campana.estado != EstadoCampana.BORRADOR:
             raise HTTPException(409, "La campaña ya fue iniciada o no puede volver a la cola.")
+        if configuracion.sgva_activo:
+            if acceso is None:
+                raise HTTPException(422, "Introduce tu documento y contraseña de SGVA para esta consulta.")
+            if api.state.cola_sgva.full():
+                raise HTTPException(429, "La cola de consultas está llena. Inténtalo después.")
+            campana.modo_consulta = "sgva"
         encolar(sesion, campana)
         sesion.commit()
-        api.state.aviso_cola.set()
+        if configuracion.sgva_activo:
+            api.state.cola_sgva.put_nowait((campana.id, acceso.numero_documento, acceso.clave_sgva.get_secret_value()))
+        else:
+            api.state.aviso_cola.set()
         return ResumenCampana.model_validate(campana)
 
     @api.get("/api/v1/campanas/{campana_id}/destinatarios", response_model=list[ResumenDestinatario])

@@ -1,7 +1,7 @@
 """Contratos de los servicios externos sin almacenar credenciales en modelos."""
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Awaitable, Callable, Protocol
 
 
 @dataclass(frozen=True)
@@ -23,7 +23,11 @@ class EvaluacionIA:
 
 
 class ConsultorSGVA(Protocol):
-    def buscar(self, numero_documento: str, clave_temporal: str, departamento: str, ciudad: str) -> list[OfertaSGVA]: ...
+    async def buscar(
+        self, numero_documento: str, clave_temporal: str, departamento: str,
+        ciudad: str, antiguedad: int,
+        avance: Callable[[int, str], Awaitable[None]] | None = None,
+    ) -> list[OfertaSGVA]: ...
 
 
 class ClasificadorIA(Protocol):

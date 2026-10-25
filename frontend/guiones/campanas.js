@@ -71,9 +71,10 @@ export async function borrarContenidoTemporal(campanaId) {
   if (!respuesta.ok) throw new Error((await leerMensajeError(respuesta)).mensaje);
 }
 
-export async function iniciarCampana(campanaId) {
+export async function iniciarCampana(campanaId, acceso = null) {
   const respuesta = await enviarConCsrf(`/api/v1/campanas/${encodeURIComponent(campanaId)}/iniciar`, {
     method: "POST",
+    ...(acceso ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(acceso) } : {}),
   });
   if (!respuesta.ok) throw new Error((await leerMensajeError(respuesta)).mensaje);
   return respuesta.json();

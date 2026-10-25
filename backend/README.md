@@ -11,14 +11,14 @@ Base local en FastAPI y SQLAlchemy. El código, las rutas y los modelos usan nom
 - Un adjunto para gratis, dos para premium, ambos de hasta 5 MB; la espera de un mes calendario para gratis comienza solo después de un envío registrado. Premium no espera y una búsqueda sin envíos permite reintentar.
 - Separación de alta coincidencia y «por revisar», y validación de ubicación, fecha y adjuntos.
 - Selección local de ciudades y municipios principales verificada con [DIVIPOLA](https://www.datos.gov.co/Mapas-Nacionales/DIVIPOLA-C-digos-municipios/gdxc-w37w), sincronizada con el frontend mediante `python -m herramientas.actualizar_municipios`.
-- Reserva persistente y renovable de un único navegador para el futuro trabajador SGVA.
+- Consulta de SGVA con un único navegador Chromium, lectura del listado y detalles sin pulsar «Aplicar».
 - Modelo y servicio de aprobación manual del pago. El cliente nunca puede asignarse premium.
 - Migraciones de PostgreSQL para el esquema inicial, identidad de Google y permiso de Gmail cifrado, con acceso a las tablas cerrado para los roles públicos de Supabase.
 - Guardado opcional y cifrado de perfil, mensaje y adjuntos por campaña durante 24 horas; máximo dos borradores activos por cuenta, borrado manual y limpieza periódica.
 
-`POST /api/v1/campanas` guarda únicamente los filtros. El contenido opcional se recibe por una ruta separada y se cifra antes de persistirlo. Las contraseñas SGVA todavía no se aceptan. El endpoint `/api/v1/campanas/{id}/iniciar` encola la campaña. Un trabajador activo durante la vida del servidor toma una campaña por vez, guarda contactos ficticios con dominios `.invalid` y deja el estado en «Resultados listos para revisión». La interfaz consulta el estado y permite reabrirlo tras cerrar el navegador. Si el servidor se interrumpe, las campañas en cola se procesan al reiniciar; una reserva interrumpida se recupera cuando vence, como máximo 15 minutos después. No consulta SGVA ni envía Gmail.
+`POST /api/v1/campanas` guarda únicamente filtros. Con `DEBUPA_SGVA_ACTIVO=true`, `/api/v1/campanas/{id}/iniciar` recibe documento y clave SGVA una sola vez. Se colocan en una cola de memoria y el trabajador consulta las ofertas con Playwright, hasta 70 por campaña. Se conservan los datos de las ofertas y su estado «pendiente de IA», sin inventar porcentajes. El proceso continúa si se cierra el navegador del usuario mientras el servidor permanezca encendido. Al reiniciarse el servidor, las consultas activas o en cola se marcan interrumpidas; el aprendiz debe crear otra búsqueda e introducir sus credenciales de nuevo. El modo de demostración permanece disponible con `DEBUPA_SGVA_ACTIVO=false`. Ningún modo postula al aprendiz ni envía correos a empresas.
 
-La interfaz recuerda que un patrocinio activo o una postulación en curso pueden impedir la búsqueda de empresas en SGVA. Estas condiciones todavía no se comprueban automáticamente. El adaptador futuro distinguirá un rechazo de cuenta (`sgva_restringido`) de una caída del servicio (`sgva_no_disponible`), sin atribuir una causa específica que SGVA no confirme.
+La interfaz recuerda que un patrocinio activo o una postulación en curso pueden impedir la búsqueda de empresas en SGVA. Estas condiciones no se comprueban automáticamente. El adaptador distingue un rechazo de cuenta (`sgva_restringido`) de una caída del servicio (`sgva_no_disponible`), sin atribuir una causa específica que SGVA no confirme. El aviso recurrente de actualización de contacto se cierra pulsando «Actualizar» con sus datos actuales y «Cancelar» en la confirmación, como se comprobó en la sesión de prueba.
 
 ## Desarrollo local en Windows
 
@@ -27,6 +27,9 @@ Desde la raíz del repositorio:
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r backend\requirements-desarrollo.txt
+$env:PLAYWRIGHT_BROWSERS_PATH = Join-Path (Resolve-Path '.venv').Path 'ms-playwright'
+.\.venv\Scripts\python.exe -m playwright install chromium
+$env:DEBUPA_SGVA_ACTIVO = "true"
 $env:DEBUPA_CLAVE_PRUEBAS = "una-clave-larga-y-aleatoria-solo-local"
 .\.venv\Scripts\python.exe -m backend.aplicacion.inicializar
 .\.venv\Scripts\python.exe -m uvicorn backend.aplicacion.principal:aplicacion --host 127.0.0.1 --port 8001
@@ -44,7 +47,7 @@ La base local SQLite se crea en `backend/datos/` y Git la ignora. Para producci�
 
 ## Preparar PostgreSQL en Supabase
 
-DEBUPA usa PostgreSQL desde el backend; **no utiliza la Data API de Supabase desde el navegador**. La configuración siguiente prepara la base, pero **no habilita aún el servicio para usuarios reales**: faltan el trabajador SGVA, las campañas reales y la política de datos definitiva.
+DEBUPA usa PostgreSQL desde el backend; **no utiliza la Data API de Supabase desde el navegador**. La configuración siguiente prepara la base. La consulta de SGVA es experimental; antes de abrir el servicio a otros aprendices faltan la política de datos definitiva, controles operativos y la clasificación por IA.
 
 1. Crea un proyecto nuevo en [Supabase](https://supabase.com/dashboard), elige una región apropiada y genera una contraseña larga y única. Guárdala en tu gestor de contraseñas. Si aparece «Automatically expose new tables», déjalo desactivado.
 2. En el proyecto, ve a **Integrations → Data API** y desactiva **Enable Data API**. Así las tablas no tendrán endpoints REST automáticos. En **Database Settings → SSL Configuration**, activa la obligación de SSL y descarga el certificado CA a una carpeta privada fuera del repositorio.
@@ -61,7 +64,7 @@ $env:DEBUPA_BASE_DATOS = [System.Net.NetworkCredential]::new("", $direccionProte
 Remove-Variable direccionProtegida
 ```
 
-6. Comprueba la conexión y aplica las migraciones pendientes en la base de este proyecto. Si ya llegaste a `0003`, `upgrade head` añade `0004` sin borrar las tablas anteriores:
+6. Comprueba la conexión y aplica las migraciones pendientes en la base de este proyecto. Si ya llegaste a `0004`, `upgrade head` añade `0005` sin borrar las tablas anteriores:
 
 ```powershell
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini current
@@ -70,7 +73,7 @@ Remove-Variable direccionProtegida
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini check
 ```
 
-`current` debe mostrar `0004_contenido_temporal (head)` después de aplicar las migraciones; `check` debe indicar que no hay operaciones nuevas. En el editor SQL de Supabase puedes comprobarlo sin modificar datos:
+`current` debe mostrar `0005_consulta_sgva (head)` después de aplicar las migraciones; `check` debe indicar que no hay operaciones nuevas. En el editor SQL de Supabase puedes comprobarlo sin modificar datos:
 
 ```sql
 select version_num from alembic_version;
@@ -137,7 +140,7 @@ Activa Gmail API en Google Cloud y declara únicamente el permiso `https://www.g
 | `GET /api/v1/disponibilidad` | Sesión | Indica si el aprendiz puede crear otra búsqueda y la próxima fecha. |
 | `POST /api/v1/campanas` | Sesión | Guarda solo un borrador de filtros. |
 | `GET /api/v1/campanas` y `GET /api/v1/campanas/{id}` | Sesión | Muestra solo campañas del usuario. |
-| `POST /api/v1/campanas/{id}/iniciar` | Sesión + CSRF | Encola la campaña y ejecuta el flujo de demostración; no consulta SGVA ni envía mensajes. |
+| `POST /api/v1/campanas/{id}/iniciar` | Sesión + CSRF | En modo SGVA recibe `numero_documento` y `clave_sgva` para consultar ofertas; en modo demo prepara ejemplos. No envía mensajes. |
 | `GET /api/v1/campanas/{id}/destinatarios` | Sesión | Devuelve solo los resultados ficticios de la campaña propia cuando están listos. |
 | `GET /api/v1/correos-excluidos` y `DELETE /api/v1/correos-excluidos/{correo}` | Sesión | Gestiona exclusiones propias. |
 | `GET /api/v1/historial` | Sesión | Lee solo envíos propios registrados por DEBUPA. |
@@ -150,7 +153,7 @@ El navegador no recibe CORS abierto: el frontend y la API comparten origen. Ante
 2. **SGVA:** confirmar con SENA si ofrece una integración autorizada. Si no, un adaptador Playwright con una sola sesión, límites y manejo de caídas. Nunca se pulsará «Aplicar» automáticamente.
 3. **IA:** un adaptador de clasificación que devuelva puntuación, motivo y grado de certeza. Una modalidad remota no mencionada expresamente quedará «por revisar», no confirmada.
 4. **Gmail API:** el envío local de prueba ya renueva el permiso y usa `users.messages.send`. Para campañas faltan envíos individuales confirmados e historial idempotente que evite duplicar destinatarios ante reintentos.
-5. **Almacenamiento temporal cifrado:** el perfil, asunto, cuerpo y hasta dos adjuntos ya se pueden guardar de forma opcional durante 24 horas. El servidor borra vencidos al arrancar y cada 15 minutos mientras está activo; el usuario puede borrar antes. Las credenciales SGVA se añadirán solo cuando exista el trabajador. La comprobación de firmas de archivo no sustituye un análisis antimalware. Las copias de seguridad del proveedor pueden conservar datos cifrados más tiempo que las tablas activas.
+5. **Almacenamiento temporal cifrado:** el perfil, asunto, cuerpo y hasta dos adjuntos ya se pueden guardar de forma opcional durante 24 horas. El servidor borra vencidos al arrancar y cada 15 minutos mientras está activo; el usuario puede borrar antes. Las credenciales SGVA no se escriben en tablas ni archivos y se pierden si el proceso se reinicia. La comprobación de firmas de archivo no sustituye un análisis antimalware. Las copias de seguridad del proveedor pueden conservar datos cifrados más tiempo que las tablas activas.
 6. **Nequi:** QR y comprobante en almacenamiento privado. El administrador contrastará el movimiento real y aprobará desde un panel protegido; no se necesita API de Nequi para la verificación manual.
 7. **PostgreSQL:** la migración inicial está lista, pero aún falta verificarla contra una instancia PostgreSQL real y preparar copias de seguridad. La reserva de un solo navegador usa bloqueo de fila. SQLite queda limitada a desarrollo y pruebas.
 
