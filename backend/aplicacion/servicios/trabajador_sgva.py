@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from ..dominio.estados import EstadoCampana
 from ..esquemas import PATRON_CORREO
-from ..integraciones.contratos import AccesoSGVARestringido, EvaluacionIA, IntegracionNoDisponible, SGVANoDisponible
+from ..integraciones.contratos import AccesoSGVARestringido, EvaluacionIA, IntegracionNoDisponible, SGVAEntornoIncompatible, SGVANoDisponible
 from ..integraciones.ia import clasificar_ofertas
 from ..integraciones.sgva import consultar_sgva, normalizar
 from ..modelos import Campana, CorreoExcluido, Destinatario, NavegadorSGVA
@@ -133,7 +133,10 @@ async def procesar_acceso(fabrica: sessionmaker[Session], acceso: AccesoEnCola,
         with fabrica() as sesion:
             campana = sesion.get(Campana, campana_id)
             if campana and campana.estado == EstadoCampana.CONSULTANDO:
-                campana.etapa = "SGVA rechazó la consulta" if isinstance(error, AccesoSGVARestringido) else "SGVA no respondió"
+                if isinstance(error, SGVAEntornoIncompatible):
+                    campana.etapa = "Reinicia el servidor sin --reload en Windows"
+                else:
+                    campana.etapa = "SGVA rechazó la consulta" if isinstance(error, AccesoSGVARestringido) else "SGVA no respondió"
                 liberar(sesion, campana, EstadoCampana.ERROR)
                 sesion.commit()
     except asyncio.CancelledError:

@@ -114,9 +114,11 @@ check debe terminar con No new upgrade operations detected.
 
 8. INICIAR EL SERVIDOR
 ----------------------
-.\.venv\Scripts\python.exe -m uvicorn backend.aplicacion.principal:aplicacion --reload --host 127.0.0.1 --port 8000
+.\.venv\Scripts\python.exe -m uvicorn backend.aplicacion.principal:aplicacion --host 127.0.0.1 --port 8000
 
 Mantén esta terminal abierta mientras usas la aplicación.
+En Windows, no agregues --reload: impide que Playwright abra Chromium.
+Si cambias el código, detén el servidor con Ctrl+C y vuelve a iniciarlo.
 
 9. ABRIR DEBUPA
 ---------------

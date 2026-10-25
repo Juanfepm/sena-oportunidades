@@ -48,3 +48,7 @@ class AccesoSGVARestringido(RuntimeError):
 
 class SGVANoDisponible(IntegracionNoDisponible):
     """La plataforma SGVA no respondió a la consulta."""
+
+
+class SGVAEntornoIncompatible(SGVANoDisponible):
+    """El servidor no puede iniciar Playwright con su bucle actual."""

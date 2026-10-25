@@ -16,7 +16,7 @@ from playwright.async_api import Error as ErrorPlaywright
 from playwright.async_api import TimeoutError as TiempoAgotado
 from playwright.async_api import async_playwright
 
-from .contratos import AccesoSGVARestringido, OfertaSGVA, SGVANoDisponible
+from .contratos import AccesoSGVARestringido, OfertaSGVA, SGVAEntornoIncompatible, SGVANoDisponible
 
 
 ORIGEN = "https://caprendizaje.sena.edu.co"
@@ -216,6 +216,8 @@ async def consultar_sgva(documento: str, clave: str, departamento: str, ciudad: 
     ruta_local = Path(sys.prefix) / "ms-playwright"
     if ruta_local.is_dir():
         os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(ruta_local))
+    if sys.platform == "win32" and not isinstance(asyncio.get_running_loop(), asyncio.ProactorEventLoop):
+        raise SGVAEntornoIncompatible("En Windows, inicia el servidor sin --reload para usar Playwright.")
     try:
         async with async_playwright() as playwright:
             navegador = await playwright.chromium.launch(headless=True)

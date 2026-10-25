@@ -118,7 +118,7 @@ $env:GOOGLE_URL_INICIO = "/#inicio"
 $env:DEBUPA_SECRETO_SESION = ((New-Guid).Guid + (New-Guid).Guid).Replace("-", "")
 .\.venv\Scripts\python.exe -m pip install -r backend\requirements-postgresql.txt
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini upgrade head
-.\.venv\Scripts\python.exe -m uvicorn backend.aplicacion.principal:aplicacion --reload --host 127.0.0.1 --port 8000
+.\.venv\Scripts\python.exe -m uvicorn backend.aplicacion.principal:aplicacion --host 127.0.0.1 --port 8000
 ```
 
 Activa Gmail API en Google Cloud y declara únicamente el permiso `https://www.googleapis.com/auth/gmail.send`. Con la clave de cifrado configurada, «Entrar con Google» autoriza la cuenta y Gmail en un solo paso. DEBUPA solicita acceso offline y guarda únicamente el token de renovación cifrado. «Cerrar sesión» elimina ese token local e intenta revocar el permiso en Google; si Google no responde, el acceso local queda eliminado. Para volver a vincular Gmail, inicia sesión de nuevo. En desarrollo local puedes enviar una prueba únicamente a tu propia cuenta; las campañas todavía no envían mensajes y DEBUPA no lee la bandeja.

@@ -23,7 +23,7 @@ $env:DEBUPA_SGVA_ACTIVO = "true"
 $env:GOOGLE_URL_INICIO = "/#inicio"
 $env:DEBUPA_SECRETO_SESION = ((New-Guid).Guid + (New-Guid).Guid).Replace("-", "")
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini upgrade head
-.\.venv\Scripts\python.exe -m uvicorn backend.aplicacion.principal:aplicacion --reload --host 127.0.0.1 --port 8000
+.\.venv\Scripts\python.exe -m uvicorn backend.aplicacion.principal:aplicacion --host 127.0.0.1 --port 8000
 ```
 
 Estas órdenes suponen que ya configuraste la conexión PostgreSQL, el certificado SSL, `GOOGLE_CLIENTE_ID`, `GOOGLE_CLIENTE_SECRETO`, `DEBUPA_CLAVE_CIFRADO` y la URI de callback en la misma terminal. Abre `http://127.0.0.1:8000/` y pulsa «Entrar con Google». La guía completa está en [INICIAR_SERVICIOS.txt](INICIAR_SERVICIOS.txt).

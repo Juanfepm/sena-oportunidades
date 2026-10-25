@@ -1,6 +1,7 @@
 """La consulta real solo prepara resultados; no contacta ni postula empresas."""
 
 import asyncio
+import sys
 from datetime import date
 from time import monotonic, sleep
 
@@ -11,8 +12,8 @@ from sqlalchemy.pool import StaticPool
 
 from backend.aplicacion.base_datos import Base
 from backend.aplicacion.configuracion import Configuracion
-from backend.aplicacion.integraciones.contratos import EvaluacionIA, OfertaSGVA
-from backend.aplicacion.integraciones.sgva import _buscar_departamento, dias_desde, filas_recientes, seleccionar_opcion
+from backend.aplicacion.integraciones.contratos import EvaluacionIA, OfertaSGVA, SGVAEntornoIncompatible
+from backend.aplicacion.integraciones.sgva import _buscar_departamento, consultar_sgva, dias_desde, filas_recientes, seleccionar_opcion
 from backend.aplicacion.modelos import NavegadorSGVA
 from backend.aplicacion.principal import crear_aplicacion
 
@@ -25,6 +26,13 @@ def test_opciones_y_fecha_sgva() -> None:
     assert seleccionar_opcion(opciones, "Valle del Cauca") == "76"
     assert dias_desde("20/10/2026", date(2026, 10, 25)) == 5
     assert dias_desde("fecha inválida", date(2026, 10, 25)) is None
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="El bucle Selector causa el fallo solo en Windows")
+def test_windows_rechaza_bucle_selector_antes_de_abrir_playwright() -> None:
+    with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
+        with pytest.raises(SGVAEntornoIncompatible, match="sin --reload"):
+            runner.run(consultar_sgva("documento", "clave", "todos", "todas", 30))
 
 
 def test_todos_los_departamentos_y_ofertas_recientes_primero(monkeypatch) -> None:
