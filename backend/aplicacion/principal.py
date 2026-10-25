@@ -87,7 +87,8 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
         if configuracion.sgva_activo:
             with api.state.fabrica_sesiones() as sesion:
                 interrumpir_sin_credenciales(sesion)
-            trabajador = asyncio.create_task(vigilar_consultas(api.state.fabrica_sesiones, api.state.cola_sgva))
+            trabajador = asyncio.create_task(vigilar_consultas(api.state.fabrica_sesiones, api.state.cola_sgva,
+                                                               configuracion.gemini_clave))
         else:
             trabajador = asyncio.create_task(vigilar_cola(api.state.fabrica_sesiones, api.state.aviso_cola))
         try:
@@ -392,7 +393,7 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
             "sgva": configuracion.sgva_activo,
             "gmail": gmail_configurado,
             "gmail_prueba": configuracion.entorno == "desarrollo" and gmail_configurado,
-            "clasificacion_ia": False,
+            "clasificacion_ia": bool(configuracion.sgva_activo and configuracion.gemini_clave),
             "comprobantes_nequi": False,
         }
 
@@ -460,13 +461,17 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
         if configuracion.sgva_activo:
             if acceso is None:
                 raise HTTPException(422, "Introduce tu documento y contraseña de SGVA para esta consulta.")
+            if acceso.acepta_ia and (not configuracion.gemini_clave or acceso.perfil_ia is None):
+                raise HTTPException(422, "La IA requiere tu perfil y una clave de servicio configurada.")
             if api.state.cola_sgva.full():
                 raise HTTPException(429, "La cola de consultas está llena. Inténtalo después.")
             campana.modo_consulta = "sgva"
         encolar(sesion, campana)
         sesion.commit()
         if configuracion.sgva_activo:
-            api.state.cola_sgva.put_nowait((campana.id, acceso.numero_documento, acceso.clave_sgva.get_secret_value()))
+            perfil = acceso.perfil_ia.model_dump() if acceso.acepta_ia and acceso.perfil_ia else None
+            api.state.cola_sgva.put_nowait((campana.id, acceso.numero_documento,
+                                            acceso.clave_sgva.get_secret_value(), perfil))
         else:
             api.state.aviso_cola.set()
         return ResumenCampana.model_validate(campana)

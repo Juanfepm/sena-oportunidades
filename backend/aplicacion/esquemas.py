@@ -89,12 +89,29 @@ class ResumenDestinatario(BaseModel):
     estado: str
 
 
+class PerfilTemporalIA(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    habilidades: str = Field(min_length=20, max_length=500)
+    actividades_deseadas: str = Field(min_length=10, max_length=300)
+    actividades_no_deseadas: str = Field(default="", max_length=240)
+
+    @field_validator("habilidades", "actividades_deseadas", "actividades_no_deseadas")
+    @classmethod
+    def validar_texto(cls, valor: str) -> str:
+        if PATRON_CONTROL_TEXTO.search(valor):
+            raise ValueError("El perfil contiene caracteres de control.")
+        return valor
+
+
 class SolicitudAccesoSGVA(BaseModel):
     """Solo existe durante la petición y en la cola de memoria del proceso."""
 
     model_config = ConfigDict(extra="forbid")
     numero_documento: str = Field(pattern=r"^\d{5,15}$")
     clave_sgva: SecretStr = Field(min_length=1, max_length=128)
+    acepta_ia: bool = False
+    perfil_ia: PerfilTemporalIA | None = None
 
 
 class SolicitudContenidoTemporal(BaseModel):

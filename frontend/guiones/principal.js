@@ -26,8 +26,10 @@ async function configurarConsultaSgva() {
   try {
     const respuesta = await fetch("/api/v1/capacidades", { cache: "no-store" });
     if (!respuesta.ok) return;
-    consultaSgvaActiva = (await respuesta.json()).sgva === true;
+    const capacidades = await respuesta.json();
+    consultaSgvaActiva = capacidades.sgva === true;
     if (!consultaSgvaActiva) return;
+    document.querySelector("#opcion-ia").hidden = capacidades.clasificacion_ia !== true;
     const documento = document.querySelector("#numero-documento");
     const clave = document.querySelector("#clave-sgva");
     for (const campo of [documento, clave]) { campo.disabled = false; campo.required = true; }
@@ -46,7 +48,7 @@ async function configurarConsultaSgva() {
     document.querySelector("#progreso .nota_fina").textContent = "Se lee SGVA sin postularte y sin enviar correos.";
     document.querySelector("#campana .aviso_requisitos small").textContent = "DEBUPA todavía no puede comprobar por sí solo si tienes patrocinio o una postulación activa.";
     document.querySelector("#campana .grupo_campo .ayuda_grupo").textContent = "Introduce tus credenciales una vez por consulta; se descartan al terminar y no se guardan en la base de datos.";
-    document.querySelector("#privacidad .texto_legal h2:last-of-type + p").textContent = "El inicio de sesión guarda tu identificador, nombre y correo verificado; también vincula el permiso de Gmail. Al iniciar una consulta, documento y contraseña SGVA permanecen solo en memoria hasta terminar o reiniciar el servidor. Se guardan las ofertas encontradas para que las revises. No se postula al aprendiz ni se contacta a empresas en esta etapa.";
+    document.querySelector("#privacidad .texto_legal h2:last-of-type + p").textContent = "El inicio de sesión guarda tu identificador, nombre y correo verificado; también vincula el permiso de Gmail. Documento, contraseña SGVA y perfil usado para IA permanecen solo en memoria durante la consulta. Si autorizas IA, se envían a Gemini únicamente tus intereses y el texto de funciones de las ofertas, sin credenciales, correos ni teléfonos. En el nivel gratuito Google puede usar estos textos para mejorar sus productos. Se guardan las ofertas y puntuaciones para que las revises. No se postula al aprendiz ni se contacta a empresas en esta etapa.";
   } catch { /* La vista de demostración permanece disponible. */ }
 }
 
@@ -249,9 +251,16 @@ function configurarFormularios() {
     const boton = formularioCorreo.querySelector("button[type='submit']");
     boton.disabled = true;
     try {
+      const aceptaIa = document.querySelector("#aceptar-ia").checked;
       const acceso = consultaSgvaActiva ? {
         numero_documento: formularioCampana.elements.numero_documento.value.trim(),
         clave_sgva: formularioCampana.elements.clave_sgva.value,
+        acepta_ia: aceptaIa,
+        ...(aceptaIa ? { perfil_ia: {
+          habilidades: formularioCampana.elements.habilidades.value.trim(),
+          actividades_deseadas: formularioCampana.elements.actividades_deseadas.value.trim(),
+          actividades_no_deseadas: formularioCampana.elements.actividades_no_deseadas.value.trim(),
+        } } : {}),
       } : null;
       await iniciarCampana(campanaId, acceso);
       if (acceso) {

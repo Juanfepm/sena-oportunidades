@@ -49,6 +49,17 @@ def dias_desde(fecha_texto: str, hoy: date | None = None) -> int | None:
         return None
 
 
+def filas_recientes(filas: list, hoy: date) -> list:
+    """El resultado completo llega en una respuesta, aunque SGVA lo pagine de 20 en 20."""
+    def antiguedad(fila: object) -> int:
+        if not isinstance(fila, list) or len(fila) < 6:
+            return 10**9
+        dias = dias_desde(texto_plano(fila[5]), hoy)
+        return dias if dias is not None else 10**9
+
+    return sorted(reversed(filas), key=antiguedad)
+
+
 async def _opciones(selector) -> list[dict[str, str]]:
     return await selector.locator("option").evaluate_all(
         "elementos => elementos.map(e => ({value: e.value, label: e.textContent.trim()}))"
@@ -121,7 +132,17 @@ async def _buscar_departamento(pagina, departamento: str, ciudad: str, antigueda
                                 avance: Callable[[int, str], Awaitable[None]] | None = None,
                                 limite: int = MAXIMO_OFERTAS) -> None:
     selector_departamento = pagina.locator("#sel_departamento")
-    await selector_departamento.select_option(seleccionar_opcion(await _opciones(selector_departamento), departamento))
+    opciones = await _opciones(selector_departamento)
+    if departamento == "todos":
+        # SGVA solo muestra todas las regiones después de una búsqueda concreta.
+        primera = next((opcion["value"] for opcion in opciones if opcion["value"] != "0"), None)
+        if primera is None:
+            raise AccesoSGVARestringido("SGVA no ofreció departamentos para consultar.")
+        await selector_departamento.select_option(primera)
+        await _filas_busqueda(pagina)  # Búsqueda preparatoria; no se leen sus detalles.
+        await selector_departamento.select_option("0")
+    else:
+        await selector_departamento.select_option(seleccionar_opcion(opciones, departamento))
     if ciudad != "todas":
         selector_ciudad = pagina.locator("#sel_ciudad")
         for _ in range(20):
@@ -133,23 +154,12 @@ async def _buscar_departamento(pagina, departamento: str, ciudad: str, antigueda
         else:
             raise AccesoSGVARestringido("El municipio elegido no aparece en SGVA.")
         await selector_ciudad.select_option(valor_ciudad)
-    async with pagina.expect_response(
-        lambda respuesta: "/sgva/Solicitudes/AprendizConsultarSolicitudesRequeridas" in respuesta.url,
-        timeout=20000,
-    ) as respuesta_pendiente:
-        await pagina.locator("#btn_buscar_solicitud").click()
-    respuesta_busqueda = await respuesta_pendiente.value
-    if respuesta_busqueda.status != 200:
-        raise SGVANoDisponible("SGVA rechazó la búsqueda de solicitudes.")
-    try:
-        filas = (await respuesta_busqueda.json())["aaData"]
-    except (ValueError, KeyError, TypeError) as error:
-        raise AccesoSGVARestringido("SGVA no entregó solicitudes para este aprendiz.") from error
-    if not isinstance(filas, list):
-        raise SGVANoDisponible("SGVA devolvió una lista de solicitudes inesperada.")
+    filas = await _filas_busqueda(pagina)
     if avance and not filas:
         await avance(min(95, 20 + len(ofertas)), f"Sin solicitudes recientes en {departamento}")
-    for indice, fila in enumerate(filas):
+    # El JSON de SGVA contiene todas las páginas. Invertirlo equivale a entrar
+    # por la última página; ordenar por fecha evita depender del orden de empates.
+    for indice, fila in enumerate(filas_recientes(filas, hoy)):
         if avance and indice % 10 == 0:
             await avance(min(95, 20 + len(ofertas)), f"Revisando solicitudes de {departamento}")
         if not isinstance(fila, list) or len(fila) < 6:
@@ -169,6 +179,28 @@ async def _buscar_departamento(pagina, departamento: str, ciudad: str, antigueda
         if len(ofertas) >= limite:
             return
         await asyncio.sleep(0.2)
+
+
+async def _filas_busqueda(pagina) -> list:
+    async with pagina.expect_response(
+        lambda respuesta: "/sgva/Solicitudes/AprendizConsultarSolicitudesRequeridas" in respuesta.url,
+        timeout=20000,
+    ) as respuesta_pendiente:
+        await pagina.locator("#btn_buscar_solicitud").click()
+    respuesta_busqueda = await respuesta_pendiente.value
+    if respuesta_busqueda.status != 200:
+        raise SGVANoDisponible("SGVA rechazó la búsqueda de solicitudes.")
+    try:
+        datos = await respuesta_busqueda.json()
+        filas = datos["aaData"]
+    except (ValueError, KeyError, TypeError) as error:
+        raise AccesoSGVARestringido("SGVA no entregó solicitudes para este aprendiz.") from error
+    if not isinstance(filas, list):
+        raise SGVANoDisponible("SGVA devolvió una lista de solicitudes inesperada.")
+    total = datos.get("iTotalRecords", datos.get("recordsTotal"))
+    if total is not None and int(total) > len(filas):
+        raise SGVANoDisponible("SGVA entregó solo una página de solicitudes; no se puede completar la consulta.")
+    return filas
 
 
 async def consultar_sgva(documento: str, clave: str, departamento: str, ciudad: str,
@@ -200,14 +232,7 @@ async def consultar_sgva(documento: str, clave: str, departamento: str, ciudad: 
                     await pagina.wait_for_load_state("networkidle", timeout=12000)
                 except TiempoAgotado:
                     pass  # La búsqueda esperará su respuesta específica.
-                selector = pagina.locator("#sel_departamento")
-                opciones = await _opciones(selector)
-                departamentos = ([departamento] if departamento != "todos" else
-                                 [opcion["label"] for opcion in opciones if opcion["value"] != "0"])
-                for nombre in departamentos:
-                    await _buscar_departamento(pagina, nombre, ciudad, antiguedad, ofertas, vistos, hoy, avance, limite)
-                    if len(ofertas) >= limite:
-                        break
+                await _buscar_departamento(pagina, departamento, ciudad, antiguedad, ofertas, vistos, hoy, avance, limite)
                 await contexto.close()
             finally:
                 await navegador.close()

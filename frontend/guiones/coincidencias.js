@@ -30,7 +30,7 @@ function tarjetaEmpresa(empresa) {
     descripcion.append(elemento("summary", "", "Ver perfil y funciones"), elemento("p", "", empresa.descripcion));
   }
   const pie = elemento("div", "sugerencia_tarjeta_pie");
-  const detalle = elemento("span", "", `${empresa.modalidad} · ${empresa.correo || "Sin correo"}${empresa.pendienteIa ? ` · ${empresa.telefono}` : ""}`);
+  const detalle = elemento("span", "", `${empresa.modalidad} · ${empresa.correo || "Sin correo"} · ${empresa.telefono}`);
   const seleccionada = seleccion.has(empresa.id);
   const boton = elemento("button", seleccionada ? "accion_quitar" : "accion_agregar",
     seleccionada ? "Quitar de la lista" : "Añadir a la lista");
@@ -46,7 +46,7 @@ function tarjetaEmpresa(empresa) {
 function elementoSeleccionado(empresa) {
   const fila = elemento("li");
   const detalle = elemento("div");
-  detalle.append(elemento("strong", "", empresa.nombre), elemento("span", "", empresa.pendienteIa ? "Pendiente de IA" : `${empresa.puntaje}% estimado · ${empresa.correo}`));
+  detalle.append(elemento("strong", "", empresa.nombre), elemento("span", "", empresa.pendienteIa ? "Pendiente de IA" : `${empresa.puntaje}% estimado · ${empresa.correo || "Sin correo"}`));
   const boton = elemento("button", "", "Quitar");
   boton.type = "button";
   boton.setAttribute("aria-label", `Quitar a ${empresa.nombre} de la lista`);
@@ -125,21 +125,24 @@ export function cargarCoincidencias(destinatarios, campana) {
     descripcion: destinatario.descripcion,
     puntaje: destinatario.puntuacion,
     pendienteIa: destinatario.estado === "pendiente_ia",
+    estado: destinatario.estado,
     modalidad: modalidades[campana.modalidad],
     motivo: destinatario.motivo,
   }));
   resultadosCargados = true;
   seleccion.clear();
-  visibles.filter(({ puntaje, pendienteIa }) => !pendienteIa && puntaje >= 80).forEach(({ id }) => seleccion.add(id));
+  visibles.filter(({ estado, correo, puntaje, pendienteIa }) => campana.modo_consulta === "sgva"
+    ? estado === "alta_coincidencia" && correo
+    : !pendienteIa && puntaje >= 80).forEach(({ id }) => seleccion.add(id));
   document.querySelector("#iniciar-simulacion").hidden = campana.modo_consulta === "sgva";
   document.querySelector("#aviso-sin-resultados strong").textContent = campana.modo_consulta === "sgva"
     ? "No encontramos solicitudes recientes con estos filtros."
     : "No encontramos coincidencias suficientemente buenas con estos filtros.";
   document.querySelector("#confirmacion .pagina_encabezado p").textContent = campana.modo_consulta === "sgva"
-    ? "Estas ofertas se consultaron en SGVA. Todavía no tienen análisis de IA y no se enviará ningún correo a empresas."
+    ? "Estas ofertas se consultaron en SGVA. Las que muestran porcentaje fueron analizadas con IA, si autorizaste su uso. Comprueba la modalidad con la empresa. Todavía no se envía ningún correo."
     : "Estas empresas y porcentajes son ficticios. El perfil que redactaste todavía no interviene en la puntuación; la modalidad requiere confirmación con la empresa.";
   document.querySelector("#confirmacion .resumen_revision > p").textContent = campana.modo_consulta === "sgva"
-    ? "Puedes revisar contactos y descripciones. La clasificación y el envío se habilitarán en próximas etapas."
+    ? "Puedes revisar contactos, descripciones y motivos de coincidencia. El envío de campañas se habilitará en una etapa posterior."
     : "Revisaremos los destinatarios excluidos y los contactos recientes. La versión operativa solicitará una confirmación final antes de enviar.";
   pintarEmpresas();
 }

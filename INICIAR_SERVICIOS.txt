@@ -80,6 +80,17 @@ $env:GOOGLE_URI_REDIRECCION = "http://127.0.0.1:8000/api/v1/autenticacion/google
 $env:GOOGLE_URL_INICIO = "/#inicio"
 $env:DEBUPA_SECRETO_SESION = ((New-Guid).Guid + (New-Guid).Guid).Replace("-", "")
 
+Para activar el análisis de IA, crea una clave de Gemini API en Google AI Studio
+(es distinta del cliente OAuth de Google Cloud). Configúrala solo en esta terminal:
+$env:GEMINI_API_KEY = "PEGA_AQUI_TU_CLAVE_DE_GEMINI"
+
+La opción de IA aparecerá en el formulario y cada aprendiz deberá marcar su
+autorización para esa búsqueda. Sin clave o sin autorización, las ofertas se
+consultarán igualmente y quedarán pendientes de análisis. El nivel gratuito de
+Gemini puede usar los textos enviados para mejorar productos de Google. No se
+envían documento, contraseña SGVA, correos ni teléfonos; tampoco el mensaje ni
+los adjuntos. La cuota gratuita puede impedir completar algunas clasificaciones.
+
 6. CONFIGURAR LA CLAVE DE CIFRADO
 ----------------------------------
 Protege el permiso de Gmail y los borradores temporales. La primera vez genera una
@@ -113,7 +124,9 @@ Aplicación: http://127.0.0.1:8000/
 Documentación técnica: http://127.0.0.1:8000/docs
 
 Inicia sesión con «Entrar con Google». La prueba local de Gmail envía un mensaje
-fijo únicamente a tu propia cuenta. Las campañas SGVA aún no están habilitadas.
+fijo únicamente a tu propia cuenta. Con DEBUPA_SGVA_ACTIVO=true, las campañas
+consultan SGVA. Si configuraste GEMINI_API_KEY, puedes autorizar el análisis de
+coincidencias. Todavía no se envían correos a empresas.
 
 10. DETENER EL SERVIDOR
 -----------------------

@@ -9,13 +9,14 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from ..dominio.estados import EstadoCampana
 from ..esquemas import PATRON_CORREO
-from ..integraciones.contratos import AccesoSGVARestringido, SGVANoDisponible
+from ..integraciones.contratos import AccesoSGVARestringido, EvaluacionIA, IntegracionNoDisponible, SGVANoDisponible
+from ..integraciones.ia import clasificar_ofertas
 from ..integraciones.sgva import consultar_sgva, normalizar
 from ..modelos import Campana, CorreoExcluido, Destinatario, NavegadorSGVA
 from .cola import liberar, renovar_reserva, reservar_siguiente
 
 
-AccesoEnCola = tuple[str, str, str]
+AccesoEnCola = tuple[str, str, str, dict[str, str] | None]
 REGISTRO = logging.getLogger(__name__)
 
 
@@ -33,23 +34,40 @@ def interrumpir_sin_credenciales(sesion: Session) -> None:
     sesion.commit()
 
 
-def guardar_ofertas(sesion: Session, campana: Campana, ofertas) -> int:
+def filtrar_ofertas(sesion: Session, campana: Campana, ofertas: list) -> list:
+    """Aplica exclusiones antes de enviar descripciones al clasificador."""
     excluidos = set(sesion.scalars(select(CorreoExcluido.correo).where(CorreoExcluido.usuario_id == campana.usuario_id)))
-    sesion.execute(delete(Destinatario).where(Destinatario.campana_id == campana.id))
     correos_vistos: set[str] = set()
-    cantidad = 0
+    filtradas = []
     for oferta in ofertas:
         correo = (oferta.correo or "").strip().lower() or None
         if correo and not PATRON_CORREO.fullmatch(correo):
             correo = None
         if correo and (correo in excluidos or correo in correos_vistos):
             continue
-        if correo:
-            correos_vistos.add(correo)
         if campana.departamento != "todos" and normalizar(oferta.departamento) != normalizar(campana.departamento):
             continue
         if campana.ciudad != "todas" and normalizar(oferta.ciudad) != normalizar(campana.ciudad):
             continue
+        if correo:
+            correos_vistos.add(correo)
+        filtradas.append(oferta)
+    return filtradas
+
+
+def guardar_ofertas(sesion: Session, campana: Campana, ofertas,
+                   evaluaciones: list[EvaluacionIA | None] | None = None) -> int:
+    sesion.execute(delete(Destinatario).where(Destinatario.campana_id == campana.id))
+    for indice, oferta in enumerate(ofertas):
+        correo = (oferta.correo or "").strip().lower() or None
+        if correo and not PATRON_CORREO.fullmatch(correo):
+            correo = None
+        evaluacion = evaluaciones[indice] if evaluaciones and indice < len(evaluaciones) else None
+        modalidad = evaluacion.modalidad if evaluacion else None
+        alta = bool(evaluacion and evaluacion.puntuacion >= 80 and modalidad == "confirmada")
+        estado = "alta_coincidencia" if alta else "por_revisar" if evaluacion else "pendiente_ia"
+        motivo = (f"{evaluacion.motivo} Modalidad {modalidad.replace('_', ' ')}; confirma con la empresa."
+                  if evaluacion else "Oferta encontrada en SGVA. Análisis de coincidencia pendiente.")
         sesion.add(Destinatario(
             campana_id=campana.id,
             nombre_empresa=oferta.nombre_empresa[:180],
@@ -59,21 +77,22 @@ def guardar_ofertas(sesion: Session, campana: Campana, ofertas) -> int:
             departamento=oferta.departamento[:80],
             ciudad=oferta.ciudad[:80],
             dias_publicada=oferta.dias_publicada,
-            motivo="Oferta encontrada en SGVA. Análisis de coincidencia pendiente.",
-            puntuacion=None,
-            estado="pendiente_ia",
+            motivo=motivo,
+            puntuacion=evaluacion.puntuacion if evaluacion else None,
+            estado=estado,
         ))
-        cantidad += 1
-    return cantidad
+    return len(ofertas)
 
 
-async def procesar_acceso(fabrica: sessionmaker[Session], acceso: AccesoEnCola) -> None:
-    campana_id, documento, clave = acceso
+async def procesar_acceso(fabrica: sessionmaker[Session], acceso: AccesoEnCola,
+                         clave_ia: str | None = None) -> None:
+    campana_id, documento, clave, perfil = acceso
     with fabrica() as sesion:
         campana = reservar_siguiente(sesion, datetime.now(timezone.utc), campana_id)
         if campana is None:
             return
         filtros = (campana.departamento, campana.ciudad, campana.antiguedad_dias)
+        modalidad = campana.modalidad
         sesion.commit()
     try:
         async def avance(porcentaje: int, etapa: str) -> None:
@@ -91,10 +110,23 @@ async def procesar_acceso(fabrica: sessionmaker[Session], acceso: AccesoEnCola) 
             campana = sesion.get(Campana, campana_id)
             if campana is None or campana.estado != EstadoCampana.CONSULTANDO:
                 return
+            ofertas = filtrar_ofertas(sesion, campana, ofertas)
+        evaluaciones = None
+        if perfil and clave_ia and ofertas:
+            try:
+                evaluaciones = await clasificar_ofertas(clave_ia, perfil, modalidad, ofertas, avance)
+            except IntegracionNoDisponible:
+                REGISTRO.warning("La IA no completó el análisis de la campaña %s", campana_id)
+        with fabrica() as sesion:
+            campana = sesion.get(Campana, campana_id)
+            if campana is None or campana.estado != EstadoCampana.CONSULTANDO:
+                return
             renovar_reserva(sesion, campana, datetime.now(timezone.utc))
-            cantidad = guardar_ofertas(sesion, campana, ofertas)
+            cantidad = guardar_ofertas(sesion, campana, ofertas, evaluaciones)
             campana.progreso = 100
-            campana.etapa = f"{cantidad} ofertas de SGVA para revisar; análisis de IA pendiente"
+            analizadas = sum(evaluacion is not None for evaluacion in evaluaciones or [])
+            campana.etapa = (f"{analizadas} de {cantidad} ofertas analizadas para revisar" if analizadas
+                             else f"{cantidad} ofertas de SGVA para revisar; análisis de IA pendiente")
             liberar(sesion, campana, EstadoCampana.ESPERANDO_CONFIRMACION)
             sesion.commit()
     except (AccesoSGVARestringido, SGVANoDisponible) as error:
@@ -121,11 +153,12 @@ async def procesar_acceso(fabrica: sessionmaker[Session], acceso: AccesoEnCola) 
                 sesion.commit()
 
 
-async def vigilar_consultas(fabrica: sessionmaker[Session], cola: asyncio.Queue[AccesoEnCola]) -> None:
+async def vigilar_consultas(fabrica: sessionmaker[Session], cola: asyncio.Queue[AccesoEnCola],
+                           clave_ia: str | None = None) -> None:
     while True:
         acceso = await cola.get()
         try:
-            await procesar_acceso(fabrica, acceso)
+            await procesar_acceso(fabrica, acceso, clave_ia)
         except asyncio.CancelledError:
             raise
         except Exception:

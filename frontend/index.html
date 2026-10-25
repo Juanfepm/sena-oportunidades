@@ -168,6 +168,7 @@
               <label class="casilla_control"><input id="permitir-recontacto" name="permitir_recontacto" type="checkbox"><span>Permitir recontactar empresas a las que escribí hace más de seis meses.</span></label>
               <label class="casilla_control"><input id="confirmar-mayoria-edad" name="confirmar_mayoria_edad" type="checkbox" required><span>Confirmo que soy mayor de 18 años.</span></label>
               <label class="casilla_control"><input id="aceptar-tratamiento" name="aceptar_tratamiento" type="checkbox" required><span>He leído y acepto la <a href="#privacidad">información de tratamiento de datos</a>.</span></label>
+              <label class="casilla_control" id="opcion-ia" hidden><input id="aceptar-ia" name="aceptar_ia" type="checkbox"><span>Autorizo analizar mis intereses y las funciones de las ofertas con Gemini. Se omiten credenciales, correos y teléfonos. En su nivel gratuito, Google puede usar lo enviado para mejorar sus productos. <a href="#privacidad">Más información</a>.</span></label>
             </fieldset>
             <div class="pie_formulario"><a class="enlace_texto" href="#inicio">Volver al inicio</a><button class="boton" type="submit">Continuar al correo <svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#flecha"></use></svg></button></div>
           </form>
@@ -213,7 +214,7 @@
           <div class="panel_seleccion_fondo" data-cerrar-seleccion></div>
           <div class="panel_seleccion_contenido" role="dialog" aria-modal="true" aria-labelledby="titulo-seleccion">
             <div class="panel_seleccion_cabecera"><div><span class="ceja">Control final</span><h2 id="titulo-seleccion">Destinatarios seleccionados</h2></div><button class="boton_icono" type="button" aria-label="Cerrar panel" data-cerrar-seleccion>×</button></div>
-            <p>Retira los contactos que no quieras incluir. Los porcentajes son solo una estimación de ejemplo.</p>
+              <p>Retira los contactos que no quieras incluir. Las puntuaciones de IA son estimaciones; verifica siempre la oferta.</p>
             <ul id="lista-seleccion" class="lista_seleccion"></ul>
             <button class="boton boton_ancho" type="button" data-cerrar-seleccion>Guardar selección</button>
           </div>

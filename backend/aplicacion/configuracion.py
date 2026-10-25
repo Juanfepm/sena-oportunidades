@@ -1,6 +1,6 @@
 """Configuración explícita: ningún secreto tiene un valor utilizable por defecto."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from os import getenv
 
 
@@ -17,6 +17,7 @@ class Configuracion:
     secreto_sesion: str | None = None
     clave_cifrado: str | None = None
     sgva_activo: bool = False
+    gemini_clave: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if self.clave_pruebas and len(self.clave_pruebas) < 32:
@@ -41,6 +42,7 @@ class Configuracion:
             secreto_sesion=getenv("DEBUPA_SECRETO_SESION"),
             clave_cifrado=getenv("DEBUPA_CLAVE_CIFRADO"),
             sgva_activo=getenv("DEBUPA_SGVA_ACTIVO", "false").lower() == "true",
+            gemini_clave=getenv("GEMINI_API_KEY"),
         )
         if configuracion.entorno not in {"desarrollo", "pruebas", "produccion"}:
             raise ValueError("DEBUPA_ENTORNO debe ser desarrollo, pruebas o produccion.")

@@ -4,7 +4,7 @@ Prototipo de una herramienta independiente para ayudar a aprendices del SENA a o
 
 ## Estado actual
 
-Un único acceso con Google vincula el permiso de envío de Gmail; su token de renovación se conserva cifrado. El primer formulario guarda filtros y el segundo permite guardar, de forma opcional, perfil, mensaje y adjuntos cifrados durante 24 horas. Con `DEBUPA_SGVA_ACTIVO=true`, el servidor usa una sesión aislada de Chromium para consultar solicitudes visibles en SGVA, guarda perfil, funciones y contactos y muestra resultados pendientes de IA. Las credenciales SGVA se usan solo en memoria durante la consulta. La interfaz no postula aprendices ni envía correos a empresas. Con el modo desactivado, continúa la demostración con empresas ficticias.
+Un único acceso con Google vincula el permiso de envío de Gmail; su token de renovación se conserva cifrado. El primer formulario guarda filtros y el segundo permite guardar, de forma opcional, perfil, mensaje y adjuntos cifrados durante 24 horas. Con `DEBUPA_SGVA_ACTIVO=true`, el servidor usa una sesión aislada de Chromium para consultar solicitudes visibles en SGVA. Para «todos los departamentos» hace primero una búsqueda concreta y después otra con el selector vacío, como exige la interfaz SGVA. Prioriza las ofertas recientes del listado completo antes de leer sus detalles. Con `GEMINI_API_KEY` y autorización específica, Gemini clasifica perfil y funciones y guarda puntuación y motivo; sin ambos requisitos, las ofertas quedan pendientes de IA. Las credenciales SGVA y el perfil usado para IA se mantienen solo en memoria durante la consulta. La interfaz no postula aprendices ni envía correos a empresas. Con el modo SGVA desactivado, continúa la demostración con empresas ficticias.
 
 El selector muestra una selección práctica de ciudades y municipios principales, verificada con DIVIPOLA. Si una población no aparece, se puede elegir «Todos los municipios». Para actualizar la selección desde la fuente oficial, ejecuta `python -m herramientas.actualizar_municipios` desde la raíz del repositorio. El script actualiza las copias del frontend y el backend.
 
@@ -32,7 +32,7 @@ Para comprobar Gmail, en la portada pulsa «Enviar prueba a mi correo». Se envi
 
 Para probar el guardado temporal, actualiza la base con `.\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini upgrade head`, llena las preferencias y el correo y pulsa «Guardar borrador cifrado». Puedes eliminarlo desde esa pantalla o desde «Tus datos temporales guardados» al volver a entrar. El servidor elimina los borradores vencidos al iniciarse y cada 15 minutos mientras está activo. La vista previa muestra metadatos, pero todavía no permite reabrir el texto para editarlo.
 
-Para probar la consulta real, instala Chromium como se indica arriba, aplica la migración `0005`, activa `DEBUPA_SGVA_ACTIVO=true` y llena los formularios con tus datos SGVA. El servidor consulta empresas visibles, respeta el periodo y deja el resultado listo para revisión. Puedes cerrar y reabrir la página mientras el servidor trabaja. Aún no evalúa el perfil con IA ni envía mensajes.
+Para probar la consulta real, instala Chromium como se indica arriba, aplica la migración `0005`, activa `DEBUPA_SGVA_ACTIVO=true` y llena los formularios con tus datos SGVA. El servidor consulta empresas visibles, respeta el periodo y deja el resultado listo para revisión. Puedes cerrar y reabrir la página mientras el servidor trabaja. Para probar IA configura `GEMINI_API_KEY` en la misma terminal y marca la autorización del formulario. La clave se crea en Google AI Studio, por separado del cliente OAuth. El nivel gratuito de Gemini puede usar los textos enviados para mejorar productos de Google. No se envían documento, contraseña, datos de contacto, correo redactado ni adjuntos. No hay envío a empresas todavía.
 
 ## Estructura actual
 
@@ -53,7 +53,7 @@ backend/
 ## Próximas piezas
 
 - Envío individual de correos tras la confirmación del aprendiz.
-- Clasificación explicable, revisión humana y envío individual real.
+- Envío individual real tras revisión humana.
 - Panel administrativo protegido, almacenamiento privado de comprobantes Nequi y migraciones PostgreSQL.
 
 Las instrucciones del servidor y su alcance exacto están en [backend/README.md](backend/README.md).

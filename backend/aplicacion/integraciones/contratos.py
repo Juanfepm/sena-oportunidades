@@ -19,7 +19,7 @@ class OfertaSGVA:
 class EvaluacionIA:
     puntuacion: int
     motivo: str
-    modalidad_confirmada: bool
+    modalidad: str
 
 
 class ConsultorSGVA(Protocol):
