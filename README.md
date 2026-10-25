@@ -4,7 +4,7 @@ Prototipo de una herramienta independiente para ayudar a aprendices del SENA a o
 
 ## Estado actual
 
-El frontend es una vista previa navegable con empresas ficticias. Un único acceso con Google vincula el permiso mínimo de envío de Gmail; su token de renovación se conserva cifrado. La cabecera muestra la cuenta y permite cerrar la sesión y desconectar Gmail con el mismo botón, que elimina el token guardado. El primer formulario guarda los filtros en la base de datos. La búsqueda, selección de empresas y envío siguen siendo demostraciones: faltan SGVA, almacenamiento temporal cifrado del contenido de campaña y el trabajador de la cola. Las credenciales SGVA siguen desactivadas en el frontend.
+El frontend es una vista previa navegable con empresas ficticias. Un único acceso con Google vincula el permiso mínimo de envío de Gmail; su token de renovación se conserva cifrado. La cabecera muestra la cuenta y permite cerrar la sesión y desconectar Gmail con el mismo botón, que elimina el token guardado. En desarrollo local hay una prueba que envía un mensaje predeterminado con un adjunto de texto solo a la propia cuenta. El primer formulario guarda los filtros en la base de datos. La búsqueda, selección de empresas y envíos de campañas siguen siendo demostraciones: faltan SGVA, almacenamiento temporal cifrado del contenido de campaña y el trabajador de la cola. Las credenciales SGVA siguen desactivadas en el frontend.
 
 El selector muestra una selección práctica de ciudades y municipios principales, verificada con DIVIPOLA. Si una población no aparece, se puede elegir «Todos los municipios». Para actualizar la selección desde la fuente oficial, ejecuta `python -m herramientas.actualizar_municipios` desde la raíz del repositorio. El script actualiza las copias del frontend y el backend.
 
@@ -24,6 +24,8 @@ $env:DEBUPA_SECRETO_SESION = ((New-Guid).Guid + (New-Guid).Guid).Replace("-", ""
 ```
 
 Estas órdenes suponen que ya configuraste la conexión PostgreSQL, el certificado SSL, `GOOGLE_CLIENTE_ID`, `GOOGLE_CLIENTE_SECRETO`, `DEBUPA_CLAVE_CIFRADO` y la URI de callback en la misma terminal. Abre `http://127.0.0.1:8000/` y pulsa «Entrar con Google». La guía completa está en [INICIAR_SERVICIOS.txt](INICIAR_SERVICIOS.txt).
+
+Para comprobar Gmail, en la portada pulsa «Enviar prueba a mi correo». Se enviará un solo mensaje a tu propia dirección, con un adjunto de texto pequeño; revisa «Recibidos» y «Enviados». El botón funciona una vez por sesión local y no consume el límite mensual de campañas. Si Gmail no confirma el resultado, revisa «Enviados» antes de iniciar otra sesión: repetir una solicitud incierta podría duplicar el mensaje. No se necesita una nueva migración para esta prueba.
 
 ## Estructura actual
 

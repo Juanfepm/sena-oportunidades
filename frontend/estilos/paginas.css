@@ -846,6 +846,20 @@
   max-width: 37rem;
 }
 
+.prueba_gmail {
+  margin-top: var(--espacio_8);
+}
+
+.prueba_gmail .panel_ayuda h2 {
+  margin-top: 0;
+}
+
+.prueba_gmail .panel_ayuda p:last-child {
+  margin-bottom: 0;
+  margin-top: var(--espacio_4);
+  overflow-wrap: anywhere;
+}
+
 .resumen_linea {
   border-top: 1px solid #c9d8c6;
   display: flex;

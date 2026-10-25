@@ -26,6 +26,13 @@ from .modelos import ConexionGmail, HistorialEnvio, Usuario
 from .seguridad import obtener_token_csrf, obtener_usuario_actual, verificar_csrf
 from .servicios.campanas import EsperaPlanGratis, consultar_campana, consultar_disponibilidad, crear_borrador, listar_borradores
 from .servicios.exclusiones import listar_exclusiones, quitar_exclusion
+from .servicios.envio_gmail import (
+    AdjuntoGmail,
+    EnvioGmailNoConfirmado,
+    GmailNoDisponible,
+    PermisoGmailInvalido,
+    enviar_gmail,
+)
 from .servicios.gmail import ClaveCifradoInvalida, cifrar_token, descifrar_token, obtener_cifrador
 
 
@@ -236,6 +243,7 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
 
     @api.get("/api/v1/gmail/estado")
     def estado_gmail(
+        request: Request,
         usuario: Usuario = Depends(obtener_usuario_actual),
         sesion: Session = Depends(obtener_sesion),
     ) -> dict[str, bool | str | None]:
@@ -243,7 +251,52 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
         return {
             "conectado": conexion is not None,
             "correo": conexion.correo_google if conexion else None,
+            "prueba_solicitada": bool(request.session.get("gmail_prueba_solicitada")),
         }
+
+    @api.post("/api/v1/gmail/prueba")
+    async def prueba_gmail(
+        request: Request,
+        _: None = Depends(verificar_csrf),
+        usuario: Usuario = Depends(obtener_usuario_actual),
+        sesion: Session = Depends(obtener_sesion),
+    ) -> dict[str, str]:
+        """Prueba local de un solo intento por sesión, dirigida a la propia cuenta."""
+        if (
+            configuracion.entorno != "desarrollo"
+            or request.client is None
+            or request.client.host not in {"127.0.0.1", "::1", "testclient"}
+        ):
+            raise HTTPException(404, "La prueba solo está disponible en desarrollo.")
+        if request.session.get("usuario_id") != usuario.id or not usuario.correo_google:
+            raise HTTPException(401, "Inicia sesión con Google para hacer la prueba.")
+        if await request.body():
+            raise HTTPException(400, "La prueba no acepta destinatarios ni contenido del navegador.")
+        if request.session.get("gmail_prueba_solicitada"):
+            raise HTTPException(429, "Ya solicitaste una prueba en esta sesión.")
+        conexion = sesion.scalar(select(ConexionGmail).where(ConexionGmail.usuario_id == usuario.id))
+        if conexion is None or conexion.correo_google != usuario.correo_google or conexion.permisos != PERMISO_ENVIO_GMAIL:
+            raise HTTPException(409, "Vuelve a entrar con Google para vincular Gmail.")
+
+        request.session["gmail_prueba_solicitada"] = True
+        try:
+            mensaje_id = await enviar_gmail(
+                configuracion,
+                conexion.token_renovacion_cifrado,
+                usuario.correo_google,
+                usuario.correo_google,
+                "Prueba de conexión de DEBUPA",
+                "Este mensaje confirma que DEBUPA puede enviar desde tu cuenta de Gmail. "
+                "No se contactó a ninguna empresa.\n",
+                (AdjuntoGmail("prueba-debupa.txt", b"Prueba de adjunto de DEBUPA.\n", "text", "plain"),),
+            )
+        except (PermisoGmailInvalido, ClaveCifradoInvalida) as error:
+            raise HTTPException(409, "El permiso de Gmail expiró. Cierra sesión y vuelve a entrar con Google.") from error
+        except EnvioGmailNoConfirmado as error:
+            raise HTTPException(503, "Gmail no confirmó el resultado. Revisa Enviados antes de repetir la prueba.") from error
+        except GmailNoDisponible as error:
+            raise HTTPException(503, "Google no respondió. Inténtalo en una nueva sesión más tarde.") from error
+        return {"correo": usuario.correo_google, "mensaje_id": mensaje_id}
 
     @api.get("/api/v1/gmail/conectar")
     def conectar_gmail_anterior() -> RedirectResponse:
@@ -271,6 +324,9 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
 
     @api.get("/api/v1/capacidades")
     def capacidades() -> dict[str, bool]:
+        gmail_configurado = bool(
+            configuracion.google_cliente_id and configuracion.google_cliente_secreto and cifrado_disponible
+        )
         return {
             "borradores": True,
             "historial_local": True,
@@ -278,11 +334,8 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
             "trabajador_activo": False,
             "google_oauth": bool(configuracion.google_cliente_id and configuracion.google_cliente_secreto and cifrado_disponible),
             "sgva": False,
-            "gmail": bool(
-                configuracion.google_cliente_id
-                and configuracion.google_cliente_secreto
-                and cifrado_disponible
-            ),
+            "gmail": gmail_configurado,
+            "gmail_prueba": configuracion.entorno == "desarrollo" and gmail_configurado,
             "clasificacion_ia": False,
             "comprobantes_nequi": False,
         }

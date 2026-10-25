@@ -3,6 +3,8 @@ const enlaceGoogle = document.querySelector("#iniciar-google");
 const botonCerrar = document.querySelector("#cerrar-sesion");
 const estadoGmail = document.querySelector("#estado-gmail");
 let cuentaActiva = null;
+let gmailConectado = false;
+let pruebaGmailSolicitada = false;
 let tokenCsrf = null;
 
 async function obtenerJson(ruta) {
@@ -18,6 +20,8 @@ async function obtenerJson(ruta) {
 }
 
 function ocultarGmail() {
+  gmailConectado = false;
+  pruebaGmailSolicitada = false;
   estadoGmail.hidden = true;
 }
 
@@ -31,12 +35,15 @@ async function actualizarGmail() {
     return;
   }
   estadoGmail.hidden = false;
+  pruebaGmailSolicitada = gmail.datos?.prueba_solicitada === true;
   if (gmail.datos?.conectado) {
+    gmailConectado = true;
     estadoGmail.textContent = "Gmail conectado";
     estadoGmail.title = gmail.datos.correo ?? "";
     enlaceGoogle.hidden = true;
     return;
   }
+  gmailConectado = false;
   estadoGmail.textContent = "Gmail pendiente; vuelve a entrar";
   estadoGmail.removeAttribute("title");
   enlaceGoogle.hidden = true;
@@ -55,7 +62,13 @@ async function actualizarCuenta() {
       const seguridad = await obtenerJson("/api/v1/autenticacion/csrf");
       tokenCsrf = seguridad.datos?.token ?? null;
       await actualizarGmail();
-      window.dispatchEvent(new CustomEvent("debupa:cuenta-actualizada", { detail: cuentaActiva }));
+      window.dispatchEvent(new CustomEvent("debupa:cuenta-actualizada", {
+        detail: {
+          ...cuentaActiva,
+          gmail_conectado: gmailConectado,
+          gmail_prueba_solicitada: pruebaGmailSolicitada,
+        },
+      }));
       return;
     }
 
@@ -69,6 +82,7 @@ async function actualizarCuenta() {
     enlaceGoogle.textContent = "Entrar con Google";
     enlaceGoogle.hidden = !disponible;
     botonCerrar.hidden = true;
+    window.dispatchEvent(new CustomEvent("debupa:cuenta-actualizada", { detail: null }));
   } catch (error) {
     cuentaActiva = null;
     tokenCsrf = null;
@@ -76,6 +90,7 @@ async function actualizarCuenta() {
     estadoCuenta.textContent = "Abre DEBUPA desde la API para iniciar sesión";
     enlaceGoogle.hidden = true;
     botonCerrar.hidden = true;
+    window.dispatchEvent(new CustomEvent("debupa:cuenta-actualizada", { detail: null }));
     if (window.location.pathname === "/") window.location.assign(`/error.html?tipo=${error?.tipo ?? "servicio"}`);
   }
 }

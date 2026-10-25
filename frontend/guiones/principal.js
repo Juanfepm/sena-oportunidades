@@ -2,6 +2,7 @@ import { actualizarEjemplos, configurarCoincidencias, pintarResumen } from "./co
 import { configurarAutenticacion } from "./autenticacion.js";
 import { guardarPreferencias } from "./campanas.js";
 import { configurarErrores, mostrarErrorProceso } from "./errores.js";
+import { configurarPruebaGmail } from "./prueba-gmail.js";
 import { configurarRutas, irA } from "./rutas.js";
 import { configurarUbicaciones } from "./ubicaciones.js";
 import { activarCorreccion, validarAdjuntos, validarFormulario } from "./validacion.js";
@@ -285,6 +286,7 @@ if (["correo", "confirmacion", "progreso", "resultados"].includes(window.locatio
 
 document.querySelector("#anio-actual").textContent = String(new Date().getFullYear());
 configurarRutas();
+configurarPruebaGmail();
 configurarAutenticacion();
 configurarUbicaciones();
 configurarCookies();

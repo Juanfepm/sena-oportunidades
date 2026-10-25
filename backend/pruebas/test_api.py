@@ -217,6 +217,7 @@ def test_gmail_reconexion_y_desconexion(monkeypatch: pytest.MonkeyPatch):
             assert cliente.get("/api/v1/gmail/estado").json() == {
                 "conectado": True,
                 "correo": "aprendiz@ejemplo.com",
+                "prueba_solicitada": False,
             }
             with cliente.app.state.fabrica_sesiones() as sesion:
                 conexion = sesion.scalar(select(ConexionGmail))
