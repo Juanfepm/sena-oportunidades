@@ -4,6 +4,7 @@ import { configurarBorradoresTemporales } from "./borradores-temporales.js";
 import { borrarContenidoTemporal, cancelarCampana, confirmarEnvio, consultarCampana, consultarContenidoParaEdicion, guardarContenidoTemporal, guardarPreferencias, iniciarCampana, prepararEnvio } from "./campanas.js";
 import { configurarErrores, mostrarErrorProceso } from "./errores.js";
 import { configurarPruebaGmail } from "./prueba-gmail.js";
+import { configurarPremium } from "./premium.js";
 import { configurarRutas, irA } from "./rutas.js";
 import { campanaEnSeguimiento, configurarSeguimiento, detenerDatosDuranteEspera, detenerSeguimiento, iniciarDatosDuranteEspera, iniciarSeguimiento } from "./seguimiento.js";
 import { configurarUbicaciones } from "./ubicaciones.js";
@@ -471,7 +472,7 @@ function configurarSimulacion() {
   });
   document.querySelector("#iniciar-simulacion").addEventListener("click", iniciarEnvio);
   document.querySelector("#iniciar-envio-movil").addEventListener("click", iniciarEnvio);
-  document.querySelector("#cancelar-simulacion").addEventListener("click", async (evento) => {
+  const cancelarProceso = async (evento) => {
     const activa = campanaEnSeguimiento();
     if (activa) {
       const boton = evento.currentTarget;
@@ -504,7 +505,9 @@ function configurarSimulacion() {
     detenerDatosDuranteEspera();
     simulacionActiva = null;
     irA("confirmacion");
-  });
+  };
+  document.querySelector("#cancelar-simulacion").addEventListener("click", cancelarProceso);
+  document.querySelector("#cancelar-espera").addEventListener("click", cancelarProceso);
   window.addEventListener("hashchange", () => {
     if (simulacionActiva && window.location.hash !== "#progreso") {
       clearInterval(simulacionActiva.intervalo);
@@ -546,7 +549,7 @@ function configurarSimulacion() {
   });
 }
 
-if (["correo", "confirmacion", "progreso", "resultados"].includes(window.location.hash.slice(1))) {
+if (["correo", "confirmacion", "espera", "progreso", "resultados"].includes(window.location.hash.slice(1))) {
   window.history.replaceState(null, "", "#inicio");
 }
 
@@ -555,6 +558,7 @@ configurarRutas();
 configurarBorradoresTemporales();
 configurarPruebaGmail();
 configurarAutenticacion();
+configurarPremium();
 configurarConsultaSgva();
 configurarUbicaciones();
 configurarCookies();

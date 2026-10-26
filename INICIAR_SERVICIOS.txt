@@ -78,6 +78,7 @@ $env:GOOGLE_CLIENTE_ID = "PEGA_AQUI_TU_CLIENT_ID"
 $env:GOOGLE_CLIENTE_SECRETO = "PEGA_AQUI_TU_CLIENT_SECRET"
 $env:GOOGLE_URI_REDIRECCION = "http://127.0.0.1:8000/api/v1/autenticacion/google/callback"
 $env:GOOGLE_URL_INICIO = "/#inicio"
+$env:DEBUPA_CORREO_ADMIN = "debupawebapp@gmail.com"
 $env:DEBUPA_SECRETO_SESION = ((New-Guid).Guid + (New-Guid).Guid).Replace("-", "")
 
 Para activar el análisis de IA, crea una clave de Gemini API en Google AI Studio
@@ -93,7 +94,7 @@ los adjuntos. La cuota gratuita puede impedir completar algunas clasificaciones.
 
 6. CONFIGURAR LA CLAVE DE CIFRADO
 ----------------------------------
-Protege el permiso de Gmail y los borradores temporales. La primera vez genera una
+Protege el permiso de Gmail, los borradores y los comprobantes de pago. La primera vez genera una
 clave y guárdala en un gestor de contraseñas:
 .\.venv\Scripts\python.exe -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 
@@ -109,7 +110,7 @@ Aplica las migraciones pendientes. Ejecutar upgrade head otra vez es seguro:
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini current
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini check
 
-current debe mostrar 0007_envios_confirmados (head).
+current debe mostrar 0008_premium_revision (head).
 check debe terminar con No new upgrade operations detected.
 
 8. INICIAR EL SERVIDOR
@@ -136,11 +137,21 @@ Si Gmail deja un envío sin confirmar, revisa «Enviados» antes de volver a con
 Antes del primer envío real, vincula el correo que enviará los resúmenes:
 1. Si Google OAuth está en «Prueba», añade debupawebapp@gmail.com como usuario de prueba.
 2. En una ventana privada, entra a DEBUPA con debupawebapp@gmail.com y concede Gmail.
-3. Comprueba «Gmail conectado». Cierra la ventana sin pulsar «Cerrar sesión»:
-   ese botón revoca el permiso. Entra luego con la cuenta del aprendiz.
-El resumen llegará desde debupawebapp@gmail.com. No hay migración nueva.
-Si Google revoca el permiso (en «Prueba» puede vencer a los 7 días), vuelve a
-vincular esa cuenta antes de iniciar otra campaña.
+3. Abre «Administración»: debe aparecer «Permiso guardado».
+   Pulsa «Probar envío propio» y comprueba Recibidos y Enviados de esa cuenta.
+4. Ahora sí puedes cerrar sesión. DEBUPA conserva solo el permiso cifrado de
+   su cuenta administradora; el aprendiz conserva el cierre de sesión habitual.
+5. Entra con la cuenta del aprendiz. El resumen llega solo después de una
+   campaña real confirmada, no al iniciar sesión.
+Si la prueba falla, revisa que GOOGLE_CLIENTE_ID, GOOGLE_CLIENTE_SECRETO y
+DEBUPA_CLAVE_CIFRADO sean los mismos con que se autorizó la cuenta. Entra de
+nuevo con DEBUPA si Google dejó de aceptar su permiso. Una notificación de
+decisión premium no confirmada queda visible en Administración.
+
+PAGO PREMIUM: $7.500 COP por tres meses contados desde la aprobación manual.
+El aprendiz adjunta una imagen PNG o JPG de hasta 2 MB. El administrador debe
+comprobar el movimiento real en Nequi antes de aprobar. La imagen permanece
+cifrada y se borra de la base activa después de la decisión.
 
 10. DETENER EL SERVIDOR
 -----------------------

@@ -96,6 +96,14 @@ export async function consultarCampana(campanaId) {
   return respuesta.json();
 }
 
+export async function consultarTurno(campanaId) {
+  const respuesta = await fetch(`/api/v1/campanas/${encodeURIComponent(campanaId)}/turno`, {
+    credentials: "same-origin", cache: "no-store",
+  });
+  if (!respuesta.ok) throw new Error((await leerMensajeError(respuesta)).mensaje);
+  return respuesta.json();
+}
+
 export async function cancelarCampana(campanaId) {
   const respuesta = await enviarConCsrf(`/api/v1/campanas/${encodeURIComponent(campanaId)}/cancelar`, {
     method: "POST",

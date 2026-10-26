@@ -1,5 +1,5 @@
 const paginas = new Set([
-  "inicio", "como-funciona", "campana", "correo", "confirmacion", "progreso", "resultados",
+  "inicio", "como-funciona", "campana", "correo", "confirmacion", "espera", "progreso", "resultados",
   "planes", "pago", "nosotros", "privacidad", "cookies", "terminos", "administracion",
 ]);
 

@@ -20,6 +20,7 @@ $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path (Resolve-Path '.venv').Path 'ms-playwr
 .\.venv\Scripts\python.exe -m playwright install chromium
 $env:DEBUPA_ENTORNO = "desarrollo"
 $env:DEBUPA_SGVA_ACTIVO = "true"
+$env:DEBUPA_CORREO_ADMIN = "debupawebapp@gmail.com"
 $env:GOOGLE_URL_INICIO = "/#inicio"
 $env:DEBUPA_SECRETO_SESION = ((New-Guid).Guid + (New-Guid).Guid).Replace("-", "")
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini upgrade head
@@ -32,15 +33,15 @@ Para comprobar Gmail, en la portada pulsa «Enviar prueba a mi correo». Se envi
 
 Para probar el guardado temporal, actualiza la base con `.\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini upgrade head`, llena las preferencias y el correo y pulsa «Guardar borrador cifrado». Puedes eliminarlo desde esa pantalla o desde «Tus datos temporales guardados» al volver a entrar. El servidor elimina los borradores vencidos al iniciarse y cada 15 minutos mientras está activo. La vista previa muestra metadatos, pero todavía no permite reabrir el texto para editarlo.
 
-Para usar la consulta y el envío real, instala Chromium como se indica arriba, aplica las migraciones hasta `0007`, activa `DEBUPA_SGVA_ACTIVO=true` y llena los formularios con tus datos SGVA. El servidor consulta empresas visibles y deja los resultados para revisión. Puedes cerrar y reabrir la página mientras el servidor trabaja. Tras elegir empresas, pulsa «Revisar envío»: se muestran remitente, destinatarios aptos y omitidos, texto y adjuntos. Solo «Confirmar y enviar» inicia los mensajes reales, uno por empresa. El registro local impide recontactar antes de seis meses y no reintenta automáticamente un resultado incierto; en ese caso revisa Gmail «Enviados». Al terminar, DEBUPA envía desde `debupawebapp@gmail.com` a la cuenta del aprendiz un resumen de teléfonos válidos y elimina el contenido temporal. Para probar IA configura `GEMINI_API_KEY` y marca su autorización. La clave se crea en Google AI Studio, por separado del cliente OAuth. El nivel gratuito de Gemini puede usar los textos enviados para mejorar productos de Google. La consulta de IA no incluye documento, contraseña, datos de contacto ni adjuntos. El historial previo a DEBUPA no se puede verificar con el permiso actual de Gmail.
+Para usar la consulta y el envío real, instala Chromium como se indica arriba, aplica las migraciones hasta `0008`, activa `DEBUPA_SGVA_ACTIVO=true` y llena los formularios con tus datos SGVA. El servidor consulta empresas visibles y deja los resultados para revisión. Puedes cerrar y reabrir la página mientras el servidor trabaja. Tras elegir empresas, pulsa «Revisar envío»: se muestran remitente, destinatarios aptos y omitidos, texto y adjuntos. Solo «Confirmar y enviar» inicia los mensajes reales, uno por empresa. El registro local impide recontactar antes de seis meses y no reintenta automáticamente un resultado incierto; en ese caso revisa Gmail «Enviados». Al terminar, DEBUPA envía desde `debupawebapp@gmail.com` a la cuenta del aprendiz un resumen de teléfonos válidos y elimina el contenido temporal. Para probar IA configura `GEMINI_API_KEY` y marca su autorización. La clave se crea en Google AI Studio, por separado del cliente OAuth. El nivel gratuito de Gemini puede usar los textos enviados para mejorar productos de Google. La consulta de IA no incluye documento, contraseña, datos de contacto ni adjuntos. El historial previo a DEBUPA no se puede verificar con el permiso actual de Gmail.
 
 ### Vincular el correo de DEBUPA para los resúmenes
 
 1. Añade `debupawebapp@gmail.com` a los usuarios de prueba de Google Auth Platform si el proyecto OAuth sigue en estado «Prueba».
-2. Con el servidor iniciado, abre DEBUPA en una ventana privada e inicia sesión con esa cuenta mediante «Entrar con Google». Acepta el permiso de envío de Gmail y comprueba que la cabecera indique «Gmail conectado».
-3. Cierra esa ventana sin pulsar «Cerrar sesión» en DEBUPA: ese botón revoca y elimina el permiso guardado. Después entra normalmente con la cuenta del aprendiz en otra ventana. El token de DEBUPA queda cifrado en la misma base de datos; no necesitas una contraseña de aplicación ni otra migración.
+2. Configura `DEBUPA_CORREO_ADMIN=debupawebapp@gmail.com`, reinicia el servidor y entra con esa cuenta. Acepta el permiso de envío de Gmail.
+3. Abre «Administración» y pulsa «Probar envío propio». Comprueba Recibidos y Enviados de DEBUPA. Puedes cerrar sesión: el permiso cifrado de esa cuenta permanece disponible para resúmenes y avisos; los permisos de las cuentas de aprendices se revocan al salir.
 
-Si el correo de DEBUPA no está conectado, la revisión final rechaza el envío antes de contactar empresas. Si Google revoca el permiso durante una campaña, los envíos a empresas ya confirmados se conservan y el resultado avisa que el resumen no pudo confirmarse. En el estado OAuth «Prueba», los permisos de Gmail pueden vencer a los siete días; vuelve a vincular la cuenta de DEBUPA cuando sea necesario.
+Si el correo de DEBUPA no está conectado, la revisión final rechaza el envío antes de contactar empresas. Si Google revoca el permiso durante una campaña, los envíos a empresas ya confirmados se conservan y el resultado avisa que el resumen no pudo confirmarse. Si falla la prueba de envío propia, vuelve a vincular la cuenta de DEBUPA.
 
 ## Estructura actual
 
@@ -58,11 +59,9 @@ backend/
   README.md                 Instalación, endpoints y trabajo pendiente
 ```
 
-## Próximas piezas
+## Activación Premium local
 
-- Envío individual de correos tras la confirmación del aprendiz.
-- Envío individual real tras revisión humana.
-- Panel administrativo protegido, almacenamiento privado de comprobantes Nequi y migraciones PostgreSQL.
+El plan cuesta $7.500 COP por tres meses desde su aprobación. El aprendiz adjunta una captura PNG o JPG; solo la cuenta administradora puede abrirla y aprobar o rechazar después de comprobar el movimiento en Nequi. La aplicación cifra la captura y la elimina de la base activa al decidir. El panel muestra usuarios, planes, solicitudes y avisos no confirmados. La cola de SGVA muestra cuántas búsquedas preceden a la propia y una animación de espera. No se ha desplegado públicamente.
 
 Las instrucciones del servidor y su alcance exacto están en [backend/README.md](backend/README.md).
 

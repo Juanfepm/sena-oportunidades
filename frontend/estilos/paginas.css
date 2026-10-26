@@ -6,6 +6,33 @@
   gap: var(--espacio_3);
 }
 
+.admin_metricas {
+  display: grid;
+  gap: var(--espacio_4);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: var(--espacio_6);
+}
+
+.admin_metricas > div > strong {
+  color: var(--color_verde);
+  display: block;
+  font-size: 2.2rem;
+  margin-top: var(--espacio_3);
+}
+
+.admin_metricas p {
+  display: flex;
+  justify-content: space-between;
+}
+
+.admin_solicitudes {
+  margin-bottom: var(--espacio_12);
+}
+
+.admin_solicitudes > h3 {
+  margin-top: var(--espacio_8);
+}
+
 .avatar_empresa {
   align-items: center;
   background: var(--color_verde_suave);
@@ -151,6 +178,25 @@
 
 .boton_agregar {
   align-self: flex-start;
+}
+
+.codigo_nequi {
+  aspect-ratio: 1;
+  background: var(--color_blanco);
+  border: 1px solid var(--color_borde);
+  border-radius: var(--radio_medio);
+  max-width: 20rem;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.codigo_nequi img {
+  left: -27.5%;
+  max-width: none;
+  position: absolute;
+  top: -80%;
+  width: 155.25%;
 }
 
 .composicion_disposicion {
@@ -342,6 +388,23 @@
   display: grid;
   gap: var(--espacio_6);
   grid-template-columns: minmax(0, 1fr) 16rem;
+}
+
+.espera_animacion {
+  background: var(--color_fondo_verde);
+  border-radius: var(--radio_boton);
+  height: 0.8rem;
+  margin-block: var(--espacio_8) var(--espacio_4);
+  overflow: hidden;
+}
+
+.espera_animacion span {
+  animation: avanzar_espera 2.2s ease-in-out infinite alternate;
+  background: var(--color_verde);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  width: 35%;
 }
 
 .etiqueta_flotante {
@@ -631,6 +694,11 @@
   font-weight: 700;
 }
 
+.lista_solicitudes {
+  display: grid;
+  gap: var(--espacio_4);
+}
+
 .nota_lateral,
 .panel_ayuda,
 .resumen_revision,
@@ -655,6 +723,13 @@
 .resultados_siguiente p {
   color: var(--color_muted);
   font-size: 0.88rem;
+}
+
+.pago_disposicion {
+  display: grid;
+  gap: var(--espacio_6);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: var(--espacio_12);
 }
 
 .pago_espera {
@@ -1106,6 +1181,16 @@
   min-width: 0;
 }
 
+.sala_espera {
+  background: var(--color_blanco);
+  border: 1px solid var(--color_borde);
+  border-radius: var(--radio_grande);
+  box-shadow: var(--sombra_suave);
+  margin-block: var(--espacio_12);
+  max-width: 45rem;
+  padding: var(--espacio_10);
+}
+
 .seccion_destacada {
   align-items: center;
   display: grid;
@@ -1236,6 +1321,28 @@
 
 .sugerencia_tarjeta_pie .accion_quitar {
   color: var(--color_error);
+}
+
+.solicitud_premium {
+  border: 1px solid var(--color_borde);
+  border-radius: var(--radio_medio);
+  display: grid;
+  gap: var(--espacio_4);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 18rem);
+  padding: var(--espacio_5);
+}
+
+.solicitud_premium img {
+  border: 1px solid var(--color_borde);
+  max-height: 20rem;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.solicitud_premium_acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio_3);
 }
 
 .tarjeta_muestra {
@@ -1390,6 +1497,15 @@
   font-weight: 700;
 }
 
+@keyframes avanzar_espera {
+  from { transform: translateX(0); }
+  to { transform: translateX(190%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .espera_animacion span { animation: none; width: 100%; }
+}
+
 @media (min-width: 761px) {
   .resumen_revision,
   .resultados_siguiente {
@@ -1435,6 +1551,12 @@
 }
 
 @media (max-width: 760px) {
+  .admin_metricas,
+  .pago_disposicion,
+  .solicitud_premium {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .barra_envio_movil {
     align-items: center;
     background: rgb(255 255 255 / 96%);
@@ -1505,6 +1627,10 @@
 }
 
 @media (max-width: 560px) {
+  .sala_espera {
+    padding: var(--espacio_5);
+  }
+
   .resultado_tarjeta {
     padding: var(--espacio_4);
   }

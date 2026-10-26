@@ -1,4 +1,4 @@
-import { consultarCampana, consultarDestinatarios, consultarResultadoEnvio, listarCampanas } from "./campanas.js";
+import { consultarCampana, consultarDestinatarios, consultarResultadoEnvio, consultarTurno, listarCampanas } from "./campanas.js";
 import { cargarCoincidencias, pintarResultadoEnvio } from "./coincidencias.js";
 import { mostrarErrorProceso } from "./errores.js";
 import { irA } from "./rutas.js";
@@ -94,6 +94,17 @@ async function revisar(referencia) {
     const campana = await consultarCampana(referencia.id);
     if (seguimiento !== referencia) return;
     pintarEstado(campana, referencia);
+    if (campana.estado === "en_cola" && referencia.tipo === "consulta") {
+      const turno = await consultarTurno(referencia.id);
+      if (seguimiento !== referencia) return;
+      const delante = turno.personas_delante;
+      document.querySelector("#estado-turno").textContent = delante > 0
+        ? `${delante} ${delante === 1 ? "campaña antes de la tuya" : "campañas antes de la tuya"}. Te avisaremos cuando empiece la consulta.`
+        : "Tu búsqueda es la siguiente. Estamos preparando el navegador.";
+      if (window.location.hash !== "#espera") irA("espera");
+    } else if (window.location.hash === "#espera") {
+      irA("progreso");
+    }
     if (campana.estado === "esperando_confirmacion") {
       await abrirResultados(campana, referencia);
       return;
@@ -146,7 +157,7 @@ export function iniciarSeguimiento(campanaId, tipo = "consulta") {
   document.querySelector(".barra_progreso").setAttribute("aria-valuenow", "0");
   iniciarDatosDuranteEspera();
   seguimiento = { id: campanaId, tipo, temporizador: null, maximoMostrado: 0 };
-  irA("progreso");
+  irA(tipo === "consulta" ? "espera" : "progreso");
   revisar(seguimiento);
 }
 
@@ -194,6 +205,6 @@ export function configurarSeguimiento() {
     }
   });
   window.addEventListener("hashchange", () => {
-    if (seguimiento && window.location.hash !== "#progreso") detenerSeguimiento();
+    if (seguimiento && !["#progreso", "#espera"].includes(window.location.hash)) detenerSeguimiento();
   });
 }
