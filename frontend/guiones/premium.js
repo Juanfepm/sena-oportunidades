@@ -1,10 +1,15 @@
 "use strict";
 
 import { enviarConCsrf } from "./autenticacion.js";
+import { mensajeVacio, pintarGraficas } from "./graficas-administracion.js";
+import { irA } from "./rutas.js";
 
 const estadoPago = document.querySelector("#estado-pago");
 const estadoAdmin = document.querySelector("#admin-estado");
 let cuenta = null;
+let archivoOptimizado = null;
+let enlaceComprobante = null;
+let metricas = null;
 
 async function leerRespuesta(respuesta) {
   const datos = await respuesta.json().catch(() => ({}));
@@ -40,13 +45,22 @@ function mostrarSolicitud(solicitud) {
   fecha.textContent = new Date(solicitud.creado_en).toLocaleString("es-CO");
   const acciones = document.createElement("div");
   acciones.className = "solicitud_premium_acciones";
-  for (const [texto, aprobar] of [["Aprobar", true], ["Rechazar", false]]) {
+  const ver = document.createElement("button");
+  ver.className = "boton boton_secundario";
+  ver.type = "button";
+  ver.textContent = "Ver comprobante";
+  ver.addEventListener("click", () => abrirComprobante(solicitud));
+  acciones.append(ver);
+  for (const [texto, aprobar] of [["Aceptar", true], ["Rechazar", false]]) {
     const boton = document.createElement("button");
     boton.type = "button";
-    boton.className = aprobar ? "boton" : "boton boton_secundario";
+    boton.className = aprobar ? "boton" : "boton boton_rechazar";
     boton.textContent = texto;
     boton.addEventListener("click", async () => {
-      if (!window.confirm(`${texto} la solicitud de ${solicitud.nombre}? Confirma primero el movimiento real en Nequi.`)) return;
+      const aviso = aprobar
+        ? `¿Aceptar la solicitud de ${solicitud.nombre}? Confirma primero el movimiento real en Nequi.`
+        : `¿Rechazar la solicitud de ${solicitud.nombre}? Se borrará la captura y se enviará un aviso con el plazo de 7 días para solicitar reembolso.`;
+      if (!window.confirm(aviso)) return;
       acciones.querySelectorAll("button").forEach((control) => { control.disabled = true; });
       try {
         const respuesta = await enviarConCsrf(`/api/v1/administracion/pagos/${encodeURIComponent(solicitud.id)}/decision`, {
@@ -65,12 +79,39 @@ function mostrarSolicitud(solicitud) {
     acciones.append(boton);
   }
   datos.append(nombre, correo, fecha, acciones);
-  const imagen = document.createElement("img");
-  imagen.alt = `Comprobante enviado por ${solicitud.nombre}`;
-  imagen.loading = "lazy";
-  imagen.src = `/api/v1/administracion/pagos/${encodeURIComponent(solicitud.id)}/comprobante`;
-  tarjeta.append(datos, imagen);
+  tarjeta.append(datos);
   return tarjeta;
+}
+
+async function abrirComprobante(solicitud) {
+  const visor = document.querySelector("#visor-comprobante");
+  const imagen = document.querySelector("#imagen-comprobante");
+  const respuesta = await fetch(`/api/v1/administracion/pagos/${encodeURIComponent(solicitud.id)}/comprobante`, { cache: "no-store" });
+  if (!respuesta.ok) { estadoAdmin.textContent = "El comprobante ya no está disponible."; return; }
+  if (enlaceComprobante) URL.revokeObjectURL(enlaceComprobante);
+  enlaceComprobante = URL.createObjectURL(await respuesta.blob());
+  imagen.src = enlaceComprobante;
+  imagen.alt = `Comprobante enviado por ${solicitud.nombre}`;
+  visor.showModal();
+}
+
+function cerrarComprobante() {
+  document.querySelector("#visor-comprobante").close();
+}
+
+function limpiarComprobante() {
+  document.querySelector("#imagen-comprobante").removeAttribute("src");
+  if (enlaceComprobante) URL.revokeObjectURL(enlaceComprobante);
+  enlaceComprobante = null;
+}
+
+function pintarMetricas() {
+  if (!metricas) return;
+  const ingresos = document.querySelector("#admin-periodo-ingresos").value;
+  const campanas = document.querySelector("#admin-periodo-campanas").value;
+  const moneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+  document.querySelector("#admin-ingresos").textContent = moneda.format(metricas.periodos[ingresos].ingresos_aprobados_cop);
+  document.querySelector("#admin-campanas").textContent = String(metricas.periodos[campanas].campanas);
 }
 
 function mostrarAviso(aviso) {
@@ -109,20 +150,81 @@ async function cargarAdministracion() {
     document.querySelector("#admin-total").textContent = String(datos.usuarios);
     document.querySelector("#admin-gratis").textContent = String(datos.gratis);
     document.querySelector("#admin-premium").textContent = String(datos.premium);
+    document.querySelector("#admin-cuenta").textContent = "DEBUPA";
+    metricas = datos;
+    pintarMetricas();
+    pintarGraficas(datos);
     document.querySelector("#admin-correo").textContent = datos.correo_servicio_conectado
       ? "Permiso guardado. Comprueba que Gmail pueda enviar con la prueba." : "Sin conexión de servicio. Entra con la cuenta DEBUPA.";
     const lista = document.querySelector("#lista-solicitudes");
     lista.replaceChildren(...datos.solicitudes.map(mostrarSolicitud));
-    if (!datos.solicitudes.length) lista.textContent = "No hay solicitudes por revisar.";
+    document.querySelector("#admin-cantidad-solicitudes").textContent = `${datos.solicitudes.length} pendientes`;
+    if (!datos.solicitudes.length) lista.replaceChildren(mensajeVacio("No hay solicitudes por revisar. Las nuevas aparecerán aquí.", true));
     const avisos = document.querySelector("#lista-avisos");
     avisos.replaceChildren(...datos.avisos_pendientes.map(mostrarAviso));
-    if (!datos.avisos_pendientes.length) avisos.textContent = "Todos los avisos quedaron confirmados.";
+    document.querySelector("#admin-avisos").hidden = !datos.avisos_pendientes.length;
   } catch (error) {
     estadoAdmin.textContent = error.message;
   }
 }
 
+async function optimizarImagen(archivo) {
+  if (!archivo || !["image/png", "image/jpeg"].includes(archivo.type) || archivo.size > 8 * 1024 * 1024) {
+    throw new Error("Elige una captura PNG o JPG de máximo 8 MB.");
+  }
+  const original = await createImageBitmap(archivo);
+  const escala = Math.min(1, 1800 / Math.max(original.width, original.height));
+  const lienzo = document.createElement("canvas");
+  lienzo.width = Math.round(original.width * escala);
+  lienzo.height = Math.round(original.height * escala);
+  const contexto = lienzo.getContext("2d");
+  contexto.fillStyle = "#ffffff";
+  contexto.fillRect(0, 0, lienzo.width, lienzo.height);
+  contexto.drawImage(original, 0, 0, lienzo.width, lienzo.height);
+  original.close();
+  const convertir = (calidad) => new Promise((listo) => lienzo.toBlob(listo, "image/jpeg", calidad));
+  let resultado = await convertir(0.88);
+  if (resultado?.size > 2 * 1024 * 1024) resultado = await convertir(0.72);
+  if (!resultado || resultado.size > 2 * 1024 * 1024) throw new Error("La imagen sigue pesando más de 2 MB. Prueba otra captura.");
+  return new File([resultado], "comprobante-optimizado.jpg", { type: "image/jpeg" });
+}
+
+function avisoSinComprobante() {
+  document.querySelector("#aviso-comprobante").showModal();
+}
+
 export function configurarPremium() {
+  document.querySelector("#admin-periodo-ingresos").addEventListener("change", pintarMetricas);
+  document.querySelector("#admin-periodo-campanas").addEventListener("change", pintarMetricas);
+  document.querySelector("#cerrar-visor-comprobante").addEventListener("click", cerrarComprobante);
+  document.querySelector("#visor-comprobante").addEventListener("close", limpiarComprobante);
+  document.querySelector("#seguir-en-pago").addEventListener("click", () => {
+    document.querySelector("#aviso-comprobante").close();
+    document.querySelector("#comprobante-pago").click();
+  });
+  document.addEventListener("click", (evento) => {
+    const enlace = evento.target.closest("a[href^='#']");
+    if (window.location.hash !== "#pago" || !enlace || enlace.target === "_blank" || enlace.id === "salir-de-pago" || archivoOptimizado) return;
+    evento.preventDefault();
+    document.querySelector("#salir-de-pago").href = enlace.getAttribute("href");
+    avisoSinComprobante();
+  });
+  document.querySelector("#salir-de-pago").addEventListener("click", () => document.querySelector("#aviso-comprobante").close());
+  document.querySelector("#comprobante-pago").addEventListener("change", async (evento) => {
+    archivoOptimizado = null;
+    const archivo = evento.target.files[0];
+    if (!archivo) return;
+    estadoPago.textContent = "Optimizando captura…";
+    try {
+      archivoOptimizado = await optimizarImagen(archivo);
+      document.querySelector("#nombre-comprobante").textContent = `${archivo.name} · ${(archivoOptimizado.size / 1024).toFixed(0)} KB listos`;
+      estadoPago.textContent = "Captura lista para enviar.";
+    } catch (error) {
+      evento.target.value = "";
+      document.querySelector("#nombre-comprobante").textContent = "Elegir imagen PNG o JPG";
+      estadoPago.textContent = error.message;
+    }
+  });
   window.addEventListener("debupa:cuenta-actualizada", (evento) => {
     cuenta = evento.detail;
     document.querySelector("#enlace-administracion").hidden = !cuenta?.es_administrador;
@@ -136,9 +238,14 @@ export function configurarPremium() {
   document.querySelector("#formulario-pago").addEventListener("submit", async (evento) => {
     evento.preventDefault();
     if (!cuenta) { estadoPago.textContent = "Inicia sesión con Google antes de enviar el comprobante."; return; }
-    const archivo = document.querySelector("#comprobante-pago").files[0];
-    if (!archivo || !["image/png", "image/jpeg"].includes(archivo.type) || archivo.size > 2 * 1024 * 1024) {
-      estadoPago.textContent = "Elige una captura PNG o JPG de máximo 2 MB.";
+    if (!archivoOptimizado) {
+      estadoPago.textContent = "Adjunta una captura legible para solicitar la revisión.";
+      avisoSinComprobante();
+      return;
+    }
+    if (!document.querySelector("#aceptar-condiciones-pago").checked) {
+      estadoPago.textContent = "Acepta los términos y el tratamiento de datos para continuar.";
+      document.querySelector("#aceptar-condiciones-pago").focus();
       return;
     }
     const boton = evento.currentTarget.querySelector("button[type='submit']");
@@ -146,10 +253,13 @@ export function configurarPremium() {
     estadoPago.textContent = "Enviando comprobante…";
     try {
       const datos = new FormData();
-      datos.set("comprobante", archivo);
+      datos.set("comprobante", archivoOptimizado);
+      datos.set("acepta_condiciones", "true");
       await leerRespuesta(await enviarConCsrf("/api/v1/pagos-premium", { method: "POST", body: datos }));
       evento.currentTarget.reset();
-      estadoPago.textContent = "Recibimos el comprobante. La activación se revisará manualmente.";
+      archivoOptimizado = null;
+      document.querySelector("#nombre-comprobante").textContent = "Elegir imagen PNG o JPG";
+      irA("pago-enviado");
     } catch (error) {
       estadoPago.textContent = error.message;
       boton.disabled = false;

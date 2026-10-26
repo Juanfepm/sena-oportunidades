@@ -27,6 +27,7 @@ from ..servicios.campanas_envio import (
     cancelar_envio,
 )
 from ..servicios.cola import encolar
+from ..servicios.planes import plan_disponible
 
 
 def crear_router(api: FastAPI, configuracion: Configuracion) -> APIRouter:
@@ -236,7 +237,7 @@ def crear_router(api: FastAPI, configuracion: Configuracion) -> APIRouter:
                 Destinatario.id,
             )
         )
-        plan_actual = Plan(usuario.plan)
+        plan_actual = plan_disponible(usuario)
         respuesta.headers["X-DEBUPA-PLAN"] = plan_actual.value
         respuesta.headers["X-DEBUPA-LIMITE-CONTACTOS"] = str(LIMITES_CONTACTO[plan_actual])
         if plan_actual == Plan.GRATIS:

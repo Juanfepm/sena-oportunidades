@@ -315,6 +315,7 @@ def test_cuenta_debupa_conserva_permiso_de_servicio_al_cerrar_sesion(
                 follow_redirects=False,
             )
             assert cliente.get("/api/v1/autenticacion/yo").json()["es_administrador"] is True
+            assert cliente.get("/api/v1/autenticacion/yo").json()["plan"] == "premium"
             csrf = cliente.get("/api/v1/autenticacion/csrf").json()["token"]
             assert (
                 cliente.post(

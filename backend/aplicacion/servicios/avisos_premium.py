@@ -26,7 +26,9 @@ def _tarjeta_decision(aprobado: bool, vence: datetime | None) -> tuple[str, str,
         if aprobado and vence
         else (
             "No pudimos confirmar el pago con el comprobante recibido. "
-            "Escríbenos si necesitas ayuda."
+            "Si realizaste el pago, puedes solicitar un reembolso a "
+            "debupawebapp@gmail.com dentro de los 7 días siguientes a este aviso. "
+            "Este plazo adicional no limita tus derechos legales."
         )
     )
     texto = f"{titulo}\n\n{detalle}\n\nGracias por usar DEBUPA."

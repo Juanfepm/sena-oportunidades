@@ -17,9 +17,11 @@ from backend.aplicacion.dominio.ofertas import cumple_filtros
 from backend.aplicacion.dominio.seleccion import Coincidencia, separar_coincidencias
 from backend.aplicacion.dominio.ubicaciones import MUNICIPIOS_POR_DEPARTAMENTO, RUTA_CATALOGO
 from backend.aplicacion.integraciones.contratos import OfertaSGVA
-from backend.aplicacion.modelos import Campana, NavegadorSGVA, PagoPremium, Usuario
+from backend.aplicacion.modelos import Campana, HistorialEnvio, NavegadorSGVA, PagoPremium, Usuario
+from backend.aplicacion.servicios.campanas import consultar_disponibilidad
 from backend.aplicacion.servicios.cola import encolar, liberar, renovar_reserva, reservar_siguiente
 from backend.aplicacion.servicios.pagos import verificar_pago
+from backend.aplicacion.servicios.planes import plan_disponible
 from backend.aplicacion.servicios.trabajador_demo import recuperar_reserva_vencida
 
 
@@ -55,6 +57,42 @@ def test_seis_meses_respeta_finales_de_mes():
         hace_seis_meses(datetime(2026, 8, 31, tzinfo=timezone.utc)).date().isoformat()
         == "2026-02-28"
     )
+
+
+def test_cuenta_administradora_puede_repetir_campanas(sesion: Session):
+    usuario = Usuario(
+        identificador_externo="google:servicio",
+        correo_google="debupawebapp@gmail.com",
+        es_administrador=True,
+    )
+    sesion.add(usuario)
+    sesion.flush()
+    campana = Campana(
+        usuario_id=usuario.id,
+        plan_aplicado=Plan.PREMIUM,
+        limite_contactos=70,
+        modalidad="remoto",
+        departamento="todos",
+        ciudad="todas",
+        antiguedad_dias=7,
+    )
+    sesion.add(campana)
+    sesion.flush()
+    sesion.add(
+        HistorialEnvio(
+            usuario_id=usuario.id,
+            campana_id=campana.id,
+            correo="empresa@ejemplo.com",
+            estado="enviado",
+            enviado_en=datetime.now(timezone.utc),
+        )
+    )
+    sesion.commit()
+    assert plan_disponible(usuario) == Plan.PREMIUM
+    assert consultar_disponibilidad(sesion, usuario) is None
+    usuario.correo_google = "otra@ejemplo.com"
+    assert plan_disponible(usuario) == Plan.GRATIS
+    assert consultar_disponibilidad(sesion, usuario) is not None
 
 
 def test_seleccion_no_rellena_cupos_con_coincidencias_dudosas():

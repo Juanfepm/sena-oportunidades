@@ -8,7 +8,7 @@ from starlette.responses import Response
 
 from ..base_datos import obtener_sesion
 from ..configuracion import Configuracion
-from ..dominio.estados import EstadoCampana, Plan
+from ..dominio.estados import EstadoCampana
 from ..esquemas import (
     SolicitudConfirmacionEnvio,
     SolicitudSeleccion,
@@ -25,6 +25,7 @@ from ..servicios.campanas_envio import (
     huella_preparacion,
     preparar_envio,
 )
+from ..servicios.planes import plan_disponible
 from ..servicios.selecciones import SeleccionInvalida, guardar_seleccion
 
 
@@ -58,7 +59,7 @@ def crear_router(
             raise HTTPException(409, "La campaña aún no admite guardar destinatarios.")
         try:
             cantidad = guardar_seleccion(
-                sesion, campana, Plan(usuario.plan), solicitud.destinatarios
+                sesion, campana, plan_disponible(usuario), solicitud.destinatarios
             )
         except SeleccionInvalida as error:
             raise HTTPException(422, str(error)) from error

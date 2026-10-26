@@ -6,9 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..dominio.disponibilidad import proxima_busqueda
-from ..dominio.estados import LIMITES_CONTACTO, Plan
+from ..dominio.estados import LIMITES_CONTACTO
 from ..esquemas import SolicitudBorrador
 from ..modelos import Campana, CorreoExcluido, HistorialEnvio, Usuario
+from .planes import plan_disponible
 
 
 class EsperaPlanGratis(Exception):
@@ -25,14 +26,16 @@ def consultar_disponibilidad(
         .order_by(HistorialEnvio.enviado_en.desc())
         .limit(1)
     )
-    return proxima_busqueda(Plan(usuario.plan), ultimo_envio, ahora or datetime.now(timezone.utc))
+    return proxima_busqueda(
+        plan_disponible(usuario), ultimo_envio, ahora or datetime.now(timezone.utc)
+    )
 
 
 def crear_borrador(sesion: Session, usuario: Usuario, solicitud: SolicitudBorrador) -> Campana:
     proxima_fecha = consultar_disponibilidad(sesion, usuario)
     if proxima_fecha is not None:
         raise EsperaPlanGratis(proxima_fecha)
-    plan = Plan(usuario.plan)
+    plan = plan_disponible(usuario)
     existentes = set(
         sesion.scalars(
             select(CorreoExcluido.correo).where(CorreoExcluido.usuario_id == usuario.id)

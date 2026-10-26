@@ -14,6 +14,7 @@ from ..integraciones.oauth_google import PERMISO_ENVIO_GMAIL
 from ..modelos import Campana, ConexionGmail, CorreoExcluido, Destinatario, HistorialEnvio, Usuario
 from .campanas import consultar_disponibilidad
 from .conexiones_gmail import obtener_conexion_resumen
+from .planes import plan_disponible
 from .temporales import eliminar_contenido, recuperar_contenido
 
 
@@ -50,14 +51,15 @@ def _seleccionados(sesion: Session, campana: Campana, usuario: Usuario) -> list[
             .order_by(Destinatario.puntuacion.desc().nulls_last(), Destinatario.id)
         )
     )
-    limite = min(campana.limite_contactos, LIMITES_CONTACTO[Plan(usuario.plan)])
+    plan = plan_disponible(usuario)
+    limite = min(campana.limite_contactos, LIMITES_CONTACTO[plan])
     if not destinos or len(destinos) > limite:
         raise EnvioNoPermitido("La selección está vacía o excede el límite del plan.")
     if any(
         not destino.correo or not PATRON_CORREO.fullmatch(destino.correo) for destino in destinos
     ):
         raise EnvioNoPermitido("Una empresa seleccionada no tiene un correo válido.")
-    if Plan(usuario.plan) == Plan.GRATIS:
+    if plan == Plan.GRATIS:
         visibles = set(
             sesion.scalars(
                 select(Destinatario.id)

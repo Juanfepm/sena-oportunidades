@@ -33,6 +33,7 @@ from ..servicios.identidad_google import (
     PermisoGmailAusente,
     registrar_cuenta,
 )
+from ..servicios.planes import plan_disponible
 
 
 def pagina_error(tipo: str) -> RedirectResponse:
@@ -146,7 +147,7 @@ def crear_router(configuracion: Configuracion, cifrado_disponible: bool) -> APIR
         return {
             "correo": usuario.correo_google or "",
             "nombre": usuario.nombre_google or "",
-            "plan": usuario.plan,
+            "plan": plan_disponible(usuario),
             "premium_hasta": usuario.premium_hasta.isoformat() if usuario.premium_hasta else "",
             "es_administrador": bool(
                 usuario.es_administrador

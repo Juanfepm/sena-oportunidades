@@ -1,16 +1,14 @@
 """Revisión administrativa de pagos y acceso al comprobante."""
 
-from datetime import datetime, timezone
-
 from cryptography.fernet import InvalidToken
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..base_datos import obtener_sesion
-from ..dominio.estados import EstadoPago, Plan
+from ..dominio.estados import EstadoPago
 from ..integraciones.cifrado import ClaveCifradoInvalida, obtener_cifrador
 from ..integraciones.gmail import (
     EnvioGmailNoConfirmado,
@@ -22,6 +20,7 @@ from ..modelos import PagoPremium, Usuario
 from ..seguridad import obtener_administrador, verificar_csrf
 from ..servicios.avisos_premium import notificar_decision
 from ..servicios.conexiones_gmail import obtener_conexion_resumen
+from ..servicios.estadisticas_administracion import obtener_estadisticas
 from ..servicios.pagos import verificar_pago
 from ..servicios.resumen_correo import CORREO_DEBUPA
 
@@ -38,27 +37,7 @@ def resumen_administracion(
     _: Usuario = Depends(obtener_administrador),
     sesion: Session = Depends(obtener_sesion),
 ) -> dict:
-    ahora = datetime.now(timezone.utc)
-    total = (
-        sesion.scalar(
-            select(func.count())
-            .select_from(Usuario)
-            .where(Usuario.identificador_externo.like("google:%"))
-        )
-        or 0
-    )
-    premium = (
-        sesion.scalar(
-            select(func.count())
-            .select_from(Usuario)
-            .where(
-                Usuario.identificador_externo.like("google:%"),
-                Usuario.plan == Plan.PREMIUM,
-                Usuario.premium_hasta > ahora,
-            )
-        )
-        or 0
-    )
+    estadisticas = obtener_estadisticas(sesion)
     pagos = sesion.execute(
         select(PagoPremium, Usuario)
         .join(Usuario, Usuario.id == PagoPremium.usuario_id)
@@ -78,9 +57,7 @@ def resumen_administracion(
     ).all()
     conexion = obtener_conexion_resumen(sesion)
     return {
-        "usuarios": total,
-        "gratis": total - premium,
-        "premium": premium,
+        **estadisticas,
         "correo_servicio_conectado": bool(conexion),
         "avisos_pendientes": [
             {"id": pago.id, "correo": usuario.correo_google, "estado": pago.notificacion_estado}

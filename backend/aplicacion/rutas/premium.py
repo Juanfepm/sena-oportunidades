@@ -3,7 +3,7 @@
 from datetime import timezone
 from hashlib import sha256
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -50,12 +50,15 @@ def estado_pago(
 async def solicitar_premium(
     request: Request,
     comprobante: UploadFile = File(...),
+    acepta_condiciones: bool = Form(...),
     _: None = Depends(verificar_csrf),
     usuario: Usuario = Depends(obtener_usuario_actual),
     sesion: Session = Depends(obtener_sesion),
 ) -> dict[str, str]:
     if not usuario.correo_google or not usuario.identificador_externo.startswith("google:"):
         raise HTTPException(401, "Inicia sesión con tu cuenta de Google.")
+    if not acepta_condiciones:
+        raise HTTPException(422, "Debes aceptar los términos y la política de datos.")
     if sesion.scalar(
         select(PagoPremium.id)
         .where(PagoPremium.usuario_id == usuario.id, PagoPremium.estado == EstadoPago.PENDIENTE)

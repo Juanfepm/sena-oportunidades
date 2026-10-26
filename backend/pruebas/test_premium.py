@@ -77,8 +77,16 @@ def test_pago_privado_aprobacion_y_aviso(monkeypatch) -> None:
     monkeypatch.setattr(avisos_premium, "enviar_gmail", envio_ficticio)
     captura = b"\x89PNG\r\n\x1a\n" + b"captura-ficticia" + b"IEND\xaeB`\x82"
     with TestClient(aplicacion) as cliente:
+        sin_aceptar = cliente.post(
+            "/api/v1/pagos-premium",
+            data={"acepta_condiciones": "false"},
+            files={"comprobante": ("pago.png", captura, "image/png")},
+        )
+        assert sin_aceptar.status_code == 422
         solicitud = cliente.post(
-            "/api/v1/pagos-premium", files={"comprobante": ("pago.png", captura, "image/png")}
+            "/api/v1/pagos-premium",
+            data={"acepta_condiciones": "true"},
+            files={"comprobante": ("pago.png", captura, "image/png")},
         )
         assert solicitud.status_code == 201
         pago_id = solicitud.json()["id"]
@@ -92,6 +100,8 @@ def test_pago_privado_aprobacion_y_aviso(monkeypatch) -> None:
         assert (resumen["usuarios"], resumen["gratis"], resumen["premium"]) == (2, 2, 0)
         assert resumen["correo_servicio_conectado"] is True
         assert len(resumen["solicitudes"]) == 1
+        assert resumen["periodos"]["todo"]["ingresos_aprobados_cop"] == 0
+        assert resumen["evolucion_premium"][-1]["postuladas"] == 1
         comprobante = cliente.get(f"/api/v1/administracion/pagos/{pago_id}/comprobante")
         assert comprobante.content == captura
         decision = cliente.post(
@@ -100,6 +110,9 @@ def test_pago_privado_aprobacion_y_aviso(monkeypatch) -> None:
         assert decision.status_code == 200
         assert decision.json() == {"estado": "aprobado", "notificacion_estado": "enviado"}
         assert enviados == [("debupawebapp@gmail.com", "aprendiz@ejemplo.com")]
+        resumen_actualizado = cliente.get("/api/v1/administracion/resumen").json()
+        assert resumen_actualizado["periodos"]["todo"]["ingresos_aprobados_cop"] == 7500
+        assert resumen_actualizado["evolucion_premium"][-1]["aprobadas"] == 1
         assert (
             cliente.get(f"/api/v1/administracion/pagos/{pago_id}/comprobante").status_code == 404
         )
