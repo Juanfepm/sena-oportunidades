@@ -139,4 +139,24 @@ def test_pago_privado_aprobacion_y_aviso(monkeypatch) -> None:
             sesion.commit()
             actualizar_plan_vencido(sesion, usuario)
         assert cliente.get("/api/v1/pagos-premium/estado").json()["plan"] == "gratis"
+        pdf = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF\n"
+        invalido = cliente.post(
+            "/api/v1/pagos-premium",
+            data={"acepta_condiciones": "true"},
+            files={"comprobante": ("pago.pdf", b"no es un PDF", "application/pdf")},
+        )
+        assert invalido.status_code == 422
+        solicitud_pdf = cliente.post(
+            "/api/v1/pagos-premium",
+            data={"acepta_condiciones": "true"},
+            files={"comprobante": ("pago.pdf", pdf, "application/pdf")},
+        )
+        assert solicitud_pdf.status_code == 201
+        identidad["id"] = admin_id
+        vista_pdf = cliente.get(
+            f"/api/v1/administracion/pagos/{solicitud_pdf.json()['id']}/comprobante"
+        )
+        assert vista_pdf.status_code == 200
+        assert vista_pdf.headers["content-type"] == "application/pdf"
+        assert vista_pdf.content == pdf
     motor.dispose()

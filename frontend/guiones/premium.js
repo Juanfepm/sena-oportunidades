@@ -10,6 +10,42 @@ let cuenta = null;
 let archivoOptimizado = null;
 let enlaceComprobante = null;
 let metricas = null;
+let temporizadorNotificacion = null;
+let temporizadorSalida = null;
+
+function notificarAdministracion(mensaje, esError = false) {
+  const aviso = document.querySelector("#admin-notificacion");
+  clearTimeout(temporizadorNotificacion);
+  clearTimeout(temporizadorSalida);
+  aviso.textContent = mensaje;
+  aviso.setAttribute("role", esError ? "alert" : "status");
+  aviso.hidden = false;
+  aviso.classList.remove("admin_notificacion_visible");
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => aviso.classList.add("admin_notificacion_visible"));
+  });
+  temporizadorNotificacion = setTimeout(() => {
+    aviso.classList.remove("admin_notificacion_visible");
+    temporizadorSalida = setTimeout(() => { aviso.hidden = true; }, 240);
+  }, 3000);
+}
+
+function confirmarDecision(nombre, aprobar) {
+  const dialogo = document.querySelector("#confirmar-decision");
+  document.querySelector("#titulo-confirmar-decision").textContent = aprobar
+    ? "Aceptar solicitud Premium" : "Rechazar solicitud Premium";
+  document.querySelector("#texto-confirmar-decision").textContent = aprobar
+    ? `Confirma primero el movimiento real en Nequi antes de activar Premium para ${nombre}.`
+    : `Se eliminará el comprobante de ${nombre} y se enviará el aviso sobre los 7 días para solicitar reembolso.`;
+  const boton = document.querySelector("#aceptar-decision");
+  boton.textContent = aprobar ? "Aceptar solicitud" : "Rechazar solicitud";
+  boton.classList.toggle("boton_rechazar", !aprobar);
+  dialogo.returnValue = "";
+  dialogo.showModal();
+  return new Promise((resolver) => {
+    dialogo.addEventListener("close", () => resolver(dialogo.returnValue === "confirmar"), { once: true });
+  });
+}
 
 async function leerRespuesta(respuesta) {
   const datos = await respuesta.json().catch(() => ({}));
@@ -57,22 +93,20 @@ function mostrarSolicitud(solicitud) {
     boton.className = aprobar ? "boton" : "boton boton_rechazar";
     boton.textContent = texto;
     boton.addEventListener("click", async () => {
-      const aviso = aprobar
-        ? `¿Aceptar la solicitud de ${solicitud.nombre}? Confirma primero el movimiento real en Nequi.`
-        : `¿Rechazar la solicitud de ${solicitud.nombre}? Se borrará la captura y se enviará un aviso con el plazo de 7 días para solicitar reembolso.`;
-      if (!window.confirm(aviso)) return;
+      if (!await confirmarDecision(solicitud.nombre, aprobar)) return;
       acciones.querySelectorAll("button").forEach((control) => { control.disabled = true; });
       try {
         const respuesta = await enviarConCsrf(`/api/v1/administracion/pagos/${encodeURIComponent(solicitud.id)}/decision`, {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ aprobar }),
         });
         const resultado = await leerRespuesta(respuesta);
-        estadoAdmin.textContent = resultado.notificacion_estado === "enviado"
+        notificarAdministracion(resultado.notificacion_estado === "enviado"
           ? "Decisión guardada y correo confirmado por Gmail."
-          : "Decisión guardada. El correo no quedó confirmado; revisa la cuenta DEBUPA.";
+          : "Decisión guardada. El correo no quedó confirmado; revisa la cuenta DEBUPA.",
+        resultado.notificacion_estado !== "enviado");
         await cargarAdministracion();
       } catch (error) {
-        estadoAdmin.textContent = error.message;
+        notificarAdministracion(error.message, true);
         acciones.querySelectorAll("button").forEach((control) => { control.disabled = false; });
       }
     });
@@ -86,13 +120,31 @@ function mostrarSolicitud(solicitud) {
 async function abrirComprobante(solicitud) {
   const visor = document.querySelector("#visor-comprobante");
   const imagen = document.querySelector("#imagen-comprobante");
-  const respuesta = await fetch(`/api/v1/administracion/pagos/${encodeURIComponent(solicitud.id)}/comprobante`, { cache: "no-store" });
-  if (!respuesta.ok) { estadoAdmin.textContent = "El comprobante ya no está disponible."; return; }
-  if (enlaceComprobante) URL.revokeObjectURL(enlaceComprobante);
-  enlaceComprobante = URL.createObjectURL(await respuesta.blob());
-  imagen.src = enlaceComprobante;
-  imagen.alt = `Comprobante enviado por ${solicitud.nombre}`;
-  visor.showModal();
+  const pdf = document.querySelector("#pdf-comprobante");
+  const enlacePdf = document.querySelector("#abrir-pdf-comprobante");
+  try {
+    const respuesta = await fetch(`/api/v1/administracion/pagos/${encodeURIComponent(solicitud.id)}/comprobante`, { cache: "no-store" });
+    if (!respuesta.ok) throw new Error("El comprobante ya no está disponible.");
+    const archivo = await respuesta.blob();
+    if (!["image/png", "image/jpeg", "application/pdf"].includes(archivo.type)) {
+      throw new Error("El formato del comprobante no se puede mostrar.");
+    }
+    limpiarComprobante();
+    enlaceComprobante = URL.createObjectURL(archivo);
+    if (archivo.type === "application/pdf") {
+      pdf.src = enlaceComprobante;
+      enlacePdf.href = enlaceComprobante;
+      pdf.hidden = false;
+      enlacePdf.hidden = false;
+    } else {
+      imagen.src = enlaceComprobante;
+      imagen.alt = `Comprobante enviado por ${solicitud.nombre}`;
+      imagen.hidden = false;
+    }
+    visor.showModal();
+  } catch (error) {
+    notificarAdministracion(error.message, true);
+  }
 }
 
 function cerrarComprobante() {
@@ -100,7 +152,15 @@ function cerrarComprobante() {
 }
 
 function limpiarComprobante() {
-  document.querySelector("#imagen-comprobante").removeAttribute("src");
+  const imagen = document.querySelector("#imagen-comprobante");
+  const pdf = document.querySelector("#pdf-comprobante");
+  const enlacePdf = document.querySelector("#abrir-pdf-comprobante");
+  imagen.hidden = true;
+  imagen.removeAttribute("src");
+  pdf.hidden = true;
+  pdf.removeAttribute("src");
+  enlacePdf.hidden = true;
+  enlacePdf.removeAttribute("href");
   if (enlaceComprobante) URL.revokeObjectURL(enlaceComprobante);
   enlaceComprobante = null;
 }
@@ -130,11 +190,14 @@ function mostrarAviso(aviso) {
       try {
         const respuesta = await enviarConCsrf(`/api/v1/administracion/pagos/${encodeURIComponent(aviso.id)}/notificar`, { method: "POST" });
         const resultado = await leerRespuesta(respuesta);
-        estadoAdmin.textContent = resultado.notificacion_estado === "enviado"
-          ? "Gmail confirmó el aviso." : "Gmail no confirmó el aviso. Revisa la conexión de DEBUPA.";
+        notificarAdministracion(
+          resultado.notificacion_estado === "enviado"
+            ? "Gmail confirmó el aviso." : "Gmail no confirmó el aviso. Revisa la conexión de DEBUPA.",
+          resultado.notificacion_estado !== "enviado",
+        );
         await cargarAdministracion();
       } catch (error) {
-        estadoAdmin.textContent = error.message;
+        notificarAdministracion(error.message, true);
         boton.disabled = false;
       }
     });
@@ -189,11 +252,33 @@ async function optimizarImagen(archivo) {
   return new File([resultado], "comprobante-optimizado.jpg", { type: "image/jpeg" });
 }
 
+async function prepararComprobante(archivo) {
+  if (archivo?.type === "application/pdf") {
+    if (!archivo.size || archivo.size > 2 * 1024 * 1024) {
+      throw new Error("El PDF debe pesar como máximo 2 MB.");
+    }
+    return archivo;
+  }
+  return optimizarImagen(archivo);
+}
+
 function avisoSinComprobante() {
   document.querySelector("#aviso-comprobante").showModal();
 }
 
 export function configurarPremium() {
+  document.querySelector("#cancelar-decision").addEventListener("click", () => {
+    document.querySelector("#confirmar-decision").close("cancelar");
+  });
+  document.querySelector("#aceptar-decision").addEventListener("click", () => {
+    document.querySelector("#confirmar-decision").close("confirmar");
+  });
+  document.querySelector("#imagen-comprobante").addEventListener("error", () => {
+    if (document.querySelector("#visor-comprobante").open) {
+      cerrarComprobante();
+      notificarAdministracion("No se pudo mostrar la imagen. Adjunta otra captura o un PDF legible.", true);
+    }
+  });
   document.querySelector("#admin-periodo-ingresos").addEventListener("change", pintarMetricas);
   document.querySelector("#admin-periodo-campanas").addEventListener("change", pintarMetricas);
   document.querySelector("#cerrar-visor-comprobante").addEventListener("click", cerrarComprobante);
@@ -214,14 +299,14 @@ export function configurarPremium() {
     archivoOptimizado = null;
     const archivo = evento.target.files[0];
     if (!archivo) return;
-    estadoPago.textContent = "Optimizando captura…";
+    estadoPago.textContent = archivo.type === "application/pdf" ? "Validando PDF…" : "Optimizando imagen…";
     try {
-      archivoOptimizado = await optimizarImagen(archivo);
+      archivoOptimizado = await prepararComprobante(archivo);
       document.querySelector("#nombre-comprobante").textContent = `${archivo.name} · ${(archivoOptimizado.size / 1024).toFixed(0)} KB listos`;
-      estadoPago.textContent = "Captura lista para enviar.";
+      estadoPago.textContent = "Comprobante listo para enviar.";
     } catch (error) {
       evento.target.value = "";
-      document.querySelector("#nombre-comprobante").textContent = "Elegir imagen PNG o JPG";
+      document.querySelector("#nombre-comprobante").textContent = "Elegir PNG, JPG o PDF";
       estadoPago.textContent = error.message;
     }
   });
@@ -239,7 +324,7 @@ export function configurarPremium() {
     evento.preventDefault();
     if (!cuenta) { estadoPago.textContent = "Inicia sesión con Google antes de enviar el comprobante."; return; }
     if (!archivoOptimizado) {
-      estadoPago.textContent = "Adjunta una captura legible para solicitar la revisión.";
+      estadoPago.textContent = "Adjunta un comprobante legible para solicitar la revisión.";
       avisoSinComprobante();
       return;
     }
@@ -258,7 +343,7 @@ export function configurarPremium() {
       await leerRespuesta(await enviarConCsrf("/api/v1/pagos-premium", { method: "POST", body: datos }));
       evento.currentTarget.reset();
       archivoOptimizado = null;
-      document.querySelector("#nombre-comprobante").textContent = "Elegir imagen PNG o JPG";
+      document.querySelector("#nombre-comprobante").textContent = "Elegir PNG, JPG o PDF";
       irA("pago-enviado");
     } catch (error) {
       estadoPago.textContent = error.message;

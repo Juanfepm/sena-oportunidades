@@ -157,7 +157,7 @@ Activa Gmail API en Google Cloud y declara únicamente el permiso `https://www.g
 | `GET /api/v1/campanas/{id}/resultado-envio` | Sesión | Muestra estados y contactos de la campaña sin exponer el contenido cifrado. |
 | `GET /api/v1/correos-excluidos` y `DELETE /api/v1/correos-excluidos/{correo}` | Sesión | Gestiona exclusiones propias. |
 | `GET /api/v1/historial` | Sesión | Lee solo envíos propios registrados por DEBUPA. |
-| `POST /api/v1/pagos-premium` y `GET /api/v1/pagos-premium/estado` | Sesión | Recibe una captura PNG/JPG cifrada y muestra el estado propio. |
+| `POST /api/v1/pagos-premium` y `GET /api/v1/pagos-premium/estado` | Sesión | Recibe un comprobante PNG/JPG/PDF cifrado (hasta 2 MB) y muestra el estado propio. |
 | `GET /api/v1/administracion/resumen` | Administrador | Totales de cuentas, solicitudes y estado del correo de servicio. |
 | `GET /api/v1/administracion/pagos/{id}/comprobante` | Administrador | Abre un comprobante pendiente desde la base privada. |
 | `POST /api/v1/administracion/pagos/{id}/decision` | Administrador + CSRF | Aprueba o rechaza y trata de notificar al aprendiz. |

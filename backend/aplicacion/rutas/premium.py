@@ -18,11 +18,13 @@ router = APIRouter(prefix="/api/v1")
 MAXIMO_COMPROBANTE = 2 * 1024 * 1024
 
 
-def _tipo_imagen(contenido: bytes) -> str | None:
+def _tipo_comprobante(contenido: bytes) -> str | None:
     if contenido.startswith(b"\x89PNG\r\n\x1a\n") and b"IEND" in contenido[-24:]:
         return "image/png"
     if contenido.startswith(b"\xff\xd8\xff") and contenido.endswith(b"\xff\xd9"):
         return "image/jpeg"
+    if contenido.startswith(b"%PDF-") and b"%%EOF" in contenido[-1024:]:
+        return "application/pdf"
     return None
 
 
@@ -65,14 +67,14 @@ async def solicitar_premium(
         .limit(1)
     ):
         raise HTTPException(409, "Ya tienes un comprobante pendiente de revisión.")
-    if comprobante.content_type not in {"image/png", "image/jpeg"}:
-        raise HTTPException(422, "Adjunta una captura PNG o JPG.")
+    if comprobante.content_type not in {"image/png", "image/jpeg", "application/pdf"}:
+        raise HTTPException(422, "Adjunta un comprobante PNG, JPG o PDF.")
     contenido = await comprobante.read(MAXIMO_COMPROBANTE + 1)
     if not contenido or len(contenido) > MAXIMO_COMPROBANTE:
         raise HTTPException(413, "El comprobante debe pesar como máximo 2 MB.")
-    tipo = _tipo_imagen(contenido)
+    tipo = _tipo_comprobante(contenido)
     if tipo != comprobante.content_type:
-        raise HTTPException(422, "El archivo no parece una imagen PNG o JPG válida.")
+        raise HTTPException(422, "El archivo no parece un PNG, JPG o PDF válido.")
     try:
         cifrado = obtener_cifrador(request.app.state.configuracion.clave_cifrado).encrypt(
             contenido
