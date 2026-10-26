@@ -13,7 +13,7 @@ from sqlalchemy.pool import StaticPool
 from backend.aplicacion.base_datos import Base
 from backend.aplicacion.configuracion import Configuracion
 from backend.aplicacion.integraciones.contratos import EvaluacionIA, OfertaSGVA, SGVAEntornoIncompatible
-from backend.aplicacion.integraciones.sgva import _buscar_departamento, consultar_sgva, dias_desde, filas_recientes, seleccionar_opcion
+from backend.aplicacion.integraciones.sgva import _buscar_departamento, consultar_sgva, dias_desde, filas_recientes, mensaje_error_ingreso, seleccionar_opcion
 from backend.aplicacion.modelos import Campana, NavegadorSGVA
 from backend.aplicacion.principal import crear_aplicacion
 
@@ -26,6 +26,12 @@ def test_opciones_y_fecha_sgva() -> None:
     assert seleccionar_opcion(opciones, "Valle del Cauca") == "76"
     assert dias_desde("20/10/2026", date(2026, 10, 25)) == 5
     assert dias_desde("fecha inválida", date(2026, 10, 25)) is None
+
+
+def test_distingue_avisos_de_credenciales_publicados_por_sgva() -> None:
+    assert mensaje_error_ingreso("El usuario no se encuentra en el sistema.") == "El usuario no se encuentra en el sistema."
+    assert mensaje_error_ingreso("Usuario o contraseña incorrecta.") == "Usuario o contraseña incorrecta."
+    assert mensaje_error_ingreso("Error desconocido") == "SGVA no aceptó el acceso como aprendiz."
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="El bucle Selector causa el fallo solo en Windows")
@@ -165,4 +171,61 @@ def test_campana_sgva_recibe_credenciales_solo_en_memoria(monkeypatch, usar_ia) 
         assert "Aprendí hojas de cálculo y análisis" not in str(datos_persistidos)
         assert recibidas == [("1234567890", "clave-sgva-solo-prueba", "Bogotá D. C.", "todas", 7)]
         assert progresos == [80]
+    motor.dispose()
+
+
+def test_cancelar_consulta_libera_navegador_y_conserva_error_concreto(monkeypatch) -> None:
+    from backend.aplicacion.integraciones.contratos import AccesoSGVARestringido
+    from backend.aplicacion.servicios import trabajador_sgva
+
+    async def consulta_ficticia(documento, _clave, _departamento, _ciudad, _dias, avance=None):
+        if documento == "1234567890":
+            await avance(15, "Acceso a SGVA confirmado")
+            await asyncio.sleep(60)
+        if documento == "0000000000":
+            raise AccesoSGVARestringido("El usuario no se encuentra en el sistema.")
+        return []
+
+    monkeypatch.setattr(trabajador_sgva, "consultar_sgva", consulta_ficticia)
+    motor = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(motor)
+    with motor.begin() as conexion:
+        conexion.execute(NavegadorSGVA.__table__.insert().values(id=1))
+    configuracion = Configuracion(entorno="desarrollo", base_datos="sqlite://", sgva_activo=True,
+                                 clave_pruebas="clave-segura-de-pruebas-locales-2026",
+                                 secreto_sesion="secreto-de-sesion-local-largo-2026")
+    with TestClient(crear_aplicacion(configuracion, motor)) as cliente:
+        acceso = {"Authorization": "Bearer clave-segura-de-pruebas-locales-2026"}
+        solicitud = {"modalidad": "remoto", "departamento": "todos", "ciudad": "todas",
+                     "antiguedad_dias": 7, "mayor_de_edad": True, "acepta_tratamiento": True,
+                     "correos_excluidos": []}
+
+        def iniciar(documento):
+            borrador = cliente.post("/api/v1/campanas", headers=acceso, json=solicitud)
+            assert borrador.status_code == 201
+            identificador = borrador.json()["id"]
+            respuesta = cliente.post(f"/api/v1/campanas/{identificador}/iniciar", headers=acceso,
+                                    json={"numero_documento": documento, "clave_sgva": "clave-ficticia"})
+            assert respuesta.status_code == 200
+            return identificador
+
+        def esperar_estado(identificador, esperado):
+            plazo = monotonic() + 5
+            while monotonic() < plazo:
+                estado = cliente.get(f"/api/v1/campanas/{identificador}", headers=acceso).json()
+                if estado["estado"] == esperado:
+                    return estado
+                sleep(0.05)
+            pytest.fail(f"La campaña no llegó a {esperado}.")
+
+        primera = iniciar("1234567890")
+        esperar_estado(primera, "consultando")
+        cancelada = cliente.post(f"/api/v1/campanas/{primera}/cancelar", headers=acceso)
+        assert cancelada.status_code == 200
+        assert cancelada.json()["estado"] == "cancelada"
+        segunda = iniciar("2222222222")
+        esperar_estado(segunda, "esperando_confirmacion")
+        tercera = iniciar("0000000000")
+        error = esperar_estado(tercera, "error")
+        assert error["etapa"] == "SGVA rechazó la consulta: El usuario no se encuentra en el sistema."
     motor.dispose()

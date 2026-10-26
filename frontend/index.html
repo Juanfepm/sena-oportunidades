@@ -136,6 +136,7 @@
         <div class="contenedor disposicion_formulario">
           <form id="formulario-campana" class="panel_formulario" novalidate>
             <div id="errores-campana" class="alerta alerta_error" role="alert" hidden></div>
+            <p id="aviso-cancelacion" class="alerta alerta_informativa" role="status" hidden></p>
             <fieldset class="grupo_campo">
               <legend>Acceso a SGVA</legend>
               <p class="ayuda_grupo">En la versión operativa se solicitarán una vez por campaña y se eliminarán al terminar la consulta.</p>
@@ -211,15 +212,15 @@
             <div class="panel_revision_encabezado"><div><h2>Empresas sugeridas</h2><p>Revisa el motivo, el contacto y la modalidad antes de continuar.</p></div><button id="abrir-seleccion" class="boton boton_secundario" type="button" aria-expanded="false" aria-controls="panel-seleccion">Ver seleccionadas <span id="conteo-seleccion">4</span></button></div>
             <p id="aviso-limite-seleccion" class="aviso_limite_seleccion" role="status" hidden>El plan gratis permite seleccionar hasta 8 empresas. Quita una de la lista para añadir otra.</p>
             <div id="lista-coincidencias" class="lista_coincidencias"></div>
-            <div id="aviso-plan-gratis" class="aviso_plan_gratis" hidden><strong>Hay <span id="cantidad-ocultas"></span> para descubrir.</strong><p>Para ver el resto de empresas, conoce DEBUPA Premium. Su activación estará disponible próximamente.</p><a class="boton boton_secundario" href="#planes">Ver planes</a></div>
           </div>
           <aside class="resumen_revision"><span class="icono_circulo"><svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#verificar"></use></svg></span><h2>Antes del envío</h2><p>Revisaremos destinatarios excluidos y contactos recientes. Confirmarás la lista y el mensaje antes de enviar.</p><div class="resumen_linea"><span>Plan</span><strong id="plan-revision">Gratis</strong></div><div class="resumen_linea"><span>Seleccionadas</span><strong id="total-seleccion">4 empresas</strong></div><p id="estado-seleccion-resumen" role="status"></p><button id="iniciar-simulacion" class="boton boton_ancho" type="button">Simular envío aprobado <svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#flecha"></use></svg></button><p id="aviso-envio-pendiente" class="aviso_envio_pendiente" role="status" hidden></p><a class="enlace_texto" href="#correo">Editar mi correo</a></aside>
         </div>
+        <div id="aviso-plan-gratis" class="contenedor aviso_plan_gratis" hidden><strong>Hay <span id="cantidad-ocultas"></span> para descubrir.</strong><p>Para ver el resto de empresas, conoce DEBUPA Premium. Su activación estará disponible próximamente.</p><a class="boton boton_secundario" href="#planes">Ver planes</a></div>
         <div class="barra_envio_movil"><span id="conteo-envio-movil">0 seleccionadas</span><button id="iniciar-envio-movil" class="boton" type="button" disabled>Revisar envío</button><p id="aviso-envio-movil" role="status" hidden></p></div>
         <div id="panel-seleccion" class="panel_seleccion" hidden>
           <div class="panel_seleccion_fondo" data-cerrar-seleccion></div>
           <div class="panel_seleccion_contenido" role="dialog" aria-modal="true" aria-labelledby="titulo-seleccion">
-            <div class="panel_seleccion_cabecera"><div><span class="ceja">Control final</span><h2 id="titulo-seleccion">Destinatarios seleccionados</h2></div><button class="boton_icono" type="button" aria-label="Cerrar panel" data-cerrar-seleccion>×</button></div>
+            <div class="panel_seleccion_cabecera"><div><span class="ceja">Control final</span><h2 id="titulo-seleccion">Destinatarios seleccionados</h2></div><button class="boton_icono" type="button" aria-label="Cerrar panel" data-cerrar-seleccion><svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#cerrar"></use></svg></button></div>
               <p>Retira los contactos que no quieras incluir. Las puntuaciones de IA son estimaciones; verifica siempre la oferta.</p>
             <ul id="lista-seleccion" class="lista_seleccion"></ul>
             <p id="estado-seleccion" role="status"></p>
@@ -229,8 +230,8 @@
         <div id="panel-confirmar-envio" class="panel_seleccion" hidden>
           <div class="panel_seleccion_fondo" data-cerrar-confirmacion></div>
           <div class="panel_seleccion_contenido" role="dialog" aria-modal="true" aria-labelledby="titulo-confirmar-envio">
-            <div class="panel_seleccion_cabecera"><div><span class="ceja">Última revisión</span><h2 id="titulo-confirmar-envio">Confirma antes de enviar</h2></div><button class="boton_icono" type="button" aria-label="Cerrar confirmación" data-cerrar-confirmacion>×</button></div>
-            <p>Los mensajes saldrán desde <strong id="remitente-confirmacion"></strong>. El resumen llegará desde DEBUPA. Revisa la lista y el contenido; después de confirmar no podrás detener los envíos ya iniciados.</p>
+            <div class="panel_seleccion_cabecera"><div><span class="ceja">Última revisión</span><h2 id="titulo-confirmar-envio">Confirma antes de enviar</h2></div><button class="boton_icono" type="button" aria-label="Cerrar confirmación" data-cerrar-confirmacion><svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#cerrar"></use></svg></button></div>
+            <p>Los mensajes saldrán desde <strong id="remitente-confirmacion"></strong>. El resumen llegará desde DEBUPA. Revisa la lista y el contenido. Podrás detener los mensajes pendientes, pero no retirar los que Gmail ya haya enviado.</p>
             <h3>Destinatarios aptos</h3><ul id="destinatarios-confirmacion" class="lista_confirmacion"></ul>
             <div id="omitidos-confirmacion" hidden><h3>No se enviarán</h3><ul id="lista-omitidos-confirmacion" class="lista_confirmacion"></ul></div>
             <h3>Mensaje</h3><p><strong>Asunto:</strong> <span id="asunto-confirmacion"></span></p><p id="cuerpo-confirmacion" class="cuerpo_confirmacion"></p>
@@ -243,7 +244,7 @@
 
       <section id="progreso" class="pagina pagina_progreso" data-pagina hidden>
         <div class="contenedor progreso_disposicion">
-          <div class="progreso_principal"><span class="ceja">Campaña de demostración</span><h1>Así avanza tu búsqueda de ejemplo.</h1><p>El estado se guarda en la base de datos. Puedes cerrar el navegador y consultar el avance mientras el servidor siga activo.</p><div class="barra_progreso" role="progressbar" aria-label="Progreso de ejemplo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="barra-progreso-relleno"></span></div><p id="texto-progreso" class="texto_progreso" role="status">Preparando la demostración…</p><p id="dato-progreso" class="dato_progreso" aria-live="off"></p><ol id="pasos-progreso" class="pasos_progreso"></ol><button id="cancelar-simulacion" class="boton boton_secundario" type="button">Volver al inicio</button></div>
+          <div class="progreso_principal"><span class="ceja">Campaña de demostración</span><h1>Así avanza tu búsqueda de ejemplo.</h1><p>El estado se guarda en la base de datos. Puedes cerrar el navegador y consultar el avance mientras el servidor siga activo.</p><div class="barra_progreso" role="progressbar" aria-label="Progreso de ejemplo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="barra-progreso-relleno"></span></div><div class="estado_progreso" role="status"><p id="texto-progreso" class="texto_progreso">Preparando la demostración…</p><small id="motivo-progreso" hidden></small></div><p id="dato-progreso" class="dato_progreso" aria-live="off"></p><ol id="pasos-progreso" class="pasos_progreso"></ol><button id="cancelar-simulacion" class="boton boton_secundario" type="button">Cancelar proceso</button></div>
           <aside class="panel_ayuda panel_ayuda_progreso"><span class="icono_circulo"><svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#reloj"></use></svg></span><h2>Una campaña a la vez.</h2><p>Las campañas de ejemplo esperan su turno y su estado permanece disponible en tu cuenta.</p><p class="nota_fina">En esta demostración no se abre SGVA ni se envía ningún correo.</p></aside>
         </div>
       </section>

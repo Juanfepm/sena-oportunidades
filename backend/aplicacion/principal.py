@@ -27,11 +27,11 @@ from .dominio.archivos import MAXIMO_BYTES
 from .dominio.estados import EstadoCampana, LIMITES_ARCHIVOS, LIMITES_CONTACTO, TARJETAS_RESUMEN, Plan
 from .esquemas import ResumenCampana, ResumenDestinatario, ResumenHistorial, SolicitudAccesoSGVA, SolicitudBorrador, SolicitudSeleccion, SolicitudConfirmacionEnvio
 from .integraciones.contratos import AccesoSGVARestringido, IntegracionNoDisponible, SGVANoDisponible
-from .modelos import Campana, ConexionGmail, Destinatario, HistorialEnvio, Usuario
+from .modelos import Campana, ConexionGmail, Destinatario, HistorialEnvio, NavegadorSGVA, Usuario
 from .rutas.temporales import router as router_temporales
 from .seguridad import obtener_token_csrf, obtener_usuario_actual, verificar_csrf
 from .servicios.campanas import EsperaPlanGratis, consultar_campana, consultar_disponibilidad, crear_borrador, listar_borradores
-from .servicios.campanas_envio import EnvioNoPermitido, autorizar_envio, huella_preparacion, interrumpir_envios, preparar_envio, vigilar_envios
+from .servicios.campanas_envio import EnvioNoPermitido, autorizar_envio, cancelar_envio, huella_preparacion, interrumpir_envios, preparar_envio, vigilar_envios
 from .servicios.exclusiones import listar_exclusiones, quitar_exclusion
 from .servicios.envio_gmail import (
     AdjuntoGmail,
@@ -91,7 +91,7 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
             with api.state.fabrica_sesiones() as sesion:
                 interrumpir_sin_credenciales(sesion)
             trabajador = asyncio.create_task(vigilar_consultas(api.state.fabrica_sesiones, api.state.cola_sgva,
-                                                               configuracion.gemini_clave))
+                                                               configuracion.gemini_clave, api.state.tareas_sgva))
         else:
             trabajador = asyncio.create_task(vigilar_cola(api.state.fabrica_sesiones, api.state.aviso_cola))
         with api.state.fabrica_sesiones() as sesion:
@@ -113,6 +113,7 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
     api.state.fabrica_sesiones = sessionmaker(motor, expire_on_commit=False)
     api.state.aviso_cola = asyncio.Event()
     api.state.cola_sgva = asyncio.Queue(maxsize=10)
+    api.state.tareas_sgva = {}
     api.state.cola_envios = asyncio.Queue(maxsize=10)
     firma_envio = URLSafeTimedSerializer(configuracion.secreto_sesion or "solo-pruebas-locales", salt="debupa-confirmar-envio")
     api.add_middleware(
@@ -454,6 +455,35 @@ def crear_aplicacion(configuracion: Configuracion | None = None, motor: Engine |
         if encontrada is None:
             raise HTTPException(404, "Campaña no encontrada.")
         return ResumenCampana.model_validate(encontrada)
+
+    @api.post("/api/v1/campanas/{campana_id}/cancelar", response_model=ResumenCampana)
+    async def cancelar_campana(
+        campana_id: str,
+        _: None = Depends(verificar_csrf),
+        usuario: Usuario = Depends(obtener_usuario_actual),
+        sesion: Session = Depends(obtener_sesion),
+    ) -> ResumenCampana:
+        campana = sesion.scalar(select(Campana).where(
+            Campana.id == campana_id, Campana.usuario_id == usuario.id,
+        ).with_for_update())
+        if campana is None:
+            raise HTTPException(404, "Campaña no encontrada.")
+        if campana.estado in {EstadoCampana.EN_COLA, EstadoCampana.CONSULTANDO}:
+            navegador = sesion.get(NavegadorSGVA, 1, with_for_update=True)
+            if navegador is not None and navegador.campana_id == campana.id:
+                navegador.campana_id = None
+                navegador.reserva_hasta = None
+            campana.estado = EstadoCampana.CANCELADA
+            campana.etapa = "Consulta cancelada por el aprendiz"
+            sesion.commit()
+            tarea = api.state.tareas_sgva.get(campana_id)
+            if tarea is not None:
+                tarea.cancel()
+        elif campana.estado == EstadoCampana.ENVIANDO:
+            cancelar_envio(sesion, campana)
+        elif campana.estado not in {EstadoCampana.CANCELADA, EstadoCampana.ERROR, EstadoCampana.INTERRUMPIDA}:
+            raise HTTPException(409, "Esta campaña ya terminó; consulta su resultado.")
+        return ResumenCampana.model_validate(campana)
 
     @api.post("/api/v1/campanas/{campana_id}/iniciar")
     async def iniciar_campana(

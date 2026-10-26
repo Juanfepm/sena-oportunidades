@@ -66,6 +66,16 @@ async def _opciones(selector) -> list[dict[str, str]]:
     )
 
 
+def mensaje_error_ingreso(texto: str) -> str:
+    """Conserva solo los avisos de credenciales reconocidos de SGVA."""
+    aviso = normalizar(texto)
+    if "usuarionoseencuentraenelsistema" in aviso:
+        return "El usuario no se encuentra en el sistema."
+    if "usuarioocontrasenaincorrecta" in aviso:
+        return "Usuario o contraseña incorrecta."
+    return "SGVA no aceptó el acceso como aprendiz."
+
+
 async def _ingresar(pagina, documento: str, clave: str) -> None:
     respuesta = await pagina.goto(INGRESO, wait_until="domcontentloaded", timeout=30000)
     if respuesta is None or respuesta.status >= 500:
@@ -75,12 +85,18 @@ async def _ingresar(pagina, documento: str, clave: str) -> None:
     await pagina.locator("#__tbPasswordUsuario").fill(clave)
     await pagina.locator("#ini_session_aprendiz").click()
     try:
-        await pagina.wait_for_url(re.compile(r"/sgva/Aprendices/Index|chrome-error://"),
-                                  wait_until="commit", timeout=30000)
+        await pagina.wait_for_function("""() => {
+            const aviso = document.querySelector('#LabelError')?.textContent?.trim();
+            return Boolean(aviso) || location.pathname.toLowerCase().includes('/sgva/aprendices/index')
+                || location.href.startsWith('chrome-error://');
+        }""", timeout=30000)
     except TiempoAgotado as error:
         if "login.aspx" in pagina.url:
             raise AccesoSGVARestringido("SGVA no aceptó el acceso como aprendiz.") from error
         raise SGVANoDisponible("SGVA no terminó el inicio de sesión.") from error
+    if "login.aspx" in pagina.url:
+        aviso = await pagina.locator("#LabelError").text_content()
+        raise AccesoSGVARestringido(mensaje_error_ingreso(aviso or ""))
     if pagina.url.startswith("chrome-error://"):
         # SGVA redirige a HTTP tras autenticarse y el puerto 80 no responde.
         # La cookie ya fue entregada; seguimos por la ruta HTTPS equivalente.

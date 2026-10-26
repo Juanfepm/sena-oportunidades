@@ -40,13 +40,22 @@ export function haySeguimiento() {
   return seguimiento !== null;
 }
 
+export function campanaEnSeguimiento() {
+  return seguimiento && { id: seguimiento.id, tipo: seguimiento.tipo };
+}
+
 function pintarEstado(campana, referencia) {
   const recibido = Math.max(0, Math.min(100, Number(campana.progreso) || 0));
   referencia.maximoMostrado = Math.max(referencia.maximoMostrado, recibido);
   const porcentaje = referencia.maximoMostrado;
   document.querySelector("#barra-progreso-relleno").style.width = `${porcentaje}%`;
   document.querySelector(".barra_progreso").setAttribute("aria-valuenow", String(porcentaje));
-  document.querySelector("#texto-progreso").textContent = `${campana.etapa} · ${porcentaje}%`;
+  const prefijoError = "SGVA rechazó la consulta:";
+  const rechazo = campana.etapa.startsWith(prefijoError);
+  const motivo = document.querySelector("#motivo-progreso");
+  document.querySelector("#texto-progreso").textContent = `${rechazo ? "SGVA rechazó la consulta" : campana.etapa} · ${porcentaje}%`;
+  motivo.textContent = rechazo ? `Posible motivo: ${campana.etapa.slice(prefijoError.length).trim()}` : "";
+  motivo.hidden = !rechazo;
   const indice = campana.estado === "en_cola" ? 0 : porcentaje < 40 ? 1 : porcentaje < 100 ? 2 : 3;
   [...document.querySelector("#pasos-progreso").children].forEach((paso, posicion) => {
     paso.classList.toggle("completado", posicion < indice);
@@ -95,7 +104,13 @@ async function revisar(referencia) {
     }
     if (["error", "cancelada", "interrumpida"].includes(campana.estado)) {
       detenerSeguimiento();
-      mostrarErrorProceso("servicio", campana.etapa);
+      campañaReanudable = null;
+      document.querySelector("#reanudar-campana").hidden = true;
+      const rechazo = campana.etapa.startsWith("SGVA rechazó la consulta:");
+      const credenciales = rechazo && /usuario|contraseña|documento/i.test(campana.etapa);
+      mostrarErrorProceso(credenciales ? "sgva_credenciales" : rechazo ? "sgva_restringido" : "servicio",
+        rechazo ? `SGVA informó: ${campana.etapa.split(":").slice(1).join(":").trim()} Revisa tus datos y vuelve a intentarlo.` : campana.etapa,
+        referencia.tipo === "consulta" ? "campana" : null);
       return;
     }
   } catch (error) {
@@ -117,14 +132,15 @@ export function iniciarSeguimiento(campanaId, tipo = "consulta") {
   document.querySelector("#progreso .panel_ayuda_progreso p").textContent = tipo === "envio"
     ? "Puedes cerrar el navegador. El servidor continuará mientras siga encendido y conservará el resultado." : "Las consultas esperan su turno y su estado queda disponible mientras el servidor siga activo.";
   document.querySelector("#progreso .nota_fina").textContent = tipo === "envio"
-    ? "Si Gmail no confirma un mensaje, se detendrá el proceso para evitar duplicados." : "Se lee SGVA sin postularte ni enviar correos durante la consulta.";
+    ? "Cancelar detiene los mensajes pendientes; los ya enviados no se pueden retirar. Si Gmail no confirma uno, revisa Enviados." : "Se lee SGVA sin postularte ni enviar correos durante la consulta.";
   const nombresEtapas = tipo === "envio" ? ["En cola para enviar", "Preparando los mensajes", "Enviando uno a uno", "Resultado disponible"] : etapas;
   document.querySelector("#pasos-progreso").replaceChildren(...nombresEtapas.map((etapa) => {
     const paso = document.createElement("li");
     paso.textContent = etapa;
     return paso;
   }));
-  document.querySelector("#cancelar-simulacion").textContent = "Volver al inicio";
+  document.querySelector("#cancelar-simulacion").textContent = "Cancelar proceso";
+  document.querySelector("#motivo-progreso").hidden = true;
   document.querySelector("#texto-progreso").textContent = "Consultando el estado de tu campaña…";
   document.querySelector("#barra-progreso-relleno").style.width = "0%";
   document.querySelector(".barra_progreso").setAttribute("aria-valuenow", "0");

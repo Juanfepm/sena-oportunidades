@@ -136,7 +136,8 @@ async def procesar_acceso(fabrica: sessionmaker[Session], acceso: AccesoEnCola,
                 if isinstance(error, SGVAEntornoIncompatible):
                     campana.etapa = "Reinicia el servidor sin --reload en Windows"
                 else:
-                    campana.etapa = "SGVA rechazó la consulta" if isinstance(error, AccesoSGVARestringido) else "SGVA no respondió"
+                    campana.etapa = (f"SGVA rechazó la consulta: {error}"[:80]
+                                     if isinstance(error, AccesoSGVARestringido) else "SGVA no respondió")
                 liberar(sesion, campana, EstadoCampana.ERROR)
                 sesion.commit()
     except asyncio.CancelledError:
@@ -157,13 +158,19 @@ async def procesar_acceso(fabrica: sessionmaker[Session], acceso: AccesoEnCola,
 
 
 async def vigilar_consultas(fabrica: sessionmaker[Session], cola: asyncio.Queue[AccesoEnCola],
-                           clave_ia: str | None = None) -> None:
+                           clave_ia: str | None = None,
+                           tareas_activas: dict[str, asyncio.Task] | None = None) -> None:
+    tareas_activas = tareas_activas if tareas_activas is not None else {}
     while True:
         acceso = await cola.get()
+        operacion = asyncio.create_task(procesar_acceso(fabrica, acceso, clave_ia))
+        tareas_activas[acceso[0]] = operacion
         try:
-            await procesar_acceso(fabrica, acceso, clave_ia)
+            await operacion
         except asyncio.CancelledError:
-            raise
+            if asyncio.current_task().cancelling():
+                raise
+            # La cancelación de una consulta no detiene el navegador para las siguientes.
         except Exception:
             REGISTRO.exception("La consulta SGVA no pudo continuar para la campaña %s", acceso[0])
             try:
@@ -176,5 +183,6 @@ async def vigilar_consultas(fabrica: sessionmaker[Session], cola: asyncio.Queue[
             except Exception:
                 REGISTRO.exception("No se pudo marcar como fallida la consulta SGVA %s", acceso[0])
         finally:
+            tareas_activas.pop(acceso[0], None)
             cola.task_done()
             del acceso

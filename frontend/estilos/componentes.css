@@ -94,17 +94,21 @@
 }
 
 .boton_icono {
-  align-items: center;
   background: var(--color_fondo_verde);
   border: 0;
   border-radius: 50%;
   color: var(--color_verde);
-  display: inline-flex;
-  font-size: 1.7rem;
+  display: inline-grid;
   height: 2.4rem;
-  justify-content: center;
-  line-height: 1;
+  padding: 0;
+  place-items: center;
   width: 2.4rem;
+}
+
+.boton_icono .icono {
+  display: block;
+  height: 1.15rem;
+  width: 1.15rem;
 }
 
 .boton_pequeno {

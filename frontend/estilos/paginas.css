@@ -66,7 +66,9 @@
 
 .aviso_plan_gratis {
   background: var(--color_fondo_verde);
-  border-top: 1px solid var(--color_borde);
+  border: 1px solid var(--color_borde);
+  border-radius: var(--radio_grande);
+  margin-top: var(--espacio_6);
   padding: var(--espacio_6);
   text-align: center;
 }
@@ -368,6 +370,19 @@
 
 .etiqueta_flotante strong {
   color: var(--color_texto);
+}
+
+.estado_progreso {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--espacio_4);
+}
+
+.estado_progreso small {
+  color: var(--color_muted);
+  font-size: 0.78rem;
+  margin-top: var(--espacio_3);
 }
 
 .estado_vacio {
@@ -1019,7 +1034,12 @@
   border: 1px solid var(--color_borde);
   border-radius: var(--radio_grande);
   box-shadow: var(--sombra_suave);
-  padding: var(--espacio_8);
+  padding: var(--espacio_5);
+}
+
+.resultado_tarjeta .avatar_empresa {
+  height: 2.3rem;
+  width: 2.3rem;
 }
 
 .resultado_tarjeta_cabecera {
@@ -1035,7 +1055,7 @@
 }
 
 .resultado_tarjeta dl {
-  margin: var(--espacio_6) 0 0;
+  margin: var(--espacio_4) 0 0;
 }
 
 .resultado_tarjeta dl div {
@@ -1043,7 +1063,7 @@
   display: flex;
   font-size: 0.85rem;
   justify-content: space-between;
-  padding-block: var(--espacio_3);
+  padding-block: var(--espacio_2);
 }
 
 .resultado_tarjeta dt {
@@ -1052,12 +1072,15 @@
 
 .resultado_tarjeta h2 {
   font-family: var(--fuente_titulo);
-  font-size: 2rem;
-  margin: var(--espacio_5) 0 var(--espacio_3);
+  font-size: 1.45rem;
+  margin: var(--espacio_3) 0 var(--espacio_2);
 }
 
 .resultado_tarjeta p {
   color: var(--color_muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  margin: 0;
 }
 
 .resultados_disposicion {
@@ -1283,7 +1306,7 @@
 .texto_progreso {
   color: var(--color_verde) !important;
   font-weight: 700;
-  margin-top: var(--espacio_3);
+  margin: var(--espacio_3) 0 0;
 }
 
 .vista_previa {
@@ -1365,6 +1388,20 @@
   font-family: var(--fuente_titulo);
   font-size: 1.5rem;
   font-weight: 700;
+}
+
+@media (min-width: 761px) {
+  .resumen_revision,
+  .resultados_siguiente {
+    align-self: start;
+    position: sticky;
+    top: var(--espacio_4);
+  }
+
+  .resultados_siguiente .lista_envios_resumen {
+    max-height: min(16rem, 36vh);
+    overflow-y: auto;
+  }
 }
 
 @media (max-width: 1024px) {
@@ -1468,6 +1505,14 @@
 }
 
 @media (max-width: 560px) {
+  .resultado_tarjeta {
+    padding: var(--espacio_4);
+  }
+
+  .resultado_tarjeta h2 {
+    font-size: 1.24rem;
+  }
+
   .aviso_contextual {
     padding-inline: var(--espacio_4);
   }

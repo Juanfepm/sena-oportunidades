@@ -237,3 +237,33 @@ def test_reinicio_no_repite_intentos_en_curso(contexto):
             select(HistorialEnvio).where(HistorialEnvio.campana_id == campana_id))}
         assert estados == {ids[0]: "incierto", ids[1]: "cancelado"}
         assert recuperar_contenido(sesion, campana, configuracion.clave_cifrado) is None
+
+
+def test_cancelar_envio_detiene_pendientes_y_registra_el_que_gmail_confirmo(contexto, monkeypatch):
+    fabrica, configuracion, usuario_id, campana_id, ids = contexto
+    with fabrica() as sesion:
+        campana, usuario = sesion.get(Campana, campana_id), sesion.get(Usuario, usuario_id)
+        vista = campanas_envio.preparar_envio(sesion, campana, usuario, configuracion.clave_cifrado)
+        campanas_envio.autorizar_envio(sesion, campana, usuario, configuracion.clave_cifrado,
+                                       ids, campanas_envio.huella_preparacion(vista))
+
+    enviados = []
+
+    async def enviar_ficticio(_config, _token, _remitente, destino, _asunto, _cuerpo, _adjuntos, _html=None):
+        enviados.append(destino)
+        with fabrica() as sesion:
+            campanas_envio.cancelar_envio(sesion, sesion.get(Campana, campana_id))
+        return "confirmado-por-gmail"
+
+    monkeypatch.setattr(campanas_envio, "enviar_gmail", enviar_ficticio)
+    asyncio.run(campanas_envio.procesar_envio(fabrica, configuracion, campana_id))
+    assert len(enviados) == 1
+    assert enviados[0] in {"empresa1@ejemplo.com", "empresa2@ejemplo.com"}
+    with fabrica() as sesion:
+        campana = sesion.get(Campana, campana_id)
+        assert campana.estado == EstadoCampana.CANCELADA
+        estados = {envio.correo: envio.estado for envio in sesion.scalars(
+            select(HistorialEnvio).where(HistorialEnvio.campana_id == campana_id))}
+        assert estados[enviados[0]] == "enviado"
+        assert list(estados.values()).count("cancelado") == 1
+        assert recuperar_contenido(sesion, campana, configuracion.clave_cifrado) is None

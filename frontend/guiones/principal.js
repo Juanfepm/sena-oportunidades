@@ -1,11 +1,11 @@
 import { asegurarSeleccionGuardada, configurarCoincidencias, pintarResumen } from "./coincidencias.js";
 import { configurarAutenticacion } from "./autenticacion.js";
 import { configurarBorradoresTemporales } from "./borradores-temporales.js";
-import { borrarContenidoTemporal, confirmarEnvio, consultarCampana, consultarContenidoParaEdicion, guardarContenidoTemporal, guardarPreferencias, iniciarCampana, prepararEnvio } from "./campanas.js";
+import { borrarContenidoTemporal, cancelarCampana, confirmarEnvio, consultarCampana, consultarContenidoParaEdicion, guardarContenidoTemporal, guardarPreferencias, iniciarCampana, prepararEnvio } from "./campanas.js";
 import { configurarErrores, mostrarErrorProceso } from "./errores.js";
 import { configurarPruebaGmail } from "./prueba-gmail.js";
 import { configurarRutas, irA } from "./rutas.js";
-import { configurarSeguimiento, detenerDatosDuranteEspera, detenerSeguimiento, haySeguimiento, iniciarDatosDuranteEspera, iniciarSeguimiento } from "./seguimiento.js";
+import { campanaEnSeguimiento, configurarSeguimiento, detenerDatosDuranteEspera, detenerSeguimiento, iniciarDatosDuranteEspera, iniciarSeguimiento } from "./seguimiento.js";
 import { configurarUbicaciones } from "./ubicaciones.js";
 import { activarCorreccion, validarAdjuntos, validarFormulario } from "./validacion.js";
 
@@ -153,6 +153,7 @@ function configurarFormularios() {
   activarCorreccion(formularioCampana, erroresCampana);
   formularioCampana.addEventListener("submit", async (evento) => {
     evento.preventDefault();
+    document.querySelector("#aviso-cancelacion").hidden = true;
     const camposExclusion = [...listaExclusiones.querySelectorAll("input")];
     const vistos = new Set();
     camposExclusion.forEach((campo) => {
@@ -344,6 +345,7 @@ function actualizarProgreso(tipo, indice) {
 function iniciarSimulacion(tipo) {
   if (simulacionActiva) clearInterval(simulacionActiva.intervalo);
   iniciarDatosDuranteEspera();
+  document.querySelector("#motivo-progreso").hidden = true;
   document.querySelector("#cancelar-simulacion").textContent = "Detener ejemplo";
   const lista = document.querySelector("#pasos-progreso");
   lista.replaceChildren(...etapas[tipo].map((nombre) => {
@@ -469,13 +471,35 @@ function configurarSimulacion() {
   });
   document.querySelector("#iniciar-simulacion").addEventListener("click", iniciarEnvio);
   document.querySelector("#iniciar-envio-movil").addEventListener("click", iniciarEnvio);
-  document.querySelector("#cancelar-simulacion").addEventListener("click", () => {
-    if (haySeguimiento()) {
-      detenerSeguimiento();
-      irA("inicio");
+  document.querySelector("#cancelar-simulacion").addEventListener("click", async (evento) => {
+    const activa = campanaEnSeguimiento();
+    if (activa) {
+      const boton = evento.currentTarget;
+      boton.disabled = true;
+      try {
+        const estado = await cancelarCampana(activa.id);
+        detenerSeguimiento();
+        document.querySelector("#reanudar-campana").hidden = true;
+        document.querySelector("#formulario-campana").dataset.campanaId = "";
+        const aviso = document.querySelector("#aviso-cancelacion");
+        aviso.textContent = estado.estado !== "cancelada"
+          ? `El proceso ya terminó: ${estado.etapa}. Puedes corregir los datos y crear otra búsqueda.`
+          : activa.tipo === "envio"
+          ? "Se detuvieron los mensajes pendientes. Los ya confirmados permanecen en Gmail."
+          : "La consulta se canceló. Puedes corregir tus datos y volver a buscar.";
+        aviso.hidden = false;
+        irA("campana");
+      } catch (error) {
+        mostrarErrorProceso("servicio", error.message);
+      } finally {
+        boton.disabled = false;
+      }
       return;
     }
-    if (!simulacionActiva) return;
+    if (!simulacionActiva) {
+      irA("campana");
+      return;
+    }
     clearInterval(simulacionActiva.intervalo);
     detenerDatosDuranteEspera();
     simulacionActiva = null;

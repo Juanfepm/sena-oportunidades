@@ -159,6 +159,20 @@ def interrumpir_envios(sesion: Session) -> None:
     sesion.commit()
 
 
+def cancelar_envio(sesion: Session, campana: Campana) -> None:
+    """Detiene los pendientes; un mensaje en tránsito queda incierto hasta confirmarse."""
+    if campana.estado != EstadoCampana.ENVIANDO:
+        raise EnvioNoPermitido("Esta campaña ya no está enviando mensajes.")
+    sesion.execute(update(HistorialEnvio).where(HistorialEnvio.campana_id == campana.id,
+                 HistorialEnvio.estado == "reservado").values(estado="cancelado"))
+    sesion.execute(update(HistorialEnvio).where(HistorialEnvio.campana_id == campana.id,
+                 HistorialEnvio.estado == "en_proceso").values(estado="incierto"))
+    campana.estado = EstadoCampana.CANCELADA
+    campana.etapa = "Envío cancelado; los mensajes confirmados permanecen en Gmail"
+    eliminar_contenido(sesion, campana)
+    sesion.commit()
+
+
 def _adjuntos(archivos) -> tuple[AdjuntoGmail, ...]:
     resultado = []
     for archivo in archivos:
@@ -206,13 +220,20 @@ async def procesar_envio(fabrica: sessionmaker, configuracion: Configuracion, ca
                 incierto = isinstance(error, (EnvioGmailNoConfirmado, PermisoGmailInvalido))
                 envio.estado = "incierto" if incierto else "fallido"
                 mensaje = "Gmail no confirmó un envío. Revisa Enviados antes de volver a contactar." if incierto else str(error)
-                _finalizar(sesion, campana, EstadoCampana.INTERRUMPIDA if incierto else EstadoCampana.ERROR, mensaje)
+                if campana.estado == EstadoCampana.CANCELADA:
+                    sesion.commit()
+                else:
+                    _finalizar(sesion, campana, EstadoCampana.INTERRUMPIDA if incierto else EstadoCampana.ERROR, mensaje)
             return
         except Exception:
             with fabrica() as sesion:
                 sesion.get(HistorialEnvio, envio_id).estado = "incierto"
-                _finalizar(sesion, sesion.get(Campana, campana_id), EstadoCampana.INTERRUMPIDA,
-                           "No se confirmó un envío. Revisa Gmail Enviados antes de volver a contactar.")
+                campana = sesion.get(Campana, campana_id)
+                if campana.estado == EstadoCampana.CANCELADA:
+                    sesion.commit()
+                else:
+                    _finalizar(sesion, campana, EstadoCampana.INTERRUMPIDA,
+                               "No se confirmó un envío. Revisa Gmail Enviados antes de volver a contactar.")
             return
         with fabrica() as sesion:
             envio = sesion.get(HistorialEnvio, envio_id)
@@ -220,11 +241,17 @@ async def procesar_envio(fabrica: sessionmaker, configuracion: Configuracion, ca
             envio.estado = "enviado"
             envio.mensaje_gmail_id = mensaje_id
             envio.enviado_en = datetime.now(timezone.utc)
-            campana.progreso = min(99, int(10 + 89 * posicion / len(ids)))
+            if campana.estado == EstadoCampana.ENVIANDO:
+                campana.progreso = min(99, int(10 + 89 * posicion / len(ids)))
             sesion.commit()
+            if campana.estado == EstadoCampana.CANCELADA:
+                return
         if posicion < len(ids):
             await asyncio.sleep(1)
     with fabrica() as sesion:
+        campana = sesion.get(Campana, campana_id)
+        if campana is None or campana.estado != EstadoCampana.ENVIANDO:
+            return
         consulta = select(Destinatario).join(HistorialEnvio, HistorialEnvio.destinatario_id == Destinatario.id).where(
             HistorialEnvio.campana_id == campana_id, HistorialEnvio.estado == "enviado",
         ).order_by(Destinatario.nombre_empresa)
@@ -233,7 +260,6 @@ async def procesar_envio(fabrica: sessionmaker, configuracion: Configuracion, ca
             telefono = destino.telefono_original or ""
             if 7 <= len(re.sub(r"\D", "", telefono)) <= 13 and re.fullmatch(r"[\d+()\s.\-]+", telefono):
                 contactos.append((destino.nombre_empresa, telefono))
-        campana = sesion.get(Campana, campana_id)
         campana.etapa = "Preparando el resumen de DEBUPA"
         campana.progreso = 99
         eliminar_contenido(sesion, campana)
