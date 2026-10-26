@@ -238,11 +238,11 @@ def test_vencimiento_elimina_texto_y_adjuntos(cliente_temporal) -> None:
         assert limpiar_expirados(sesion) == 0
 
 
-def test_limite_de_dos_borradores_activos(cliente_temporal) -> None:
+def test_una_busqueda_nueva_no_exige_borrar_contenidos_antiguos(cliente_temporal) -> None:
     cliente, _ = cliente_temporal
     cabeceras = {"Authorization": "Bearer clave-local-para-probar-contenido-2026"}
     campanas = [crear_campana(cliente) for _ in range(3)]
-    for campana_id in campanas[:2]:
+    for campana_id in campanas:
         assert (
             cliente.put(
                 f"/api/v1/campanas/{campana_id}/contenido",
@@ -251,10 +251,7 @@ def test_limite_de_dos_borradores_activos(cliente_temporal) -> None:
             ).status_code
             == 200
         )
-    tercero = f"/api/v1/campanas/{campanas[2]}/contenido"
-    assert cliente.put(tercero, headers=cabeceras, data=datos_formulario()).status_code == 429
     assert (
         cliente.delete(f"/api/v1/campanas/{campanas[0]}/contenido", headers=cabeceras).status_code
         == 204
     )
-    assert cliente.put(tercero, headers=cabeceras, data=datos_formulario()).status_code == 200

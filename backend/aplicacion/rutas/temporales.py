@@ -14,7 +14,6 @@ from ..seguridad import obtener_usuario_actual, verificar_csrf
 from ..servicios.campanas import consultar_campana
 from ..servicios.temporales import (
     ArchivoTemporal,
-    CupoTemporalExcedido,
     eliminar_contenido,
     guardar_contenido,
     listar_contenidos,
@@ -120,8 +119,6 @@ async def guardar_contenido_temporal(
             tuple(adjuntos),
             request.app.state.configuracion.clave_cifrado,
         )
-    except CupoTemporalExcedido as error:
-        raise HTTPException(429, str(error)) from error
     except (ValidationError, ValueError) as error:
         raise HTTPException(422, "Revisa el texto y el formato de los archivos.") from error
 

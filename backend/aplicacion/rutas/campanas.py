@@ -28,6 +28,7 @@ from ..servicios.campanas_envio import (
 )
 from ..servicios.cola import encolar
 from ..servicios.planes import plan_disponible
+from ..servicios.temporales import eliminar_contenido
 
 
 def crear_router(api: FastAPI, configuracion: Configuracion) -> APIRouter:
@@ -147,6 +148,7 @@ def crear_router(api: FastAPI, configuracion: Configuracion) -> APIRouter:
             campana.estado = EstadoCampana.CANCELADA
             campana.etapa = "Consulta cancelada por el aprendiz"
             sesion.commit()
+            eliminar_contenido(sesion, campana)
             tarea = api.state.tareas_sgva.get(campana_id)
             if tarea is not None:
                 tarea.cancel()

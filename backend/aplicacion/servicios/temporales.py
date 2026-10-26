@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from cryptography.fernet import InvalidToken
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from ..dominio.archivos import ArchivoAdjunto, validar_adjuntos, validar_contenido
@@ -16,11 +16,6 @@ from ..modelos import AdjuntoTemporal, Campana, ContenidoTemporal, Usuario
 
 DURACION_TEMPORAL = timedelta(hours=24)
 SEGUNDOS_TEMPORAL = int(DURACION_TEMPORAL.total_seconds())
-MAXIMO_BORRADORES_ACTIVOS = 2
-
-
-class CupoTemporalExcedido(ValueError):
-    """La cuenta ya ocupa su cupo de contenido temporal."""
 
 
 @dataclass(frozen=True)
@@ -72,18 +67,6 @@ def guardar_contenido(
         raise ValueError("Solo se puede cambiar el contenido antes de confirmar el envío.")
     ahora = datetime.now(timezone.utc)
     temporal = obtener_temporal(sesion, campana)
-    if temporal is None:
-        sesion.execute(
-            select(Usuario.id).where(Usuario.id == campana.usuario_id).with_for_update()
-        )
-        activos = sesion.scalar(
-            select(func.count())
-            .select_from(ContenidoTemporal)
-            .join(Campana, Campana.id == ContenidoTemporal.campana_id)
-            .where(Campana.usuario_id == campana.usuario_id, ContenidoTemporal.vence_en > ahora)
-        )
-        if (activos or 0) >= MAXIMO_BORRADORES_ACTIVOS:
-            raise CupoTemporalExcedido("Elimina un borrador temporal antes de guardar otro.")
     validar_adjuntos(
         [
             ArchivoAdjunto(archivo.nombre, archivo.tipo_declarado, len(archivo.contenido))
@@ -96,14 +79,6 @@ def guardar_contenido(
 
     cifrador = obtener_cifrador(clave)
     contenido_cifrado = cifrador.encrypt(mensaje.model_dump_json().encode("utf-8"))
-    conservar_adjuntos = (
-        campana.estado == EstadoCampana.ESPERANDO_CONFIRMACION
-        and temporal is not None
-        and not archivos
-    )
-    nombres_guardados = (
-        resumir_contenido(sesion, campana, clave).archivos if conservar_adjuntos else []
-    )
     adjuntos_cifrados = [
         (
             cifrador.encrypt(
@@ -126,8 +101,7 @@ def guardar_contenido(
         sesion.add(temporal)
         sesion.flush()
     else:
-        if not conservar_adjuntos:
-            sesion.execute(delete(AdjuntoTemporal).where(AdjuntoTemporal.campana_id == campana.id))
+        sesion.execute(delete(AdjuntoTemporal).where(AdjuntoTemporal.campana_id == campana.id))
         temporal.contenido_cifrado = contenido_cifrado
         temporal.vence_en = ahora + DURACION_TEMPORAL
         temporal.actualizado_en = ahora
@@ -144,7 +118,7 @@ def guardar_contenido(
     return ResumenContenidoTemporal(
         campana_id=campana.id,
         vence_en=_zona(temporal.vence_en),
-        archivos=nombres_guardados or [archivo.nombre for archivo in archivos],
+        archivos=[archivo.nombre for archivo in archivos],
     )
 
 

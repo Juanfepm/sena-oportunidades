@@ -6,6 +6,7 @@ from datetime import date
 from time import monotonic, sleep
 
 import pytest
+from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select, text
 from sqlalchemy.pool import StaticPool
@@ -25,7 +26,7 @@ from backend.aplicacion.integraciones.sgva import (
     mensaje_error_ingreso,
     seleccionar_opcion,
 )
-from backend.aplicacion.modelos import Campana, NavegadorSGVA
+from backend.aplicacion.modelos import Campana, ContenidoTemporal, NavegadorSGVA
 from backend.aplicacion.principal import crear_aplicacion
 
 
@@ -288,6 +289,7 @@ def test_cancelar_consulta_libera_navegador_y_conserva_error_concreto(monkeypatc
         base_datos="sqlite://",
         sgva_activo=True,
         clave_pruebas="clave-segura-de-pruebas-locales-2026",
+        clave_cifrado=Fernet.generate_key().decode(),
         secreto_sesion="secreto-de-sesion-local-largo-2026",
     )
     with TestClient(crear_aplicacion(configuracion, motor)) as cliente:
@@ -306,6 +308,20 @@ def test_cancelar_consulta_libera_navegador_y_conserva_error_concreto(monkeypatc
             borrador = cliente.post("/api/v1/campanas", headers=acceso, json=solicitud)
             assert borrador.status_code == 201
             identificador = borrador.json()["id"]
+            contenido = cliente.put(
+                f"/api/v1/campanas/{identificador}/contenido",
+                headers=acceso,
+                data={
+                    "habilidades": "Organizo información y preparo reportes.",
+                    "actividades_deseadas": "Apoyar al equipo administrativo.",
+                    "asunto": "Solicitud de práctica",
+                    "cuerpo": (
+                        "Hola, me interesa conocer las funciones de esta práctica. "
+                        "Gracias por su tiempo."
+                    ),
+                },
+            )
+            assert contenido.status_code == 200
             respuesta = cliente.post(
                 f"/api/v1/campanas/{identificador}/iniciar",
                 headers=acceso,
@@ -328,6 +344,8 @@ def test_cancelar_consulta_libera_navegador_y_conserva_error_concreto(monkeypatc
         cancelada = cliente.post(f"/api/v1/campanas/{primera}/cancelar", headers=acceso)
         assert cancelada.status_code == 200
         assert cancelada.json()["estado"] == "cancelada"
+        with cliente.app.state.fabrica_sesiones() as sesion:
+            assert sesion.get(ContenidoTemporal, primera) is None
         segunda = iniciar("2222222222")
         esperar_estado(segunda, "esperando_confirmacion")
         tercera = iniciar("0000000000")
@@ -335,4 +353,6 @@ def test_cancelar_consulta_libera_navegador_y_conserva_error_concreto(monkeypatc
         assert (
             error["etapa"] == "SGVA rechazó la consulta: El usuario no se encuentra en el sistema."
         )
+        with cliente.app.state.fabrica_sesiones() as sesion:
+            assert sesion.get(ContenidoTemporal, tercera) is None
     motor.dispose()

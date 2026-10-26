@@ -18,8 +18,16 @@ from ..integraciones.contratos import (
 )
 from ..integraciones.ia import clasificar_ofertas
 from ..integraciones.sgva import consultar_sgva, normalizar
-from ..modelos import Campana, CorreoExcluido, Destinatario, NavegadorSGVA
+from ..modelos import (
+    AdjuntoTemporal,
+    Campana,
+    ContenidoTemporal,
+    CorreoExcluido,
+    Destinatario,
+    NavegadorSGVA,
+)
 from .cola import liberar, renovar_reserva, reservar_siguiente
+from .temporales import eliminar_contenido
 
 AccesoEnCola = tuple[str, str, str, dict[str, str] | None]
 REGISTRO = logging.getLogger(__name__)
@@ -27,6 +35,13 @@ REGISTRO = logging.getLogger(__name__)
 
 def interrumpir_sin_credenciales(sesion: Session) -> None:
     """Tras reiniciar no puede retomarse una consulta cuyo secreto se descartó."""
+    interrumpidas = select(Campana.id).where(
+        Campana.estado.in_([EstadoCampana.EN_COLA, EstadoCampana.CONSULTANDO])
+    )
+    sesion.execute(delete(AdjuntoTemporal).where(AdjuntoTemporal.campana_id.in_(interrumpidas)))
+    sesion.execute(
+        delete(ContenidoTemporal).where(ContenidoTemporal.campana_id.in_(interrumpidas))
+    )
     sesion.execute(
         update(Campana)
         .where(Campana.estado.in_([EstadoCampana.EN_COLA, EstadoCampana.CONSULTANDO]))
@@ -171,6 +186,7 @@ async def procesar_acceso(
                     )
                 liberar(sesion, campana, EstadoCampana.ERROR)
                 sesion.commit()
+                eliminar_contenido(sesion, campana)
     except asyncio.CancelledError:
         with fabrica() as sesion:
             campana = sesion.get(Campana, campana_id)
@@ -178,6 +194,7 @@ async def procesar_acceso(
                 campana.etapa = "Consulta interrumpida; crea otra búsqueda"
                 liberar(sesion, campana, EstadoCampana.INTERRUMPIDA)
                 sesion.commit()
+                eliminar_contenido(sesion, campana)
         raise
     except Exception:
         with fabrica() as sesion:
@@ -186,6 +203,7 @@ async def procesar_acceso(
                 campana.etapa = "No fue posible completar la consulta"
                 liberar(sesion, campana, EstadoCampana.ERROR)
                 sesion.commit()
+                eliminar_contenido(sesion, campana)
 
 
 async def vigilar_consultas(
@@ -214,6 +232,7 @@ async def vigilar_consultas(
                         campana.estado = EstadoCampana.ERROR
                         campana.etapa = "No fue posible iniciar la consulta SGVA"
                         sesion.commit()
+                        eliminar_contenido(sesion, campana)
             except Exception:
                 REGISTRO.exception("No se pudo marcar como fallida la consulta SGVA %s", acceso[0])
         finally:

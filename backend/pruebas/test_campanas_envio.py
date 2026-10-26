@@ -331,7 +331,7 @@ def test_sin_correo_de_debupa_no_autoriza_envios(contexto):
         )
 
 
-def test_editar_mensaje_conserva_adjunto_guardado(contexto):
+def test_editar_mensaje_sin_adjunto_elimina_el_anterior(contexto):
     fabrica, configuracion, _usuario_id, campana_id, _ids = contexto
     mensaje = SolicitudContenidoTemporal(
         habilidades="Desarrollo aplicaciones y pruebo software.",
@@ -353,10 +353,10 @@ def test_editar_mensaje_conserva_adjunto_guardado(contexto):
         )
         mensaje.asunto = "Asunto corregido"
         resumen = guardar_contenido(sesion, campana, mensaje, (), configuracion.clave_cifrado)
-        assert resumen.archivos == ["hoja.txt"]
+        assert resumen.archivos == []
         recuperado = recuperar_contenido(sesion, campana, configuracion.clave_cifrado)
         assert recuperado.mensaje.asunto == "Asunto corregido"
-        assert recuperado.archivos[0].contenido == b"Mi experiencia profesional"
+        assert recuperado.archivos == ()
 
 
 def test_reinicio_no_repite_intentos_en_curso(contexto):

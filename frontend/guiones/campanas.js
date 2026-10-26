@@ -64,21 +64,6 @@ export async function guardarContenidoTemporal(campanaId, formularioCampana, for
   return respuesta.json();
 }
 
-export async function borrarContenidoTemporal(campanaId) {
-  const respuesta = await enviarConCsrf(`/api/v1/campanas/${encodeURIComponent(campanaId)}/contenido`, {
-    method: "DELETE",
-  });
-  if (!respuesta.ok) throw new Error((await leerMensajeError(respuesta)).mensaje);
-}
-
-export async function consultarContenidoParaEdicion(campanaId) {
-  const respuesta = await fetch(`/api/v1/campanas/${encodeURIComponent(campanaId)}/contenido/edicion`, {
-    credentials: "same-origin", cache: "no-store",
-  });
-  if (!respuesta.ok) throw new Error((await leerMensajeError(respuesta)).mensaje);
-  return respuesta.json();
-}
-
 export async function iniciarCampana(campanaId, acceso = null) {
   const respuesta = await enviarConCsrf(`/api/v1/campanas/${encodeURIComponent(campanaId)}/iniciar`, {
     method: "POST",

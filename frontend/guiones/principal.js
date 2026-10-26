@@ -1,7 +1,6 @@
 import { asegurarSeleccionGuardada, configurarCoincidencias, pintarResumen } from "./coincidencias.js";
 import { configurarAutenticacion } from "./autenticacion.js";
-import { configurarBorradoresTemporales } from "./borradores-temporales.js";
-import { borrarContenidoTemporal, cancelarCampana, confirmarEnvio, consultarCampana, consultarContenidoParaEdicion, guardarContenidoTemporal, guardarPreferencias, iniciarCampana, prepararEnvio } from "./campanas.js";
+import { cancelarCampana, confirmarEnvio, consultarCampana, guardarContenidoTemporal, guardarPreferencias, iniciarCampana, prepararEnvio } from "./campanas.js";
 import { configurarErrores, mostrarErrorProceso } from "./errores.js";
 import { configurarPruebaGmail } from "./prueba-gmail.js";
 import { configurarPremium } from "./premium.js";
@@ -63,7 +62,6 @@ async function configurarConsultaSgva() {
     });
     document.querySelector("#formulario-correo button[type='submit']").textContent = "Consultar ofertas en SGVA";
     document.querySelector(".correo_borrador").textContent = "Se enviará solo tras tu confirmación";
-    document.querySelector(".correo_temporal > p").textContent = "Tu mensaje y adjuntos se guardarán cifrados al iniciar la consulta, hasta 24 horas. Puedes borrarlos antes de confirmar. Tras el envío se eliminan.";
     document.querySelector("#progreso .progreso_principal .ceja").textContent = "Consulta de SGVA";
     document.querySelector("#progreso h1").textContent = "Buscando ofertas visibles para ti.";
     document.querySelector("#progreso .panel_ayuda_progreso p").textContent = "Las consultas esperan su turno y su estado permanece disponible en tu cuenta mientras el servidor siga activo.";
@@ -178,8 +176,6 @@ function configurarFormularios() {
     try {
       const campana = await guardarPreferencias(formularioCampana, correosExcluidos);
       formularioCampana.dataset.campanaId = campana.id;
-      botonBorrarTemporal.hidden = true;
-      estadoTemporal.textContent = "";
     } catch (error) {
       erroresCampana.textContent = error instanceof Error ? error.message : "No se pudieron guardar tus preferencias.";
       erroresCampana.dataset.origen = "servidor";
@@ -193,6 +189,9 @@ function configurarFormularios() {
       boton.disabled = false;
       boton.textContent = textoOriginal;
     }
+    formularioCorreo.querySelector("button[type='submit']").firstChild.textContent = consultaSgvaActiva
+      ? "Consultar ofertas en SGVA "
+      : "Iniciar búsqueda de ejemplo ";
     irA("correo");
   });
 
@@ -200,73 +199,19 @@ function configurarFormularios() {
   const erroresCorreo = document.querySelector("#errores-correo");
   const entradaArchivos = document.querySelector("#archivos-correo");
   const listaArchivos = document.querySelector("#lista-archivos");
-  const botonGuardarTemporal = document.querySelector("#guardar-contenido-temporal");
-  const botonBorrarTemporal = document.querySelector("#borrar-contenido-temporal");
-  const estadoTemporal = document.querySelector("#estado-contenido-temporal");
-  document.querySelector("#confirmacion .resumen_revision a[href='#correo']").addEventListener("click", async (evento) => {
-    evento.preventDefault();
-    const campanaId = formularioCampana.dataset.campanaId;
-    try {
-      const contenido = await consultarContenidoParaEdicion(campanaId);
-      for (const nombre of ["habilidades", "actividades_deseadas", "actividades_no_deseadas"]) {
-        formularioCampana.elements[nombre].value = contenido[nombre];
-        formularioCampana.elements[nombre].dispatchEvent(new Event("input"));
-      }
-      formularioCorreo.elements.asunto.value = contenido.asunto;
-      formularioCorreo.elements.cuerpo.value = contenido.cuerpo;
-      estadoTemporal.textContent = contenido.archivos.length
-        ? `Adjuntos guardados: ${contenido.archivos.join(", ")}. Se conservarán si no eliges nuevos archivos.`
-        : "Puedes ajustar el mensaje antes de la confirmación final.";
-      formularioCorreo.querySelector("button[type='submit']").firstChild.textContent = "Guardar cambios del mensaje ";
-      irA("correo");
-    } catch (error) {
-      mostrarErrorProceso("servicio", error.message);
-    }
-  });
-  const guardarTemporal = async () => {
-    const campanaId = formularioCampana.dataset.campanaId;
-    if (!campanaId) {
-      estadoTemporal.textContent = "Primero completa y guarda tus preferencias.";
-      return;
-    }
-    if (!validarAdjuntos(entradaArchivos, erroresCorreo, listaArchivos, limiteArchivos())) return;
-    if (!validarFormulario(formularioCorreo, erroresCorreo)) return;
-    botonGuardarTemporal.disabled = true;
-    estadoTemporal.textContent = "Guardando contenido cifrado…";
-    try {
-      const resumen = await guardarContenidoTemporal(campanaId, formularioCampana, formularioCorreo);
-      const fecha = new Date(resumen.vence_en).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
-      estadoTemporal.textContent = `Borrador cifrado guardado hasta el ${fecha}. No se ha enviado a empresas.`;
-      botonBorrarTemporal.hidden = false;
-      window.dispatchEvent(new CustomEvent("debupa:contenidos-actualizados", { detail: { campanaId, accion: "guardado" } }));
-    } catch (error) {
-      estadoTemporal.textContent = error instanceof Error ? error.message : "No se pudo guardar el borrador.";
-    } finally {
-      botonGuardarTemporal.disabled = false;
-    }
+  const limpiarCorreo = () => {
+    formularioCorreo.reset();
+    listaArchivos.replaceChildren();
+    erroresCorreo.textContent = "";
+    erroresCorreo.hidden = true;
   };
-  botonGuardarTemporal.addEventListener("click", guardarTemporal);
-  botonBorrarTemporal.addEventListener("click", async () => {
-    botonBorrarTemporal.disabled = true;
-    estadoTemporal.textContent = "Eliminando contenido guardado…";
-    try {
-      await borrarContenidoTemporal(formularioCampana.dataset.campanaId);
-      botonBorrarTemporal.hidden = true;
-      estadoTemporal.textContent = "Borrador temporal eliminado.";
-      window.dispatchEvent(new CustomEvent("debupa:contenidos-actualizados", {
-        detail: { campanaId: formularioCampana.dataset.campanaId, accion: "borrado" },
-      }));
-    } catch (error) {
-      estadoTemporal.textContent = error instanceof Error ? error.message : "No se pudo eliminar el borrador.";
-    } finally {
-      botonBorrarTemporal.disabled = false;
-    }
+  window.addEventListener("hashchange", () => {
+    if (window.location.hash === "#correo") limpiarCorreo();
   });
-  window.addEventListener("debupa:contenidos-actualizados", (evento) => {
-    if (evento.detail?.accion === "borrado" && evento.detail.campanaId === formularioCampana.dataset.campanaId) {
-      botonBorrarTemporal.hidden = true;
-      estadoTemporal.textContent = "Borrador temporal eliminado.";
-    }
+  document.querySelector("#confirmacion .resumen_revision a[href='#correo']").addEventListener("click", (evento) => {
+    evento.preventDefault();
+    formularioCorreo.querySelector("button[type='submit']").firstChild.textContent = "Guardar cambios del mensaje ";
+    irA("correo");
   });
   const plan = document.querySelector("#plan-campana");
   const limiteArchivos = () => plan.value === "premium" ? 2 : 1;
@@ -555,7 +500,6 @@ if (["correo", "confirmacion", "espera", "progreso", "resultados"].includes(wind
 
 document.querySelector("#anio-actual").textContent = String(new Date().getFullYear());
 configurarRutas();
-configurarBorradoresTemporales();
 configurarPruebaGmail();
 configurarAutenticacion();
 configurarPremium();

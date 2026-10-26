@@ -95,14 +95,6 @@
             <p id="estado-prueba-gmail" role="status" aria-live="polite"></p>
           </section>
         </div>
-        <div class="contenedor borradores_temporales" hidden id="borradores-temporales">
-          <section class="panel_ayuda" aria-labelledby="titulo-borradores-temporales">
-            <h2 id="titulo-borradores-temporales">Tus datos temporales guardados</h2>
-            <p>Se borran de la base activa al vencer. Esta vista muestra su fecha y sus adjuntos; puedes eliminarlos aquí después de volver a entrar.</p>
-            <ul id="lista-borradores-temporales"></ul>
-            <p id="estado-borradores-temporales" role="status" aria-live="polite"></p>
-          </section>
-        </div>
         <div id="reanudar-campana" class="contenedor borradores_temporales" hidden>
           <section class="panel_ayuda" aria-labelledby="titulo-reanudar-campana">
             <h2 id="titulo-reanudar-campana">Tu campaña de ejemplo</h2>
@@ -186,20 +178,13 @@
         <div class="contenedor pagina_encabezado pagina_encabezado_corto"><span class="ceja">Paso 2 de 3 · Mensaje</span><h1>Prepara un correo que te represente.</h1><p>Este será el mismo mensaje para las empresas que apruebes. Puedes volver a editarlo antes de iniciar.</p></div>
         <div class="contenedor composicion_disposicion">
           <form id="formulario-correo" class="panel_correo" novalidate>
-            <div class="correo_cabecera"><span class="correo_punto"></span><strong>Nuevo mensaje</strong><span class="correo_borrador">Borrador de ejemplo</span></div>
+            <div class="correo_cabecera"><span class="correo_punto"></span><strong>Nuevo mensaje</strong><span class="correo_borrador">Se enviará solo tras tu confirmación</span></div>
             <div id="errores-correo" class="alerta alerta_error" role="alert" hidden></div>
             <div class="correo_fila"><label for="destinatarios-correo">Para</label><input id="destinatarios-correo" type="text" value="Se completará después de la revisión" disabled></div>
             <div class="correo_fila"><label for="asunto-correo">Asunto</label><input id="asunto-correo" name="asunto" type="text" minlength="3" maxlength="100" placeholder="Solicitud de práctica en tu empresa" required></div>
             <div class="correo_cuerpo"><label for="cuerpo-correo">Mensaje</label><textarea id="cuerpo-correo" name="cuerpo" rows="11" minlength="40" maxlength="5000" placeholder="Hola, mi nombre es... Me interesa conocer más sobre la oportunidad porque... Muchas gracias por tu tiempo." required></textarea></div>
             <div class="correo_adjunto"><label for="archivos-correo"><svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#adjunto"></use></svg> Adjuntar hoja de vida o portafolio</label><input id="archivos-correo" name="archivos" type="file" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.webp" aria-describedby="ayuda-archivos"><p id="ayuda-archivos">Plan gratis: 1 archivo de hasta 5 MB. PDF, Word, texto o imagen.</p><ul id="lista-archivos" class="lista_archivos" aria-live="polite"></ul></div>
-            <div class="correo_temporal">
-              <p>Si quieres probar el almacenamiento, usa datos ficticios y guarda este borrador cifrado durante 24 horas. Puedes conservar hasta dos a la vez y eliminarlos antes de cualquier envío. Los adjuntos no se enviarán a empresas en esta demostración.</p>
-              <div class="correo_temporal_acciones">
-                <button id="guardar-contenido-temporal" class="boton boton_secundario" type="button">Guardar borrador cifrado</button>
-                <button id="borrar-contenido-temporal" class="boton boton_secundario" type="button" hidden>Eliminar borrador guardado</button>
-              </div>
-              <p id="estado-contenido-temporal" role="status" aria-live="polite"></p>
-            </div>
+            <div class="correo_temporal"><p>Escribe este mensaje para cada búsqueda. Al iniciar la consulta se conserva cifrado solo mientras hace falta para revisar y enviar; se elimina al cancelar o finalizar.</p></div>
             <div class="pie_formulario"><a class="enlace_texto" href="#campana">Volver a preferencias</a><button class="boton" type="submit">Iniciar búsqueda de ejemplo <svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#flecha"></use></svg></button></div>
           </form>
           <aside class="nota_lateral"><span class="icono_circulo"><svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#sobre"></use></svg></span><h2>Un mensaje, cada destinatario por separado.</h2><p>En la versión operativa, Gmail enviará el texto y los adjuntos desde tu cuenta, solo a quienes confirmes. Podrás consultar los envíos en tu carpeta «Enviados».</p></aside>
@@ -286,7 +271,7 @@
         <div class="contenedor pagina_encabezado"><span class="ceja">Tus datos</span><h1>Tratamiento de información, explicado con claridad.</h1><p>Esta explicación describe el funcionamiento actual. La política jurídica definitiva debe revisarse antes de un piloto público.</p></div>
         <div class="contenedor texto_legal">
           <h2>Datos tratados</h2><p>Guardamos tu identidad de Google, preferencias, ofertas revisadas y un historial mínimo de destinatarios, estados y fechas. Confirmas que eres mayor de edad en el formulario. Si autorizas IA, se envían a Gemini tus intereses y el texto de funciones, sin credenciales, datos de contacto ni adjuntos. En el nivel gratuito Google puede usar esos textos para mejorar sus productos.</p>
-          <h2>Uso y conservación</h2><p>Al iniciar la consulta, el perfil, el mensaje y los adjuntos se cifran durante un máximo de 24 horas. Se eliminan al terminar el envío, cuando los borras o cuando vence ese plazo y el servidor los limpia. El proveedor puede conservar copias de seguridad cifradas por más tiempo. El historial mínimo aplica la regla de seis meses; el plazo definitivo de retención y la eliminación de cuenta se definirán antes de un piloto público.</p>
+          <h2>Uso y conservación</h2><p>Al iniciar la consulta, el perfil, el mensaje y los adjuntos se cifran durante un máximo de 24 horas. Se eliminan al cancelar, fallar o terminar la campaña; también al vencer ese plazo cuando el servidor los limpia. El proveedor puede conservar copias de seguridad cifradas por más tiempo. El historial mínimo aplica la regla de seis meses; el plazo definitivo de retención y la eliminación de cuenta se definirán antes de un piloto público.</p>
           <h2>Acceso a Gmail</h2><p>Al entrar con Google solicitamos permiso para enviar desde Gmail. El token de renovación se guarda cifrado y se elimina al cerrar la sesión del aprendiz; también intentamos revocarlo en Google. La cuenta administradora de DEBUPA conserva su permiso de envío cifrado al cerrar la sesión para entregar resúmenes y decisiones de pago. No leemos tu bandeja. La regla de seis meses solo conoce correos enviados mediante DEBUPA.</p>
           <h2>Comprobantes de pago</h2><p>La captura se optimiza en tu navegador y se almacena cifrada mientras la solicitud está pendiente. Solo la cuenta administradora puede verla. Tras decidir, se elimina su contenido de la base activa; conservamos la decisión y una huella del archivo para evitar reutilizar la misma captura.</p>
           <h2>Estado actual</h2><p>Las credenciales SGVA se usan durante la consulta y no se guardan. Solo después de que revises y confirmes el mensaje y las empresas enviamos desde tu Gmail. El resumen de nombres y teléfonos sale de debupawebapp@gmail.com hacia tu cuenta y queda en «Enviados» de DEBUPA. Los intentos quedan registrados para evitar duplicados; si Gmail no confirma uno, debes revisar «Enviados».</p>
