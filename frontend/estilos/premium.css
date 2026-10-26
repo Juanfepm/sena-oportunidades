@@ -325,6 +325,14 @@
   margin-top: var(--espacio_5);
 }
 
+.confirmar_decision {
+  border-top: 0.35rem solid var(--color_verde);
+  width: min(30rem, calc(100vw - 2rem));
+}
+
+.confirmar_decision .icono_circulo { display: flex; margin-bottom: var(--espacio_4); }
+.confirmar_decision .ceja { display: block; }
+
 .confirmar_decision_acciones {
   display: flex;
   flex-wrap: wrap;
@@ -379,7 +387,14 @@
 .pago_agradecimiento h1 em { color: var(--color_verde); font-style: normal; }
 .pago_agradecimiento p { color: var(--color_muted); }
 .pago_agradecimiento small { color: var(--color_muted); font-size: 0.78rem; }
-.pago_agradecimiento .boton { margin-top: var(--espacio_8); }
+.pago_agradecimiento .boton { margin-top: var(--espacio_5); }
+.pago_agradecimiento_tiempo { background: var(--color_verde_suave); border-radius: 1rem; height: 0.35rem; margin: var(--espacio_6) 0 var(--espacio_2); overflow: hidden; width: min(16rem, 100%); }
+.pago_agradecimiento_tiempo span { background: var(--color_verde); display: block; height: 100%; width: 100%; }
+#pago-enviado:not([hidden]) .pago_agradecimiento_tiempo span { animation: pago_agradecimiento_avance 3s linear forwards; }
+
+@keyframes pago_agradecimiento_avance {
+  to { transform: translateX(-100%); }
+}
 
 .pago_archivo {
   align-items: center;
@@ -429,7 +444,7 @@
 .pago_condiciones input { flex: none; margin-top: 0.15rem; }
 
 .pago_disposicion {
-  align-items: start;
+  align-items: stretch;
   gap: var(--espacio_5);
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   max-width: 62rem;

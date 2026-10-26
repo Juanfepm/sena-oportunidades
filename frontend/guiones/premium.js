@@ -12,6 +12,7 @@ let enlaceComprobante = null;
 let metricas = null;
 let temporizadorNotificacion = null;
 let temporizadorSalida = null;
+let temporizadorAgradecimiento = null;
 
 function notificarAdministracion(mensaje, esError = false) {
   const aviso = document.querySelector("#admin-notificacion");
@@ -130,14 +131,25 @@ async function abrirComprobante(solicitud) {
       throw new Error("El formato del comprobante no se puede mostrar.");
     }
     limpiarComprobante();
-    enlaceComprobante = URL.createObjectURL(archivo);
     if (archivo.type === "application/pdf") {
+      enlaceComprobante = URL.createObjectURL(archivo);
       pdf.src = enlaceComprobante;
       enlacePdf.href = enlaceComprobante;
       pdf.hidden = false;
       enlacePdf.hidden = false;
     } else {
-      imagen.src = enlaceComprobante;
+      const contenido = await new Promise((resolver, rechazar) => {
+        const lector = new FileReader();
+        lector.onload = () => resolver(lector.result);
+        lector.onerror = () => rechazar(new Error("No se pudo leer la imagen del comprobante."));
+        lector.readAsDataURL(archivo);
+      });
+      const vistaPrevia = new Image();
+      vistaPrevia.src = contenido;
+      await vistaPrevia.decode().catch(() => {
+        throw new Error("La imagen del comprobante está dañada o no se puede mostrar.");
+      });
+      imagen.src = contenido;
       imagen.alt = `Comprobante enviado por ${solicitud.nombre}`;
       imagen.hidden = false;
     }
@@ -322,6 +334,7 @@ export function configurarPremium() {
   });
   document.querySelector("#formulario-pago").addEventListener("submit", async (evento) => {
     evento.preventDefault();
+    const formulario = evento.currentTarget;
     if (!cuenta) { estadoPago.textContent = "Inicia sesión con Google antes de enviar el comprobante."; return; }
     if (!archivoOptimizado) {
       estadoPago.textContent = "Adjunta un comprobante legible para solicitar la revisión.";
@@ -333,7 +346,7 @@ export function configurarPremium() {
       document.querySelector("#aceptar-condiciones-pago").focus();
       return;
     }
-    const boton = evento.currentTarget.querySelector("button[type='submit']");
+    const boton = formulario.querySelector("button[type='submit']");
     boton.disabled = true;
     estadoPago.textContent = "Enviando comprobante…";
     try {
@@ -341,10 +354,15 @@ export function configurarPremium() {
       datos.set("comprobante", archivoOptimizado);
       datos.set("acepta_condiciones", "true");
       await leerRespuesta(await enviarConCsrf("/api/v1/pagos-premium", { method: "POST", body: datos }));
-      evento.currentTarget.reset();
+      formulario.reset();
       archivoOptimizado = null;
       document.querySelector("#nombre-comprobante").textContent = "Elegir PNG, JPG o PDF";
+      estadoPago.textContent = "";
       irA("pago-enviado");
+      clearTimeout(temporizadorAgradecimiento);
+      temporizadorAgradecimiento = setTimeout(() => {
+        if (window.location.hash === "#pago-enviado") irA("inicio");
+      }, 3000);
     } catch (error) {
       estadoPago.textContent = error.message;
       boton.disabled = false;
