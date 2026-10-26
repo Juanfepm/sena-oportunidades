@@ -133,6 +133,15 @@ destinatario. Solo el botón final «Confirmar y enviar» manda correos reales a
 empresas desde tu Gmail. Puedes cerrar el navegador; mantén el servidor abierto.
 Si Gmail deja un envío sin confirmar, revisa «Enviados» antes de volver a contactar.
 
+Antes del primer envío real, vincula el correo que enviará los resúmenes:
+1. Si Google OAuth está en «Prueba», añade debupawebapp@gmail.com como usuario de prueba.
+2. En una ventana privada, entra a DEBUPA con debupawebapp@gmail.com y concede Gmail.
+3. Comprueba «Gmail conectado». Cierra la ventana sin pulsar «Cerrar sesión»:
+   ese botón revoca el permiso. Entra luego con la cuenta del aprendiz.
+El resumen llegará desde debupawebapp@gmail.com. No hay migración nueva.
+Si Google revoca el permiso (en «Prueba» puede vencer a los 7 días), vuelve a
+vincular esa cuenta antes de iniciar otra campaña.
+
 10. DETENER EL SERVIDOR
 -----------------------
 En la terminal donde está Uvicorn, presiona Ctrl + C.

@@ -29,6 +29,8 @@ async function configurarConsultaSgva() {
     const capacidades = await respuesta.json();
     consultaSgvaActiva = capacidades.sgva === true;
     if (!consultaSgvaActiva) return;
+    document.querySelector(".aviso_prototipo").textContent = "Los mensajes a empresas salen de tu Gmail tras tu confirmación. El resumen llega desde debupawebapp@gmail.com.";
+    document.querySelector("#como-funciona .paso_tarjeta:last-child p").textContent = "Los mensajes autorizados saldrán desde tu Gmail. DEBUPA enviará el resumen de contactos desde su correo; el historial evita recontactos durante seis meses.";
     const opcionIa = document.querySelector("#opcion-ia");
     const aceptarIa = document.querySelector("#aceptar-ia");
     // Cuando Gemini está habilitado, la autorización es obligatoria tanto en la vista como en la API.
@@ -67,7 +69,6 @@ async function configurarConsultaSgva() {
     document.querySelector("#progreso .nota_fina").textContent = "Se lee SGVA sin postularte y sin enviar correos.";
     document.querySelector("#campana .aviso_requisitos small").textContent = "DEBUPA todavía no puede comprobar por sí solo si tienes patrocinio o una postulación activa.";
     document.querySelector("#campana .grupo_campo .ayuda_grupo").textContent = "Introduce tus credenciales una vez por consulta; se descartan al terminar y no se guardan en la base de datos.";
-    document.querySelector("#privacidad .texto_legal h2:last-of-type + p").textContent = "El inicio de sesión guarda tu identificador, nombre y correo verificado; también vincula el permiso de Gmail. Documento y contraseña SGVA permanecen solo en memoria durante la consulta. Tu perfil, mensaje y adjuntos se guardan cifrados hasta 24 horas o se eliminan al terminar la campaña. Si autorizas IA, se envían a Gemini tus intereses y el texto de funciones, sin credenciales ni datos de contacto. En el nivel gratuito Google puede usar esos textos para mejorar sus productos. Tras tu confirmación final, Gmail enviará a las empresas seleccionadas; se conservará un registro mínimo para evitar duplicados y respetar seis meses entre contactos.";
   } catch { /* La vista de demostración permanece disponible. */ }
 }
 
@@ -408,10 +409,15 @@ function configurarSimulacion() {
         const fila = (empresa, omitida = false) => {
           const item = document.createElement("li");
           const nombre = document.createElement("strong");
-          const detalle = document.createElement("span");
+          const datos = document.createElement("span");
           nombre.textContent = empresa.nombre_empresa;
-          detalle.textContent = `${empresa.correo}${omitida ? ` · ${empresa.motivo}` : ""}`;
-          item.append(nombre, detalle);
+          datos.textContent = `${empresa.ubicacion} · ${empresa.correo}`;
+          item.append(nombre, datos);
+          if (omitida) {
+            const motivo = document.createElement("small");
+            motivo.textContent = empresa.motivo;
+            item.append(motivo);
+          }
           return item;
         };
         document.querySelector("#remitente-confirmacion").textContent = preparacion.remitente;

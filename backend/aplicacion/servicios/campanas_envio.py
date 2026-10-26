@@ -18,11 +18,20 @@ from ..esquemas import PATRON_CORREO
 from ..modelos import Campana, ConexionGmail, CorreoExcluido, Destinatario, HistorialEnvio, Usuario
 from .envio_gmail import AdjuntoGmail, EnvioGmailNoConfirmado, GmailNoDisponible, PermisoGmailInvalido, enviar_gmail
 from .campanas import consultar_disponibilidad
+from .resumen_correo import CORREO_DEBUPA, crear_resumen
 from .temporales import eliminar_contenido, recuperar_contenido
 
 
 class EnvioNoPermitido(ValueError):
     """La campaña no está lista para una autorización de envío."""
+
+
+def _conexion_resumen(sesion: Session) -> ConexionGmail | None:
+    """Solo acepta el permiso Gmail otorgado por la cuenta verificada de DEBUPA."""
+    return sesion.scalar(select(ConexionGmail).join(Usuario, Usuario.id == ConexionGmail.usuario_id).where(
+        Usuario.correo_google == CORREO_DEBUPA,
+        ConexionGmail.correo_google == CORREO_DEBUPA,
+    ))
 
 
 def huella_preparacion(vista: dict) -> str:
@@ -71,6 +80,9 @@ def preparar_envio(sesion: Session, campana: Campana, usuario: Usuario, clave: s
     conexion = sesion.scalar(select(ConexionGmail).where(ConexionGmail.usuario_id == usuario.id))
     if conexion is None or "https://www.googleapis.com/auth/gmail.send" not in conexion.permisos.split():
         raise EnvioNoPermitido("Conecta Gmail de nuevo para autorizar el envío.")
+    conexion_resumen = _conexion_resumen(sesion)
+    if conexion_resumen is None or "https://www.googleapis.com/auth/gmail.send" not in conexion_resumen.permisos.split():
+        raise EnvioNoPermitido("El correo de DEBUPA aún no está conectado para entregar tu resumen. Inténtalo más tarde.")
     contenido = recuperar_contenido(sesion, campana, clave)
     if contenido is None:
         raise EnvioNoPermitido("El mensaje cifrado venció. Crea otra búsqueda para redactarlo de nuevo.")
@@ -97,7 +109,9 @@ def preparar_envio(sesion: Session, campana: Campana, usuario: Usuario, clave: s
                     motivo = "Se contactó durante los últimos seis meses."
                 elif not campana.permitir_recontacto:
                     motivo = "Se contactó antes y no autorizaste recontactarlo."
+        ubicacion = " · ".join(parte for parte in (destino.departamento, destino.ciudad) if parte)
         empresa = {"id": destino.id, "nombre_empresa": destino.nombre_empresa, "correo": correo,
+                   "ubicacion": ubicacion or "Ubicación no informada",
                    "telefono_original": destino.telefono_original, "motivo": motivo}
         (omitidos if motivo else aptos).append(empresa)
     return {"remitente": conexion.correo_google, "asunto": contenido.mensaje.asunto,
@@ -214,24 +228,27 @@ async def procesar_envio(fabrica: sessionmaker, configuracion: Configuracion, ca
         consulta = select(Destinatario).join(HistorialEnvio, HistorialEnvio.destinatario_id == Destinatario.id).where(
             HistorialEnvio.campana_id == campana_id, HistorialEnvio.estado == "enviado",
         ).order_by(Destinatario.nombre_empresa)
-        contactos = []
+        contactos: list[tuple[str, str]] = []
         for destino in sesion.scalars(consulta):
             telefono = destino.telefono_original or ""
             if 7 <= len(re.sub(r"\D", "", telefono)) <= 13 and re.fullmatch(r"[\d+()\s.\-]+", telefono):
-                contactos.append(f"{destino.nombre_empresa}: {telefono}")
+                contactos.append((destino.nombre_empresa, telefono))
         campana = sesion.get(Campana, campana_id)
-        campana.etapa = "Preparando el resumen para tu Gmail"
+        campana.etapa = "Preparando el resumen de DEBUPA"
         campana.progreso = 99
         eliminar_contenido(sesion, campana)
-    cuerpo_resumen = "Estos son los contactos publicados por las empresas a las que escribiste:\n\n"
-    cuerpo_resumen += "\n".join(contactos) if contactos else "No se encontraron números con un formato válido."
-    cuerpo_resumen += "\n\nGracias por usar DEBUPA. Verifica cada dato directamente con la empresa."
+        conexion_resumen = _conexion_resumen(sesion)
+        token_resumen = conexion_resumen.token_renovacion_cifrado if conexion_resumen else None
+        destinatario_resumen = remitente
+    cuerpo_resumen, cuerpo_html = crear_resumen(contactos)
     try:
-        await enviar_gmail(configuracion, token, remitente, remitente,
-                           "DEBUPA: contactos de tu campaña", cuerpo_resumen, ())
-        etapa = "Mensajes y resumen confirmados por Gmail"
+        if token_resumen is None:
+            raise GmailNoDisponible("El correo de DEBUPA ya no está conectado.")
+        await enviar_gmail(configuracion, token_resumen, CORREO_DEBUPA, destinatario_resumen,
+                           "DEBUPA · Contactos de tu campaña", cuerpo_resumen, (), cuerpo_html)
+        etapa = "Mensajes enviados y resumen de DEBUPA entregado a tu Gmail"
     except (EnvioGmailNoConfirmado, PermisoGmailInvalido, GmailNoDisponible):
-        etapa = "Mensajes a empresas confirmados. El resumen a tu Gmail no pudo confirmarse."
+        etapa = "Mensajes a empresas confirmados. El resumen de DEBUPA no pudo confirmarse."
     with fabrica() as sesion:
         campana = sesion.get(Campana, campana_id)
         if campana is not None and campana.estado == EstadoCampana.ENVIANDO:

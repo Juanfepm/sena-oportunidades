@@ -44,6 +44,12 @@ def contexto():
         sesion.add(ConexionGmail(usuario_id=usuario.id, correo_google="aprendiz@ejemplo.com",
                                 token_renovacion_cifrado="token-cifrado-ficticio",
                                 permisos="https://www.googleapis.com/auth/gmail.send"))
+        usuario_debupa = Usuario(identificador_externo="pruebas:debupa", correo_google="debupawebapp@gmail.com")
+        sesion.add(usuario_debupa)
+        sesion.flush()
+        sesion.add(ConexionGmail(usuario_id=usuario_debupa.id, correo_google="debupawebapp@gmail.com",
+                                token_renovacion_cifrado="token-debupa-cifrado-ficticio",
+                                permisos="https://www.googleapis.com/auth/gmail.send"))
         sesion.flush()
         guardar_contenido(sesion, campana, SolicitudContenidoTemporal(
             habilidades="Desarrollo aplicaciones y pruebo software.",
@@ -52,6 +58,8 @@ def contexto():
         ), (), clave)
         destinos = [Destinatario(campana_id=campana.id, nombre_empresa=f"Empresa {indice}",
                                 correo=f"empresa{indice}@ejemplo.com", motivo="Coincide con desarrollo.",
+                                departamento="BOGOTÁ D.C.", ciudad="BOGOTÁ D.C.",
+                                telefono_original="3001234567",
                                 puntuacion=90 - indice, estado="coincidencia_alta", seleccionado=True)
                     for indice in (1, 2)]
         sesion.add_all(destinos)
@@ -67,8 +75,8 @@ def test_envia_una_vez_y_borra_contenido(contexto, monkeypatch):
     fabrica, configuracion, usuario_id, campana_id, ids = contexto
     mensajes = []
 
-    async def enviar_ficticio(_config, _token, remitente, destinatario, asunto, cuerpo, adjuntos):
-        mensajes.append((remitente, destinatario, asunto, cuerpo, adjuntos))
+    async def enviar_ficticio(_config, token, remitente, destinatario, asunto, cuerpo, adjuntos, cuerpo_html=None):
+        mensajes.append((token, remitente, destinatario, asunto, cuerpo, adjuntos, cuerpo_html))
         return f"gmail-{len(mensajes)}"
 
     monkeypatch.setattr(campanas_envio, "enviar_gmail", enviar_ficticio)
@@ -77,6 +85,7 @@ def test_envia_una_vez_y_borra_contenido(contexto, monkeypatch):
         vista = campanas_envio.preparar_envio(sesion, campana, usuario, configuracion.clave_cifrado)
         assert len(vista["aptos"]) == 2
         assert vista["remitente"] == "aprendiz@ejemplo.com"
+        assert vista["aptos"][0]["ubicacion"] == "BOGOTÁ D.C. · BOGOTÁ D.C."
         huella = campanas_envio.huella_preparacion(vista)
         assert campanas_envio.autorizar_envio(sesion, campana, usuario, configuracion.clave_cifrado, ids, huella) == 2
         with pytest.raises(campanas_envio.EnvioNoPermitido):
@@ -84,8 +93,11 @@ def test_envia_una_vez_y_borra_contenido(contexto, monkeypatch):
     asyncio.run(campanas_envio.procesar_envio(fabrica, configuracion, campana_id))
     asyncio.run(campanas_envio.procesar_envio(fabrica, configuracion, campana_id))
     assert len(mensajes) == 3
-    assert {mensaje[1] for mensaje in mensajes[:2]} == {"empresa1@ejemplo.com", "empresa2@ejemplo.com"}
-    assert mensajes[2][1] == "aprendiz@ejemplo.com"
+    assert {mensaje[2] for mensaje in mensajes[:2]} == {"empresa1@ejemplo.com", "empresa2@ejemplo.com"}
+    assert all(mensaje[1] == "aprendiz@ejemplo.com" for mensaje in mensajes[:2])
+    assert mensajes[2][0] == "token-debupa-cifrado-ficticio"
+    assert mensajes[2][1:3] == ("debupawebapp@gmail.com", "aprendiz@ejemplo.com")
+    assert "3001234567" in mensajes[2][6]
     with fabrica() as sesion:
         assert sesion.get(Campana, campana_id).estado == EstadoCampana.COMPLETADA
         assert all(envio.estado == "enviado" and envio.mensaje_gmail_id for envio in sesion.scalars(
@@ -141,7 +153,7 @@ def test_api_exige_confirmacion_y_muestra_resultado(contexto, monkeypatch):
     app.dependency_overrides[verificar_csrf] = lambda: None
     mensajes = []
 
-    async def enviar_ficticio(_config, _token, _remitente, destino, _asunto, _cuerpo, _adjuntos):
+    async def enviar_ficticio(_config, _token, _remitente, destino, _asunto, _cuerpo, _adjuntos, _html=None):
         mensajes.append(destino)
         return f"mensaje-{len(mensajes)}"
 
@@ -164,15 +176,31 @@ def test_api_exige_confirmacion_y_muestra_resultado(contexto, monkeypatch):
         assert cliente.post(f"{ruta}/enviar", json=datos).status_code == 409
         plazo = monotonic() + 5
         while monotonic() < plazo:
-            if cliente.get(ruta).json()["estado"] == "completada":
+            with fabrica() as sesion:
+                terminado = sesion.get(Campana, campana_id).estado == "completada"
+            if terminado:
                 break
             sleep(0.05)
-        assert cliente.get(ruta).json()["estado"] == "completada"
-        resultado = cliente.get(f"{ruta}/resultado-envio")
+        # No hay consultas del navegador durante el trabajo; se abre otra sesión al terminar.
+        cliente_nuevo = TestClient(app)
+        assert cliente_nuevo.get(ruta).json()["estado"] == "completada"
+        resultado = cliente_nuevo.get(f"{ruta}/resultado-envio")
         assert len(resultado.json()) == 2
         assert all(item["estado"] == "enviado" for item in resultado.json())
         assert len(mensajes) == 3
         assert cliente.get(f"{ruta}/contenido/edicion").status_code == 409
+
+
+def test_sin_correo_de_debupa_no_autoriza_envios(contexto):
+    fabrica, configuracion, usuario_id, campana_id, _ids = contexto
+    with fabrica() as sesion:
+        conexion = sesion.scalar(select(ConexionGmail).where(ConexionGmail.correo_google == "debupawebapp@gmail.com"))
+        sesion.delete(conexion)
+        sesion.commit()
+        with pytest.raises(campanas_envio.EnvioNoPermitido, match="DEBUPA aún no está conectado"):
+            campanas_envio.preparar_envio(sesion, sesion.get(Campana, campana_id),
+                                           sesion.get(Usuario, usuario_id), configuracion.clave_cifrado)
+        assert sesion.scalar(select(HistorialEnvio.id).where(HistorialEnvio.campana_id == campana_id)) is None
 
 
 def test_editar_mensaje_conserva_adjunto_guardado(contexto):

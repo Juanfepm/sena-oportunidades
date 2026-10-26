@@ -37,6 +37,7 @@ def preparar_mensaje(
     asunto: str,
     cuerpo: str,
     adjuntos: tuple[AdjuntoGmail, ...] = (),
+    cuerpo_html: str | None = None,
 ) -> str:
     """Construye el MIME que Gmail espera en el campo `raw`."""
     mensaje = EmailMessage(policy=SMTP)
@@ -44,6 +45,8 @@ def preparar_mensaje(
     mensaje["To"] = destinatario
     mensaje["Subject"] = asunto
     mensaje.set_content(cuerpo)
+    if cuerpo_html is not None:
+        mensaje.add_alternative(cuerpo_html, subtype="html")
     for adjunto in adjuntos:
         mensaje.add_attachment(
             adjunto.contenido,
@@ -62,6 +65,7 @@ async def enviar_gmail(
     asunto: str,
     cuerpo: str,
     adjuntos: tuple[AdjuntoGmail, ...] = (),
+    cuerpo_html: str | None = None,
 ) -> str:
     """Renueva el acceso y devuelve el ID confirmado por Gmail."""
     token_renovacion = descifrar_token(token_cifrado, configuracion.clave_cifrado)
@@ -92,7 +96,7 @@ async def enviar_gmail(
             respuesta_envio = await cliente.post(
                 "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
                 headers={"Authorization": f"Bearer {token_acceso}"},
-                json={"raw": preparar_mensaje(remitente, destinatario, asunto, cuerpo, adjuntos)},
+                json={"raw": preparar_mensaje(remitente, destinatario, asunto, cuerpo, adjuntos, cuerpo_html)},
             )
             if respuesta_envio.status_code == 401:
                 raise PermisoGmailInvalido("Vuelve a iniciar sesión con Google.")
