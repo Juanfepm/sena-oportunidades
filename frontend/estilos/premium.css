@@ -390,7 +390,7 @@
 .pago_agradecimiento .boton { margin-top: var(--espacio_5); }
 .pago_agradecimiento_tiempo { background: var(--color_verde_suave); border-radius: 1rem; height: 0.35rem; margin: var(--espacio_6) 0 var(--espacio_2); overflow: hidden; width: min(16rem, 100%); }
 .pago_agradecimiento_tiempo span { background: var(--color_verde); display: block; height: 100%; width: 100%; }
-#pago-enviado:not([hidden]) .pago_agradecimiento_tiempo span { animation: pago_agradecimiento_avance 3s linear forwards; }
+#pago-enviado:not([hidden]) .pago_agradecimiento_tiempo span { animation: pago_agradecimiento_avance 12s linear forwards; }
 
 @keyframes pago_agradecimiento_avance {
   to { transform: translateX(-100%); }
@@ -520,6 +520,8 @@
 
 #admin-estado,
 #estado-pago { color: var(--color_verde_profundo); font-size: 0.82rem; }
+
+#estado-pago { margin-top: var(--espacio_4); }
 
 @media (max-width: 1024px) {
   .admin_metricas { grid-template-columns: repeat(3, minmax(0, 1fr)); }

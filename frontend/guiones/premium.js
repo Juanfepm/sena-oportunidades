@@ -362,7 +362,7 @@ export function configurarPremium() {
       clearTimeout(temporizadorAgradecimiento);
       temporizadorAgradecimiento = setTimeout(() => {
         if (window.location.hash === "#pago-enviado") irA("inicio");
-      }, 3000);
+      }, 12000);
     } catch (error) {
       estadoPago.textContent = error.message;
       boton.disabled = false;
