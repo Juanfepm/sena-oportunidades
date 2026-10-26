@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..dominio.estados import LIMITES_CONTACTO, Plan
 from ..dominio.disponibilidad import proxima_busqueda
+from ..dominio.estados import LIMITES_CONTACTO, Plan
 from ..esquemas import SolicitudBorrador
 from ..modelos import Campana, CorreoExcluido, HistorialEnvio, Usuario
 
@@ -16,7 +16,9 @@ class EsperaPlanGratis(Exception):
         self.fecha = fecha
 
 
-def consultar_disponibilidad(sesion: Session, usuario: Usuario, ahora: datetime | None = None) -> datetime | None:
+def consultar_disponibilidad(
+    sesion: Session, usuario: Usuario, ahora: datetime | None = None
+) -> datetime | None:
     ultimo_envio = sesion.scalar(
         select(HistorialEnvio.enviado_en)
         .where(HistorialEnvio.usuario_id == usuario.id, HistorialEnvio.estado == "enviado")
@@ -31,7 +33,11 @@ def crear_borrador(sesion: Session, usuario: Usuario, solicitud: SolicitudBorrad
     if proxima_fecha is not None:
         raise EsperaPlanGratis(proxima_fecha)
     plan = Plan(usuario.plan)
-    existentes = set(sesion.scalars(select(CorreoExcluido.correo).where(CorreoExcluido.usuario_id == usuario.id)))
+    existentes = set(
+        sesion.scalars(
+            select(CorreoExcluido.correo).where(CorreoExcluido.usuario_id == usuario.id)
+        )
+    )
     sesion.add_all(
         CorreoExcluido(usuario_id=usuario.id, correo=correo)
         for correo in solicitud.correos_excluidos
@@ -54,7 +60,12 @@ def crear_borrador(sesion: Session, usuario: Usuario, solicitud: SolicitudBorrad
 
 
 def listar_borradores(sesion: Session, usuario: Usuario, limite: int = 50) -> list[Campana]:
-    consulta = select(Campana).where(Campana.usuario_id == usuario.id).order_by(Campana.creado_en.desc()).limit(limite)
+    consulta = (
+        select(Campana)
+        .where(Campana.usuario_id == usuario.id)
+        .order_by(Campana.creado_en.desc())
+        .limit(limite)
+    )
     return list(sesion.scalars(consulta))
 
 

@@ -1,8 +1,7 @@
 """Cifra el contenido de campañas y adjuntos durante 24 horas."""
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 revision = "0004_contenido_temporal"
 down_revision = "0003_conexion_gmail_cifrada"
@@ -13,7 +12,9 @@ depends_on = None
 def upgrade() -> None:
     op.create_table(
         "contenidos_temporales",
-        sa.Column("campana_id", sa.String(length=36), sa.ForeignKey("campanas.id"), primary_key=True),
+        sa.Column(
+            "campana_id", sa.String(length=36), sa.ForeignKey("campanas.id"), primary_key=True
+        ),
         sa.Column("contenido_cifrado", sa.LargeBinary(), nullable=False),
         sa.Column("vence_en", sa.DateTime(timezone=True), nullable=False),
         sa.Column("actualizado_en", sa.DateTime(timezone=True), nullable=False),
@@ -22,7 +23,12 @@ def upgrade() -> None:
     op.create_table(
         "adjuntos_temporales",
         sa.Column("id", sa.String(length=36), primary_key=True),
-        sa.Column("campana_id", sa.String(length=36), sa.ForeignKey("contenidos_temporales.campana_id"), nullable=False),
+        sa.Column(
+            "campana_id",
+            sa.String(length=36),
+            sa.ForeignKey("contenidos_temporales.campana_id"),
+            nullable=False,
+        ),
         sa.Column("metadatos_cifrados", sa.LargeBinary(), nullable=False),
         sa.Column("tamano_bytes", sa.Integer(), nullable=False),
         sa.Column("contenido_cifrado", sa.LargeBinary(), nullable=False),

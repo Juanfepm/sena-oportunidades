@@ -8,7 +8,7 @@ from email.policy import SMTP
 import httpx
 
 from ..configuracion import Configuracion
-from .gmail import descifrar_token
+from .cifrado import descifrar_token
 
 
 class PermisoGmailInvalido(RuntimeError):
@@ -86,7 +86,9 @@ async def enviar_gmail(
                 raise PermisoGmailInvalido("Vuelve a iniciar sesión con Google.")
             respuesta_token.raise_for_status()
             datos_token = respuesta_token.json()
-            token_acceso = datos_token.get("access_token") if isinstance(datos_token, dict) else None
+            token_acceso = (
+                datos_token.get("access_token") if isinstance(datos_token, dict) else None
+            )
             if not isinstance(token_acceso, str) or not token_acceso:
                 raise GmailNoDisponible("Google no entregó un token de acceso.")
         except (httpx.HTTPError, ValueError) as error:
@@ -96,7 +98,11 @@ async def enviar_gmail(
             respuesta_envio = await cliente.post(
                 "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
                 headers={"Authorization": f"Bearer {token_acceso}"},
-                json={"raw": preparar_mensaje(remitente, destinatario, asunto, cuerpo, adjuntos, cuerpo_html)},
+                json={
+                    "raw": preparar_mensaje(
+                        remitente, destinatario, asunto, cuerpo, adjuntos, cuerpo_html
+                    )
+                },
             )
             if respuesta_envio.status_code == 401:
                 raise PermisoGmailInvalido("Vuelve a iniciar sesión con Google.")

@@ -8,7 +8,6 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, m
 
 from .dominio.ubicaciones import MUNICIPIOS_POR_DEPARTAMENTO
 
-
 PATRON_CORREO = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 PATRON_CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 PATRON_CONTROL_TEXTO = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
@@ -37,7 +36,9 @@ class SolicitudBorrador(BaseModel):
     @classmethod
     def validar_correos(cls, correos: list[str]) -> list[str]:
         normalizados = [correo.strip().lower() for correo in correos]
-        if any(len(correo) > 254 or not PATRON_CORREO.fullmatch(correo) for correo in normalizados):
+        if any(
+            len(correo) > 254 or not PATRON_CORREO.fullmatch(correo) for correo in normalizados
+        ):
             raise ValueError("Todos los correos excluidos deben ser válidos.")
         return list(dict.fromkeys(normalizados))
 
@@ -50,7 +51,10 @@ class SolicitudBorrador(BaseModel):
         if self.departamento != "todos":
             if self.departamento not in MUNICIPIOS_POR_DEPARTAMENTO:
                 raise ValueError("El departamento no está disponible.")
-            if self.ciudad != "todas" and self.ciudad not in MUNICIPIOS_POR_DEPARTAMENTO[self.departamento]:
+            if (
+                self.ciudad != "todas"
+                and self.ciudad not in MUNICIPIOS_POR_DEPARTAMENTO[self.departamento]
+            ):
                 raise ValueError("El municipio no pertenece al departamento seleccionado.")
         return self
 

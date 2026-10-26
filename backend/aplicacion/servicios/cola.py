@@ -21,11 +21,17 @@ def encolar(sesion: Session, campana: Campana) -> None:
     sesion.flush()
 
 
-def reservar_siguiente(sesion: Session, fecha_actual: datetime, campana_id: str | None = None) -> Campana | None:
+def reservar_siguiente(
+    sesion: Session, fecha_actual: datetime, campana_id: str | None = None
+) -> Campana | None:
     navegador = sesion.get(NavegadorSGVA, 1, with_for_update=True)
     if navegador is None:
         raise RuntimeError("Inicializa la reserva del navegador antes de iniciar el trabajador.")
-    if navegador.campana_id and navegador.reserva_hasta and _con_zona(navegador.reserva_hasta) > _con_zona(fecha_actual):
+    if (
+        navegador.campana_id
+        and navegador.reserva_hasta
+        and _con_zona(navegador.reserva_hasta) > _con_zona(fecha_actual)
+    ):
         return None
     if navegador.campana_id:
         anterior = sesion.get(Campana, navegador.campana_id)

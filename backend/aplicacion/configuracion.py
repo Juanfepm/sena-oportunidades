@@ -14,6 +14,7 @@ class Configuracion:
     google_cliente_secreto: str | None = None
     google_uri_redireccion: str = "http://127.0.0.1:8000/api/v1/autenticacion/google/callback"
     google_url_inicio: str = "/#inicio"
+    correo_administrador: str | None = None
     secreto_sesion: str | None = None
     clave_cifrado: str | None = None
     sgva_activo: bool = False
@@ -39,6 +40,7 @@ class Configuracion:
                 "http://127.0.0.1:8000/api/v1/autenticacion/google/callback",
             ),
             google_url_inicio=getenv("GOOGLE_URL_INICIO", "/#inicio"),
+            correo_administrador=getenv("DEBUPA_CORREO_ADMIN"),
             secreto_sesion=getenv("DEBUPA_SECRETO_SESION"),
             clave_cifrado=getenv("DEBUPA_CLAVE_CIFRADO"),
             sgva_activo=getenv("DEBUPA_SGVA_ACTIVO", "false").lower() == "true",
@@ -46,6 +48,8 @@ class Configuracion:
         )
         if configuracion.entorno not in {"desarrollo", "pruebas", "produccion"}:
             raise ValueError("DEBUPA_ENTORNO debe ser desarrollo, pruebas o produccion.")
-        if configuracion.entorno == "produccion" and not configuracion.base_datos.startswith("postgresql+psycopg://"):
+        if configuracion.entorno == "produccion" and not configuracion.base_datos.startswith(
+            "postgresql+psycopg://"
+        ):
             raise ValueError("Producción requiere PostgreSQL con el controlador psycopg.")
         return configuracion

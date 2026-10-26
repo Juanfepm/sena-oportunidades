@@ -12,15 +12,29 @@ from sqlalchemy.pool import StaticPool
 
 from backend.aplicacion.base_datos import Base
 from backend.aplicacion.configuracion import Configuracion
-from backend.aplicacion.integraciones.contratos import EvaluacionIA, OfertaSGVA, SGVAEntornoIncompatible
-from backend.aplicacion.integraciones.sgva import _buscar_departamento, consultar_sgva, dias_desde, filas_recientes, mensaje_error_ingreso, seleccionar_opcion
+from backend.aplicacion.integraciones.contratos import (
+    EvaluacionIA,
+    OfertaSGVA,
+    SGVAEntornoIncompatible,
+)
+from backend.aplicacion.integraciones.sgva import (
+    _buscar_departamento,
+    consultar_sgva,
+    dias_desde,
+    filas_recientes,
+    mensaje_error_ingreso,
+    seleccionar_opcion,
+)
 from backend.aplicacion.modelos import Campana, NavegadorSGVA
 from backend.aplicacion.principal import crear_aplicacion
 
 
 def test_opciones_y_fecha_sgva() -> None:
-    opciones = [{"value": "0", "label": "Seleccione"}, {"value": "11", "label": "BOGOTA D.C."},
-                {"value": "76", "label": "VALLE"}]
+    opciones = [
+        {"value": "0", "label": "Seleccione"},
+        {"value": "11", "label": "BOGOTA D.C."},
+        {"value": "76", "label": "VALLE"},
+    ]
     assert seleccionar_opcion(opciones, "Bogotá D. C.") == "11"
     assert seleccionar_opcion(opciones, "Bogotá") == "11"
     assert seleccionar_opcion(opciones, "Valle del Cauca") == "76"
@@ -29,12 +43,20 @@ def test_opciones_y_fecha_sgva() -> None:
 
 
 def test_distingue_avisos_de_credenciales_publicados_por_sgva() -> None:
-    assert mensaje_error_ingreso("El usuario no se encuentra en el sistema.") == "El usuario no se encuentra en el sistema."
-    assert mensaje_error_ingreso("Usuario o contraseña incorrecta.") == "Usuario o contraseña incorrecta."
+    assert (
+        mensaje_error_ingreso("El usuario no se encuentra en el sistema.")
+        == "El usuario no se encuentra en el sistema."
+    )
+    assert (
+        mensaje_error_ingreso("Usuario o contraseña incorrecta.")
+        == "Usuario o contraseña incorrecta."
+    )
     assert mensaje_error_ingreso("Error desconocido") == "SGVA no aceptó el acceso como aprendiz."
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="El bucle Selector causa el fallo solo en Windows")
+@pytest.mark.skipif(
+    sys.platform != "win32", reason="El bucle Selector causa el fallo solo en Windows"
+)
 def test_windows_rechaza_bucle_selector_antes_de_abrir_playwright() -> None:
     with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
         with pytest.raises(SGVAEntornoIncompatible, match="sin --reload"):
@@ -62,15 +84,26 @@ def test_todos_los_departamentos_y_ofertas_recientes_primero(monkeypatch) -> Non
         acciones.append(("buscar", None))
         if acciones.count(("buscar", None)) == 1:
             return []
-        return [[f'<button data-id-solicitud="{identificador}">', nombre, "", "", "", fecha]
-                for identificador, nombre, fecha in ((1, "Antigua", "01/09/2026"),
-                                                    (2, "Reciente", "24/10/2026"),
-                                                    (3, "Más reciente", "25/10/2026"))]
+        return [
+            [f'<button data-id-solicitud="{identificador}">', nombre, "", "", "", fecha]
+            for identificador, nombre, fecha in (
+                (1, "Antigua", "01/09/2026"),
+                (2, "Reciente", "24/10/2026"),
+                (3, "Más reciente", "25/10/2026"),
+            )
+        ]
 
     async def detalle(_, identificador, nombre, hoy):
         acciones.append(("detalle", identificador))
-        return OfertaSGVA(nombre, None, None, "Perfil", "BOGOTA D.C.", "BOGOTA D.C.",
-                          dias_desde("25/10/2026", hoy))
+        return OfertaSGVA(
+            nombre,
+            None,
+            None,
+            "Perfil",
+            "BOGOTA D.C.",
+            "BOGOTA D.C.",
+            dias_desde("25/10/2026", hoy),
+        )
 
     async def pausa(_):
         return None
@@ -80,19 +113,31 @@ def test_todos_los_departamentos_y_ofertas_recientes_primero(monkeypatch) -> Non
     monkeypatch.setattr(sgva, "_detalle", detalle)
     monkeypatch.setattr(sgva.asyncio, "sleep", pausa)
     ofertas = []
-    asyncio.run(_buscar_departamento(Pagina(), "todos", "todas", 30, ofertas, set(),
-                                    date(2026, 10, 25), limite=2))
-    assert acciones[:4] == [("seleccionar", "91"), ("buscar", None),
-                           ("seleccionar", "0"), ("buscar", None)]
+    asyncio.run(
+        _buscar_departamento(
+            Pagina(), "todos", "todas", 30, ofertas, set(), date(2026, 10, 25), limite=2
+        )
+    )
+    assert acciones[:4] == [
+        ("seleccionar", "91"),
+        ("buscar", None),
+        ("seleccionar", "0"),
+        ("buscar", None),
+    ]
     assert [accion for accion in acciones if accion[0] == "detalle"] == [
-        ("detalle", "3"), ("detalle", "2")]
+        ("detalle", "3"),
+        ("detalle", "2"),
+    ]
     assert [oferta.nombre_empresa for oferta in ofertas] == ["Más reciente", "Reciente"]
 
 
 def test_orden_reciente_no_depende_del_orden_de_las_filas() -> None:
     filas = [["", "", "", "", "", fecha] for fecha in ("24/10/2026", "01/09/2026", "25/10/2026")]
     assert [fila[5] for fila in filas_recientes(filas, date(2026, 10, 25))] == [
-        "25/10/2026", "24/10/2026", "01/09/2026"]
+        "25/10/2026",
+        "24/10/2026",
+        "01/09/2026",
+    ]
 
 
 @pytest.mark.parametrize("usar_ia", [False, True])
@@ -108,10 +153,26 @@ def test_campana_sgva_recibe_credenciales_solo_en_memoria(monkeypatch, usar_ia) 
         await avance(72, "Analizando coincidencias")
         with cliente.app.state.fabrica_sesiones() as sesion:
             progresos.append(sesion.scalar(select(Campana.progreso)))
-        return [OfertaSGVA("Empresa excluida", "fuera@empresa.invalid", "3001234567",
-                           "Perfil excluido", "BOGOTA D.C.", "BOGOTA D. C.", 1),
-                OfertaSGVA("Empresa de prueba", "contacto@empresa.invalid", "3001234567",
-                           "Perfil y funciones observadas", "BOGOTA D.C.", "BOGOTA D. C.", 1)]
+        return [
+            OfertaSGVA(
+                "Empresa excluida",
+                "fuera@empresa.invalid",
+                "3001234567",
+                "Perfil excluido",
+                "BOGOTA D.C.",
+                "BOGOTA D. C.",
+                1,
+            ),
+            OfertaSGVA(
+                "Empresa de prueba",
+                "contacto@empresa.invalid",
+                "3001234567",
+                "Perfil y funciones observadas",
+                "BOGOTA D.C.",
+                "BOGOTA D. C.",
+                1,
+            ),
+        ]
 
     async def clasificacion_ficticia(clave, perfil, modalidad, ofertas, avance=None):
         assert clave == "clave-ia-de-prueba"
@@ -123,19 +184,31 @@ def test_campana_sgva_recibe_credenciales_solo_en_memoria(monkeypatch, usar_ia) 
 
     monkeypatch.setattr(trabajador_sgva, "consultar_sgva", consulta_ficticia)
     monkeypatch.setattr(trabajador_sgva, "clasificar_ofertas", clasificacion_ficticia)
-    motor = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    motor = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
     Base.metadata.create_all(motor)
     with motor.begin() as conexion:
         conexion.execute(NavegadorSGVA.__table__.insert().values(id=1))
-    configuracion = Configuracion(entorno="desarrollo", base_datos="sqlite://", sgva_activo=True,
-                                 clave_pruebas="clave-segura-de-pruebas-locales-2026",
-                                 secreto_sesion="secreto-de-sesion-local-largo-2026",
-                                 gemini_clave="clave-ia-de-prueba" if usar_ia else None)
+    configuracion = Configuracion(
+        entorno="desarrollo",
+        base_datos="sqlite://",
+        sgva_activo=True,
+        clave_pruebas="clave-segura-de-pruebas-locales-2026",
+        secreto_sesion="secreto-de-sesion-local-largo-2026",
+        gemini_clave="clave-ia-de-prueba" if usar_ia else None,
+    )
     with TestClient(crear_aplicacion(configuracion, motor)) as cliente:
         acceso = {"Authorization": "Bearer clave-segura-de-pruebas-locales-2026"}
-        solicitud = {"modalidad": "presencial", "departamento": "Bogotá D. C.", "ciudad": "todas",
-                     "antiguedad_dias": 7, "mayor_de_edad": True, "acepta_tratamiento": True,
-                     "correos_excluidos": ["fuera@empresa.invalid"]}
+        solicitud = {
+            "modalidad": "presencial",
+            "departamento": "Bogotá D. C.",
+            "ciudad": "todas",
+            "antiguedad_dias": 7,
+            "mayor_de_edad": True,
+            "acepta_tratamiento": True,
+            "correos_excluidos": ["fuera@empresa.invalid"],
+        }
         borrador = cliente.post("/api/v1/campanas", headers=acceso, json=solicitud)
         assert borrador.status_code == 201, borrador.json()
         campana = borrador.json()
@@ -144,10 +217,22 @@ def test_campana_sgva_recibe_credenciales_solo_en_memoria(monkeypatch, usar_ia) 
         datos_acceso = {"numero_documento": "1234567890", "clave_sgva": "clave-sgva-solo-prueba"}
         if usar_ia:
             assert cliente.post(ruta, headers=acceso, json=datos_acceso).status_code == 422
-            assert cliente.post(ruta, headers=acceso, json={**datos_acceso, "numero_documento": "1.235.678"}).status_code == 422
-            datos_acceso.update({"acepta_ia": True, "perfil_ia": {
-                "habilidades": "Aprendí hojas de cálculo y análisis", "actividades_deseadas": "Analizar datos",
-                "actividades_no_deseadas": "Ventas"}})
+            assert (
+                cliente.post(
+                    ruta, headers=acceso, json={**datos_acceso, "numero_documento": "1.235.678"}
+                ).status_code
+                == 422
+            )
+            datos_acceso.update(
+                {
+                    "acepta_ia": True,
+                    "perfil_ia": {
+                        "habilidades": "Aprendí hojas de cálculo y análisis",
+                        "actividades_deseadas": "Analizar datos",
+                        "actividades_no_deseadas": "Ventas",
+                    },
+                }
+            )
         respuesta = cliente.post(ruta, headers=acceso, json=datos_acceso)
         assert respuesta.status_code == 200
         plazo = monotonic() + 5
@@ -158,15 +243,20 @@ def test_campana_sgva_recibe_credenciales_solo_en_memoria(monkeypatch, usar_ia) 
             sleep(0.05)
         assert estado["modo_consulta"] == "sgva"
         assert estado["estado"] == "esperando_confirmacion"
-        ofertas = cliente.get(f"/api/v1/campanas/{campana['id']}/destinatarios", headers=acceso).json()
+        ofertas = cliente.get(
+            f"/api/v1/campanas/{campana['id']}/destinatarios", headers=acceso
+        ).json()
         assert len(ofertas) == 1
         assert ofertas[0]["estado"] == ("alta_coincidencia" if usar_ia else "pendiente_ia")
         assert ofertas[0]["puntuacion"] == (90 if usar_ia else None)
         assert ofertas[0]["descripcion"] == "Perfil y funciones observadas"
         assert "clave-sgva-solo-prueba" not in str(estado) + str(ofertas)
         with motor.connect() as conexion:
-            datos_persistidos = [tuple(fila) for tabla in ("campanas", "destinatarios")
-                                for fila in conexion.execute(text(f"SELECT * FROM {tabla}"))]
+            datos_persistidos = [
+                tuple(fila)
+                for tabla in ("campanas", "destinatarios")
+                for fila in conexion.execute(text(f"SELECT * FROM {tabla}"))
+            ]
         assert "clave-sgva-solo-prueba" not in str(datos_persistidos)
         assert "Aprendí hojas de cálculo y análisis" not in str(datos_persistidos)
         assert recibidas == [("1234567890", "clave-sgva-solo-prueba", "Bogotá D. C.", "todas", 7)]
@@ -187,25 +277,40 @@ def test_cancelar_consulta_libera_navegador_y_conserva_error_concreto(monkeypatc
         return []
 
     monkeypatch.setattr(trabajador_sgva, "consultar_sgva", consulta_ficticia)
-    motor = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    motor = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
     Base.metadata.create_all(motor)
     with motor.begin() as conexion:
         conexion.execute(NavegadorSGVA.__table__.insert().values(id=1))
-    configuracion = Configuracion(entorno="desarrollo", base_datos="sqlite://", sgva_activo=True,
-                                 clave_pruebas="clave-segura-de-pruebas-locales-2026",
-                                 secreto_sesion="secreto-de-sesion-local-largo-2026")
+    configuracion = Configuracion(
+        entorno="desarrollo",
+        base_datos="sqlite://",
+        sgva_activo=True,
+        clave_pruebas="clave-segura-de-pruebas-locales-2026",
+        secreto_sesion="secreto-de-sesion-local-largo-2026",
+    )
     with TestClient(crear_aplicacion(configuracion, motor)) as cliente:
         acceso = {"Authorization": "Bearer clave-segura-de-pruebas-locales-2026"}
-        solicitud = {"modalidad": "remoto", "departamento": "todos", "ciudad": "todas",
-                     "antiguedad_dias": 7, "mayor_de_edad": True, "acepta_tratamiento": True,
-                     "correos_excluidos": []}
+        solicitud = {
+            "modalidad": "remoto",
+            "departamento": "todos",
+            "ciudad": "todas",
+            "antiguedad_dias": 7,
+            "mayor_de_edad": True,
+            "acepta_tratamiento": True,
+            "correos_excluidos": [],
+        }
 
         def iniciar(documento):
             borrador = cliente.post("/api/v1/campanas", headers=acceso, json=solicitud)
             assert borrador.status_code == 201
             identificador = borrador.json()["id"]
-            respuesta = cliente.post(f"/api/v1/campanas/{identificador}/iniciar", headers=acceso,
-                                    json={"numero_documento": documento, "clave_sgva": "clave-ficticia"})
+            respuesta = cliente.post(
+                f"/api/v1/campanas/{identificador}/iniciar",
+                headers=acceso,
+                json={"numero_documento": documento, "clave_sgva": "clave-ficticia"},
+            )
             assert respuesta.status_code == 200
             return identificador
 
@@ -227,5 +332,7 @@ def test_cancelar_consulta_libera_navegador_y_conserva_error_concreto(monkeypatc
         esperar_estado(segunda, "esperando_confirmacion")
         tercera = iniciar("0000000000")
         error = esperar_estado(tercera, "error")
-        assert error["etapa"] == "SGVA rechazó la consulta: El usuario no se encuentra en el sistema."
+        assert (
+            error["etapa"] == "SGVA rechazó la consulta: El usuario no se encuentra en el sistema."
+        )
     motor.dispose()

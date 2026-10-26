@@ -1,8 +1,7 @@
 """Conserva ofertas reales sin atribuirles una puntuación de IA."""
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 revision = "0005_consulta_sgva"
 down_revision = "0004_contenido_temporal"
@@ -11,7 +10,10 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("campanas", sa.Column("modo_consulta", sa.String(12), server_default="demo", nullable=False))
+    op.add_column(
+        "campanas",
+        sa.Column("modo_consulta", sa.String(12), server_default="demo", nullable=False),
+    )
     with op.batch_alter_table("destinatarios") as lote:
         for nombre, tipo in (
             ("descripcion", sa.Text()),

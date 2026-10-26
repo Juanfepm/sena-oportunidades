@@ -11,9 +11,8 @@ from sqlalchemy.orm import Session
 from ..dominio.archivos import ArchivoAdjunto, validar_adjuntos, validar_contenido
 from ..dominio.estados import EstadoCampana, Plan
 from ..esquemas import ResumenContenidoTemporal, SolicitudContenidoTemporal
+from ..integraciones.cifrado import ClaveCifradoInvalida, obtener_cifrador
 from ..modelos import AdjuntoTemporal, Campana, ContenidoTemporal, Usuario
-from .gmail import ClaveCifradoInvalida, obtener_cifrador
-
 
 DURACION_TEMPORAL = timedelta(hours=24)
 SEGUNDOS_TEMPORAL = int(DURACION_TEMPORAL.total_seconds())
@@ -45,7 +44,9 @@ def _abrir(token: bytes, clave: str | None) -> bytes:
     try:
         return obtener_cifrador(clave).decrypt(token, ttl=SEGUNDOS_TEMPORAL)
     except InvalidToken as error:
-        raise ClaveCifradoInvalida("El contenido temporal expiró o no pudo descifrarse.") from error
+        raise ClaveCifradoInvalida(
+            "El contenido temporal expiró o no pudo descifrarse."
+        ) from error
 
 
 def limpiar_expirados(sesion: Session, ahora: datetime | None = None) -> int:
@@ -53,7 +54,9 @@ def limpiar_expirados(sesion: Session, ahora: datetime | None = None) -> int:
     fecha = ahora or datetime.now(timezone.utc)
     vencidos = select(ContenidoTemporal.campana_id).where(ContenidoTemporal.vence_en <= fecha)
     sesion.execute(delete(AdjuntoTemporal).where(AdjuntoTemporal.campana_id.in_(vencidos)))
-    resultado = sesion.execute(delete(ContenidoTemporal).where(ContenidoTemporal.vence_en <= fecha))
+    resultado = sesion.execute(
+        delete(ContenidoTemporal).where(ContenidoTemporal.vence_en <= fecha)
+    )
     sesion.commit()
     return resultado.rowcount or 0
 
@@ -70,7 +73,9 @@ def guardar_contenido(
     ahora = datetime.now(timezone.utc)
     temporal = obtener_temporal(sesion, campana)
     if temporal is None:
-        sesion.execute(select(Usuario.id).where(Usuario.id == campana.usuario_id).with_for_update())
+        sesion.execute(
+            select(Usuario.id).where(Usuario.id == campana.usuario_id).with_for_update()
+        )
         activos = sesion.scalar(
             select(func.count())
             .select_from(ContenidoTemporal)
@@ -80,7 +85,10 @@ def guardar_contenido(
         if (activos or 0) >= MAXIMO_BORRADORES_ACTIVOS:
             raise CupoTemporalExcedido("Elimina un borrador temporal antes de guardar otro.")
     validar_adjuntos(
-        [ArchivoAdjunto(archivo.nombre, archivo.tipo_declarado, len(archivo.contenido)) for archivo in archivos],
+        [
+            ArchivoAdjunto(archivo.nombre, archivo.tipo_declarado, len(archivo.contenido))
+            for archivo in archivos
+        ],
         Plan(campana.plan_aplicado),
     )
     for archivo in archivos:
@@ -88,19 +96,33 @@ def guardar_contenido(
 
     cifrador = obtener_cifrador(clave)
     contenido_cifrado = cifrador.encrypt(mensaje.model_dump_json().encode("utf-8"))
-    conservar_adjuntos = campana.estado == EstadoCampana.ESPERANDO_CONFIRMACION and temporal is not None and not archivos
-    nombres_guardados = resumir_contenido(sesion, campana, clave).archivos if conservar_adjuntos else []
+    conservar_adjuntos = (
+        campana.estado == EstadoCampana.ESPERANDO_CONFIRMACION
+        and temporal is not None
+        and not archivos
+    )
+    nombres_guardados = (
+        resumir_contenido(sesion, campana, clave).archivos if conservar_adjuntos else []
+    )
     adjuntos_cifrados = [
         (
-            cifrador.encrypt(json.dumps({"nombre": archivo.nombre, "tipo": archivo.tipo_declarado}).encode("utf-8")),
+            cifrador.encrypt(
+                json.dumps({"nombre": archivo.nombre, "tipo": archivo.tipo_declarado}).encode(
+                    "utf-8"
+                )
+            ),
             cifrador.encrypt(archivo.contenido),
             len(archivo.contenido),
         )
         for archivo in archivos
     ]
     if temporal is None:
-        temporal = ContenidoTemporal(campana_id=campana.id, contenido_cifrado=contenido_cifrado,
-                                    vence_en=ahora + DURACION_TEMPORAL, actualizado_en=ahora)
+        temporal = ContenidoTemporal(
+            campana_id=campana.id,
+            contenido_cifrado=contenido_cifrado,
+            vence_en=ahora + DURACION_TEMPORAL,
+            actualizado_en=ahora,
+        )
         sesion.add(temporal)
         sesion.flush()
     else:
@@ -110,13 +132,20 @@ def guardar_contenido(
         temporal.vence_en = ahora + DURACION_TEMPORAL
         temporal.actualizado_en = ahora
     sesion.add_all(
-        AdjuntoTemporal(campana_id=campana.id, metadatos_cifrados=metadatos,
-                        contenido_cifrado=contenido, tamano_bytes=tamano)
+        AdjuntoTemporal(
+            campana_id=campana.id,
+            metadatos_cifrados=metadatos,
+            contenido_cifrado=contenido,
+            tamano_bytes=tamano,
+        )
         for metadatos, contenido, tamano in adjuntos_cifrados
     )
     sesion.commit()
-    return ResumenContenidoTemporal(campana_id=campana.id, vence_en=_zona(temporal.vence_en),
-                                    archivos=nombres_guardados or [archivo.nombre for archivo in archivos])
+    return ResumenContenidoTemporal(
+        campana_id=campana.id,
+        vence_en=_zona(temporal.vence_en),
+        archivos=nombres_guardados or [archivo.nombre for archivo in archivos],
+    )
 
 
 def obtener_temporal(sesion: Session, campana: Campana) -> ContenidoTemporal | None:
@@ -127,20 +156,33 @@ def obtener_temporal(sesion: Session, campana: Campana) -> ContenidoTemporal | N
     return temporal
 
 
-def resumir_contenido(sesion: Session, campana: Campana, clave: str | None) -> ResumenContenidoTemporal | None:
+def resumir_contenido(
+    sesion: Session, campana: Campana, clave: str | None
+) -> ResumenContenidoTemporal | None:
     temporal = obtener_temporal(sesion, campana)
     if temporal is None:
         return None
-    adjuntos = sesion.scalars(select(AdjuntoTemporal).where(AdjuntoTemporal.campana_id == campana.id))
-    nombres = [json.loads(_abrir(adjunto.metadatos_cifrados, clave))["nombre"] for adjunto in adjuntos]
-    return ResumenContenidoTemporal(campana_id=campana.id, vence_en=_zona(temporal.vence_en), archivos=nombres)
+    adjuntos = sesion.scalars(
+        select(AdjuntoTemporal).where(AdjuntoTemporal.campana_id == campana.id)
+    )
+    nombres = [
+        json.loads(_abrir(adjunto.metadatos_cifrados, clave))["nombre"] for adjunto in adjuntos
+    ]
+    return ResumenContenidoTemporal(
+        campana_id=campana.id, vence_en=_zona(temporal.vence_en), archivos=nombres
+    )
 
 
-def listar_contenidos(sesion: Session, usuario: Usuario, clave: str | None) -> list[ResumenContenidoTemporal]:
+def listar_contenidos(
+    sesion: Session, usuario: Usuario, clave: str | None
+) -> list[ResumenContenidoTemporal]:
     consulta = (
         select(Campana)
         .join(ContenidoTemporal, ContenidoTemporal.campana_id == Campana.id)
-        .where(Campana.usuario_id == usuario.id, ContenidoTemporal.vence_en > datetime.now(timezone.utc))
+        .where(
+            Campana.usuario_id == usuario.id,
+            ContenidoTemporal.vence_en > datetime.now(timezone.utc),
+        )
         .order_by(ContenidoTemporal.actualizado_en.desc())
         .limit(100)
     )
@@ -152,17 +194,27 @@ def listar_contenidos(sesion: Session, usuario: Usuario, clave: str | None) -> l
     return resultados
 
 
-def recuperar_contenido(sesion: Session, campana: Campana, clave: str | None) -> DatosRecuperados | None:
+def recuperar_contenido(
+    sesion: Session, campana: Campana, clave: str | None
+) -> DatosRecuperados | None:
     """Uso interno del futuro trabajador: nunca entrega archivos al navegador."""
     temporal = obtener_temporal(sesion, campana)
     if temporal is None:
         return None
-    mensaje = SolicitudContenidoTemporal.model_validate_json(_abrir(temporal.contenido_cifrado, clave))
-    adjuntos = sesion.scalars(select(AdjuntoTemporal).where(AdjuntoTemporal.campana_id == campana.id))
+    mensaje = SolicitudContenidoTemporal.model_validate_json(
+        _abrir(temporal.contenido_cifrado, clave)
+    )
+    adjuntos = sesion.scalars(
+        select(AdjuntoTemporal).where(AdjuntoTemporal.campana_id == campana.id)
+    )
     archivos = []
     for adjunto in adjuntos:
         metadatos = json.loads(_abrir(adjunto.metadatos_cifrados, clave))
-        archivos.append(ArchivoTemporal(metadatos["nombre"], metadatos["tipo"], _abrir(adjunto.contenido_cifrado, clave)))
+        archivos.append(
+            ArchivoTemporal(
+                metadatos["nombre"], metadatos["tipo"], _abrir(adjunto.contenido_cifrado, clave)
+            )
+        )
     return DatosRecuperados(mensaje, tuple(archivos))
 
 

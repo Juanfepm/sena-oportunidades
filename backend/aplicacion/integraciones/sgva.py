@@ -16,8 +16,8 @@ from playwright.async_api import Error as ErrorPlaywright
 from playwright.async_api import TimeoutError as TiempoAgotado
 from playwright.async_api import async_playwright
 
-from .contratos import AccesoSGVARestringido, OfertaSGVA, SGVAEntornoIncompatible, SGVANoDisponible
-
+from ..dominio.ofertas import OfertaSGVA
+from .contratos import AccesoSGVARestringido, SGVAEntornoIncompatible, SGVANoDisponible
 
 ORIGEN = "https://caprendizaje.sena.edu.co"
 INGRESO = f"{ORIGEN}/sgva/SGVA_Diseno/pag/login.aspx"
@@ -28,7 +28,9 @@ ID_SOLICITUD = re.compile(r'data-id-solicitud=["\'](\d+)["\']')
 
 def normalizar(texto: str) -> str:
     base = unicodedata.normalize("NFKD", texto.casefold())
-    limpio = re.sub(r"[^a-z0-9]", "", "".join(letra for letra in base if not unicodedata.combining(letra)))
+    limpio = re.sub(
+        r"[^a-z0-9]", "", "".join(letra for letra in base if not unicodedata.combining(letra))
+    )
     return {"valledelcauca": "valle", "bogota": "bogotadc"}.get(limpio, limpio)
 
 
@@ -51,6 +53,7 @@ def dias_desde(fecha_texto: str, hoy: date | None = None) -> int | None:
 
 def filas_recientes(filas: list, hoy: date) -> list:
     """El resultado completo llega en una respuesta, aunque SGVA lo pagine de 20 en 20."""
+
     def antiguedad(fila: object) -> int:
         if not isinstance(fila, list) or len(fila) < 6:
             return 10**9
@@ -85,11 +88,15 @@ async def _ingresar(pagina, documento: str, clave: str) -> None:
     await pagina.locator("#__tbPasswordUsuario").fill(clave)
     await pagina.locator("#ini_session_aprendiz").click()
     try:
-        await pagina.wait_for_function("""() => {
+        await pagina.wait_for_function(
+            """() => {
             const aviso = document.querySelector('#LabelError')?.textContent?.trim();
-            return Boolean(aviso) || location.pathname.toLowerCase().includes('/sgva/aprendices/index')
+            return Boolean(aviso) || location.pathname.toLowerCase()
+                .includes('/sgva/aprendices/index')
                 || location.href.startsWith('chrome-error://');
-        }""", timeout=30000)
+        }""",
+            timeout=30000,
+        )
     except TiempoAgotado as error:
         if "login.aspx" in pagina.url:
             raise AccesoSGVARestringido("SGVA no aceptó el acceso como aprendiz.") from error
@@ -100,7 +107,9 @@ async def _ingresar(pagina, documento: str, clave: str) -> None:
     if pagina.url.startswith("chrome-error://"):
         # SGVA redirige a HTTP tras autenticarse y el puerto 80 no responde.
         # La cookie ya fue entregada; seguimos por la ruta HTTPS equivalente.
-        await pagina.goto(f"{ORIGEN}/sgva/Aprendices/Index", wait_until="domcontentloaded", timeout=30000)
+        await pagina.goto(
+            f"{ORIGEN}/sgva/Aprendices/Index", wait_until="domcontentloaded", timeout=30000
+        )
     if "/sgva/Aprendices/Index" not in pagina.url:
         raise AccesoSGVARestringido("SGVA no aceptó el acceso como aprendiz.")
 
@@ -124,7 +133,8 @@ async def _detalle(pagina, identificador: str, nombre: str, hoy: date) -> Oferta
     """Usa el mismo GET de solo lectura que abre el detalle del SGVA."""
     respuesta = await pagina.context.request.get(
         f"{ORIGEN}/sgva/Solicitudes/ConsultarSolicitud",
-        params={"solicitudID": identificador}, timeout=15000,
+        params={"solicitudID": identificador},
+        timeout=15000,
     )
     if respuesta.status != 200:
         raise SGVANoDisponible("SGVA no entregó el detalle de una solicitud.")
@@ -143,10 +153,17 @@ async def _detalle(pagina, identificador: str, nombre: str, hoy: date) -> Oferta
     )
 
 
-async def _buscar_departamento(pagina, departamento: str, ciudad: str, antiguedad: int,
-                                ofertas: list[OfertaSGVA], vistos: set[str], hoy: date,
-                                avance: Callable[[int, str], Awaitable[None]] | None = None,
-                                limite: int = MAXIMO_OFERTAS) -> None:
+async def _buscar_departamento(
+    pagina,
+    departamento: str,
+    ciudad: str,
+    antiguedad: int,
+    ofertas: list[OfertaSGVA],
+    vistos: set[str],
+    hoy: date,
+    avance: Callable[[int, str], Awaitable[None]] | None = None,
+    limite: int = MAXIMO_OFERTAS,
+) -> None:
     selector_departamento = pagina.locator("#sel_departamento")
     opciones = await _opciones(selector_departamento)
     if departamento == "todos":
@@ -199,7 +216,8 @@ async def _buscar_departamento(pagina, departamento: str, ciudad: str, antigueda
 
 async def _filas_busqueda(pagina) -> list:
     async with pagina.expect_response(
-        lambda respuesta: "/sgva/Solicitudes/AprendizConsultarSolicitudesRequeridas" in respuesta.url,
+        lambda respuesta: "/sgva/Solicitudes/AprendizConsultarSolicitudesRequeridas"
+        in respuesta.url,
         timeout=20000,
     ) as respuesta_pendiente:
         await pagina.locator("#btn_buscar_solicitud").click()
@@ -215,14 +233,21 @@ async def _filas_busqueda(pagina) -> list:
         raise SGVANoDisponible("SGVA devolvió una lista de solicitudes inesperada.")
     total = datos.get("iTotalRecords", datos.get("recordsTotal"))
     if total is not None and int(total) > len(filas):
-        raise SGVANoDisponible("SGVA entregó solo una página de solicitudes; no se puede completar la consulta.")
+        raise SGVANoDisponible(
+            "SGVA entregó solo una página de solicitudes; no se puede completar la consulta."
+        )
     return filas
 
 
-async def consultar_sgva(documento: str, clave: str, departamento: str, ciudad: str,
-                        antiguedad: int,
-                        avance: Callable[[int, str], Awaitable[None]] | None = None,
-                        limite: int = MAXIMO_OFERTAS) -> list[OfertaSGVA]:
+async def consultar_sgva(
+    documento: str,
+    clave: str,
+    departamento: str,
+    ciudad: str,
+    antiguedad: int,
+    avance: Callable[[int, str], Awaitable[None]] | None = None,
+    limite: int = MAXIMO_OFERTAS,
+) -> list[OfertaSGVA]:
     """Consulta una sesión aislada. La contraseña vive solo durante esta llamada."""
     ofertas: list[OfertaSGVA] = []
     if not 1 <= limite <= MAXIMO_OFERTAS:
@@ -232,8 +257,12 @@ async def consultar_sgva(documento: str, clave: str, departamento: str, ciudad: 
     ruta_local = Path(sys.prefix) / "ms-playwright"
     if ruta_local.is_dir():
         os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(ruta_local))
-    if sys.platform == "win32" and not isinstance(asyncio.get_running_loop(), asyncio.ProactorEventLoop):
-        raise SGVAEntornoIncompatible("En Windows, inicia el servidor sin --reload para usar Playwright.")
+    if sys.platform == "win32" and not isinstance(
+        asyncio.get_running_loop(), asyncio.ProactorEventLoop
+    ):
+        raise SGVAEntornoIncompatible(
+            "En Windows, inicia el servidor sin --reload para usar Playwright."
+        )
     try:
         async with async_playwright() as playwright:
             navegador = await playwright.chromium.launch(headless=True)
@@ -244,13 +273,19 @@ async def consultar_sgva(documento: str, clave: str, departamento: str, ciudad: 
                 if avance:
                     await avance(15, "Acceso a SGVA confirmado")
                 respuesta = await pagina.goto(BUSQUEDA, wait_until="load", timeout=30000)
-                if respuesta is None or respuesta.status >= 500 or urlparse(pagina.url).path != "/sgva/Aprendices/Solicitudes/":
+                if (
+                    respuesta is None
+                    or respuesta.status >= 500
+                    or urlparse(pagina.url).path != "/sgva/Aprendices/Solicitudes/"
+                ):
                     raise AccesoSGVARestringido("No fue posible abrir Buscar empresa.")
                 try:
                     await pagina.wait_for_load_state("networkidle", timeout=12000)
                 except TiempoAgotado:
                     pass  # La búsqueda esperará su respuesta específica.
-                await _buscar_departamento(pagina, departamento, ciudad, antiguedad, ofertas, vistos, hoy, avance, limite)
+                await _buscar_departamento(
+                    pagina, departamento, ciudad, antiguedad, ofertas, vistos, hoy, avance, limite
+                )
                 await contexto.close()
             finally:
                 await navegador.close()

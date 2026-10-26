@@ -1,9 +1,9 @@
 """La prueba de Gmail nunca acepta destinatarios externos ni consume campañas."""
 
+import json
 from base64 import urlsafe_b64decode
 from email.parser import BytesParser
 from email.policy import default
-import json
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
@@ -13,18 +13,21 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.pool import StaticPool
 
-from backend.aplicacion import principal
 from backend.aplicacion.base_datos import Base
 from backend.aplicacion.configuracion import Configuracion
+from backend.aplicacion.integraciones import gmail
 from backend.aplicacion.modelos import HistorialEnvio
 from backend.aplicacion.principal import crear_aplicacion
 
 
 @pytest.mark.parametrize("gmail_confirma", [True, False])
 def test_prueba_gmail_solo_escribe_al_usuario_y_no_se_repite(
-    monkeypatch: pytest.MonkeyPatch, gmail_confirma: bool,
+    monkeypatch: pytest.MonkeyPatch,
+    gmail_confirma: bool,
 ) -> None:
-    motor = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    motor = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
     Base.metadata.create_all(motor)
     configuracion = Configuracion(
         entorno="desarrollo",
@@ -40,34 +43,44 @@ def test_prueba_gmail_solo_escribe_al_usuario_y_no_se_repite(
         if peticion.url.path == "/token":
             datos = parse_qs(peticion.content.decode())
             if datos["grant_type"] == ["authorization_code"]:
-                return httpx.Response(200, json={
-                    "access_token": "acceso-inicial",
-                    "refresh_token": "permiso-cifrado-en-base",
-                    "scope": "openid email profile https://www.googleapis.com/auth/gmail.send",
-                })
+                return httpx.Response(
+                    200,
+                    json={
+                        "access_token": "acceso-inicial",
+                        "refresh_token": "permiso-cifrado-en-base",
+                        "scope": "openid email profile https://www.googleapis.com/auth/gmail.send",
+                    },
+                )
             assert datos["grant_type"] == ["refresh_token"]
             assert datos["refresh_token"] == ["permiso-cifrado-en-base"]
             return httpx.Response(200, json={"access_token": "acceso-para-enviar"})
         if peticion.url.path == "/v1/userinfo":
-            return httpx.Response(200, json={
-                "sub": "identificador-estable",
-                "email": "aprendiz@ejemplo.com",
-                "email_verified": True,
-            })
+            return httpx.Response(
+                200,
+                json={
+                    "sub": "identificador-estable",
+                    "email": "aprendiz@ejemplo.com",
+                    "email_verified": True,
+                },
+            )
         if peticion.url.path == "/gmail/v1/users/me/messages/send":
             assert peticion.headers["Authorization"] == "Bearer acceso-para-enviar"
             mensaje = BytesParser(policy=default).parsebytes(
                 urlsafe_b64decode(json.loads(peticion.content)["raw"])
             )
             mensajes.append(mensaje)
-            return httpx.Response(200, json={"id": "mensaje-confirmado"}) if gmail_confirma else httpx.Response(503)
+            return (
+                httpx.Response(200, json={"id": "mensaje-confirmado"})
+                if gmail_confirma
+                else httpx.Response(503)
+            )
         if peticion.url.path == "/revoke":
             return httpx.Response(200)
         return httpx.Response(404)
 
     cliente_httpx = httpx.AsyncClient
     monkeypatch.setattr(
-        principal.httpx,
+        gmail.httpx,
         "AsyncClient",
         lambda **opciones: cliente_httpx(transport=httpx.MockTransport(responder), **opciones),
     )
@@ -95,11 +108,17 @@ def test_prueba_gmail_solo_escribe_al_usuario_y_no_se_repite(
             respuesta = cliente.post("/api/v1/gmail/prueba", headers={"X-CSRF-Token": csrf})
             assert respuesta.status_code == (200 if gmail_confirma else 503)
             if gmail_confirma:
-                assert respuesta.json() == {"correo": "aprendiz@ejemplo.com", "mensaje_id": "mensaje-confirmado"}
+                assert respuesta.json() == {
+                    "correo": "aprendiz@ejemplo.com",
+                    "mensaje_id": "mensaje-confirmado",
+                }
             else:
                 assert "Revisa Enviados" in respuesta.json()["detail"]
             assert cliente.get("/api/v1/gmail/estado").json()["prueba_solicitada"] is True
-            assert cliente.post("/api/v1/gmail/prueba", headers={"X-CSRF-Token": csrf}).status_code == 429
+            assert (
+                cliente.post("/api/v1/gmail/prueba", headers={"X-CSRF-Token": csrf}).status_code
+                == 429
+            )
             assert len(mensajes) == 1
             assert mensajes[0]["From"] == "aprendiz@ejemplo.com"
             assert mensajes[0]["To"] == "aprendiz@ejemplo.com"

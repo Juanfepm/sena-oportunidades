@@ -1,8 +1,9 @@
 """Reglas de exclusión y recontacto para mensajes enviados por DEBUPA."""
 
-import calendar
 from dataclasses import dataclass
 from datetime import datetime, timezone
+
+from .fechas import desplazar_meses
 
 
 @dataclass(frozen=True)
@@ -12,13 +13,7 @@ class DecisionContacto:
 
 
 def hace_seis_meses(fecha: datetime) -> datetime:
-    mes = fecha.month - 6
-    anio = fecha.year
-    if mes <= 0:
-        mes += 12
-        anio -= 1
-    dia = min(fecha.day, calendar.monthrange(anio, mes)[1])
-    return fecha.replace(year=anio, month=mes, day=dia)
+    return desplazar_meses(fecha, -6)
 
 
 def _con_zona(fecha: datetime) -> datetime:

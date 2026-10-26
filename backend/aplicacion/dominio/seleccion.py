@@ -29,6 +29,8 @@ def separar_coincidencias(coincidencias: list[Coincidencia], plan: Plan) -> Sele
             unicas[correo] = coincidencia
 
     ordenadas = sorted(unicas.values(), key=lambda oferta: oferta.puntuacion, reverse=True)
-    altas = [oferta for oferta in ordenadas if oferta.puntuacion >= 80 and oferta.modalidad_confirmada]
+    altas = [
+        oferta for oferta in ordenadas if oferta.puntuacion >= 80 and oferta.modalidad_confirmada
+    ]
     dudosas = [oferta for oferta in ordenadas if oferta.puntuacion >= 60 and oferta not in altas]
     return Seleccion(tuple(altas[: LIMITES_CONTACTO[plan]]), tuple(dudosas))

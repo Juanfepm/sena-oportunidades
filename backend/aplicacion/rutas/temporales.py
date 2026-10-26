@@ -6,12 +6,12 @@ from sqlalchemy.orm import Session
 
 from ..base_datos import obtener_sesion
 from ..dominio.archivos import MAXIMO_BYTES
-from ..dominio.estados import EstadoCampana, LIMITES_ARCHIVOS, Plan
+from ..dominio.estados import LIMITES_ARCHIVOS, EstadoCampana, Plan
 from ..esquemas import ResumenContenidoTemporal, SolicitudContenidoTemporal
+from ..integraciones.cifrado import ClaveCifradoInvalida
 from ..modelos import Usuario
 from ..seguridad import obtener_usuario_actual, verificar_csrf
 from ..servicios.campanas import consultar_campana
-from ..servicios.gmail import ClaveCifradoInvalida
 from ..servicios.temporales import (
     ArchivoTemporal,
     CupoTemporalExcedido,
@@ -21,7 +21,6 @@ from ..servicios.temporales import (
     recuperar_contenido,
     resumir_contenido,
 )
-
 
 router = APIRouter(prefix="/api/v1")
 
@@ -40,13 +39,18 @@ def texto_para_edicion(
     if campana.estado != EstadoCampana.ESPERANDO_CONFIRMACION:
         raise HTTPException(409, "Solo puedes editar el mensaje antes de confirmar el envío.")
     try:
-        contenido = recuperar_contenido(sesion, campana, request.app.state.configuracion.clave_cifrado)
+        contenido = recuperar_contenido(
+            sesion, campana, request.app.state.configuracion.clave_cifrado
+        )
     except ClaveCifradoInvalida as error:
         raise HTTPException(503, "No fue posible leer el mensaje cifrado.") from error
     if contenido is None:
         raise HTTPException(404, "El mensaje temporal venció.")
     respuesta.headers["Cache-Control"] = "no-store"
-    return {**contenido.mensaje.model_dump(), "archivos": [archivo.nombre for archivo in contenido.archivos]}
+    return {
+        **contenido.mensaje.model_dump(),
+        "archivos": [archivo.nombre for archivo in contenido.archivos],
+    }
 
 
 @router.get("/contenidos-temporales", response_model=list[ResumenContenidoTemporal])
@@ -81,24 +85,41 @@ async def guardar_contenido_temporal(
     if not request.app.state.cifrado_disponible:
         raise HTTPException(503, "El almacenamiento cifrado no está configurado.")
     campos = await request.form()
-    permitidos = {"habilidades", "actividades_deseadas", "actividades_no_deseadas", "asunto", "cuerpo", "archivos"}
+    permitidos = {
+        "habilidades",
+        "actividades_deseadas",
+        "actividades_no_deseadas",
+        "asunto",
+        "cuerpo",
+        "archivos",
+    }
     if set(campos.keys()) - permitidos:
         raise HTTPException(422, "La solicitud contiene campos no permitidos.")
     if len(archivos or []) > LIMITES_ARCHIVOS[Plan(campana.plan_aplicado)]:
         raise HTTPException(422, "Tu plan no admite tantos adjuntos.")
     try:
-        mensaje = SolicitudContenidoTemporal.model_validate({
-            "habilidades": habilidades,
-            "actividades_deseadas": actividades_deseadas,
-            "actividades_no_deseadas": actividades_no_deseadas,
-            "asunto": asunto,
-            "cuerpo": cuerpo,
-        })
+        mensaje = SolicitudContenidoTemporal.model_validate(
+            {
+                "habilidades": habilidades,
+                "actividades_deseadas": actividades_deseadas,
+                "actividades_no_deseadas": actividades_no_deseadas,
+                "asunto": asunto,
+                "cuerpo": cuerpo,
+            }
+        )
         adjuntos = []
         for archivo in archivos or []:
             contenido = await archivo.read(MAXIMO_BYTES + 1)
-            adjuntos.append(ArchivoTemporal(archivo.filename or "", archivo.content_type or "", contenido))
-        return guardar_contenido(sesion, campana, mensaje, tuple(adjuntos), request.app.state.configuracion.clave_cifrado)
+            adjuntos.append(
+                ArchivoTemporal(archivo.filename or "", archivo.content_type or "", contenido)
+            )
+        return guardar_contenido(
+            sesion,
+            campana,
+            mensaje,
+            tuple(adjuntos),
+            request.app.state.configuracion.clave_cifrado,
+        )
     except CupoTemporalExcedido as error:
         raise HTTPException(429, str(error)) from error
     except (ValidationError, ValueError) as error:
@@ -135,8 +156,10 @@ def borrar_contenido_temporal(
     if campana is None:
         raise HTTPException(404, "Campaña no encontrada.")
     if campana.estado not in {
-        EstadoCampana.BORRADOR, EstadoCampana.EN_COLA,
-        EstadoCampana.CONSULTANDO, EstadoCampana.ESPERANDO_CONFIRMACION,
+        EstadoCampana.BORRADOR,
+        EstadoCampana.EN_COLA,
+        EstadoCampana.CONSULTANDO,
+        EstadoCampana.ESPERANDO_CONFIRMACION,
     }:
         raise HTTPException(409, "No puedes borrar el contenido durante un envío.")
     eliminar_contenido(sesion, campana)

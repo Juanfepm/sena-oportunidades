@@ -1,8 +1,7 @@
 """Guarda de forma cifrada el permiso de envío de Gmail."""
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 revision = "0003_conexion_gmail_cifrada"
 down_revision = "0002_identidad_google"

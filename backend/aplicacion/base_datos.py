@@ -15,7 +15,9 @@ class Base(DeclarativeBase):
 
 
 def crear_motor(configuracion: Configuracion) -> Engine:
-    opciones = {"check_same_thread": False} if configuracion.base_datos.startswith("sqlite:") else {}
+    opciones = (
+        {"check_same_thread": False} if configuracion.base_datos.startswith("sqlite:") else {}
+    )
     return create_engine(configuracion.base_datos, connect_args=opciones, pool_pre_ping=True)
 
 

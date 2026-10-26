@@ -8,7 +8,6 @@ from zipfile import BadZipFile, ZipFile
 
 from .estados import LIMITES_ARCHIVOS, Plan
 
-
 TIPOS_PERMITIDOS = {
     ".pdf": {"application/pdf"},
     ".doc": {"application/msword"},
@@ -70,7 +69,9 @@ def validar_contenido(nombre: str, contenido: bytes) -> None:
     elif extension == ".docx":
         try:
             with ZipFile(BytesIO(contenido)) as documento:
-                valido = {"[Content_Types].xml", "word/document.xml"}.issubset(documento.namelist())
+                valido = {"[Content_Types].xml", "word/document.xml"}.issubset(
+                    documento.namelist()
+                )
         except (BadZipFile, ValueError):
             valido = False
     else:

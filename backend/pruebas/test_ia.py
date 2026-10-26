@@ -14,10 +14,30 @@ def test_clasificacion_oculta_contactos_y_valida_resultado(monkeypatch) -> None:
         status_code = 200
 
         def json(self):
-            return {"candidates": [{"content": {"parts": [{"text": json.dumps({"evaluaciones": [
-                {"id": 0, "puntuacion": 86, "motivo": "Coinciden tareas de análisis.",
-                 "modalidad": "posible"},
-            ]})}]}}]}
+            return {
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [
+                                {
+                                    "text": json.dumps(
+                                        {
+                                            "evaluaciones": [
+                                                {
+                                                    "id": 0,
+                                                    "puntuacion": 86,
+                                                    "motivo": "Coinciden tareas de análisis.",
+                                                    "modalidad": "posible",
+                                                },
+                                            ]
+                                        }
+                                    )
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
 
     class Cliente:
         def __init__(self, **_):
@@ -38,11 +58,23 @@ def test_clasificacion_oculta_contactos_y_valida_resultado(monkeypatch) -> None:
 
     monkeypatch.setattr(ia.httpx, "AsyncClient", Cliente)
     monkeypatch.setattr(ia.asyncio, "sleep", pausa)
-    oferta = OfertaSGVA("Empresa Privada", "empresa@correo.com", "3001234567",
-                       "Analizar datos. Contacto: empresa@correo.com, 3001234567", "Bogotá", "Bogotá", 2)
-    perfil = {"habilidades": "Análisis en Excel y Python", "actividades_deseadas": "Analizar datos",
-              "actividades_no_deseadas": "Ventas"}
-    evaluaciones = asyncio.run(ia.clasificar_ofertas("clave-de-prueba", perfil, "remoto", [oferta]))
+    oferta = OfertaSGVA(
+        "Empresa Privada",
+        "empresa@correo.com",
+        "3001234567",
+        "Analizar datos. Contacto: empresa@correo.com, 3001234567",
+        "Bogotá",
+        "Bogotá",
+        2,
+    )
+    perfil = {
+        "habilidades": "Análisis en Excel y Python",
+        "actividades_deseadas": "Analizar datos",
+        "actividades_no_deseadas": "Ventas",
+    }
+    evaluaciones = asyncio.run(
+        ia.clasificar_ofertas("clave-de-prueba", perfil, "remoto", [oferta])
+    )
     contenido = json.dumps(peticiones[0][2], ensure_ascii=False)
     assert "Empresa Privada" not in contenido
     assert "empresa@correo.com" not in contenido

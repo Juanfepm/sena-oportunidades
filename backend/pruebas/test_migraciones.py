@@ -20,7 +20,10 @@ def test_migracion_inicial_coincide_con_modelos() -> None:
         with motor.begin() as conexion:
             configuracion.attributes["connection"] = conexion
             command.upgrade(configuracion, "head")
-            assert set(inspect(conexion).get_table_names()) == {*Base.metadata.tables, "alembic_version"}
+            assert set(inspect(conexion).get_table_names()) == {
+                *Base.metadata.tables,
+                "alembic_version",
+            }
             assert conexion.execute(select(NavegadorSGVA.id)).scalar_one() == 1
             command.check(configuracion)
     finally:

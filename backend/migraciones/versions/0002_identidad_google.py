@@ -1,8 +1,7 @@
 """Agrega los datos mínimos de identidad de Google, sin tokens."""
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 revision = "0002_identidad_google"
 down_revision = "0001_esquema_inicial"

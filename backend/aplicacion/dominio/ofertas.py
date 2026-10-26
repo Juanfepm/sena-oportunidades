@@ -1,6 +1,24 @@
-"""Filtros objetivos anteriores a la evaluación por IA."""
+"""Datos y reglas de ofertas, independientes de proveedores externos."""
 
-from ..integraciones.contratos import OfertaSGVA
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class OfertaSGVA:
+    nombre_empresa: str
+    correo: str | None
+    telefono_original: str | None
+    descripcion: str
+    departamento: str
+    ciudad: str
+    dias_publicada: int | None
+
+
+@dataclass(frozen=True)
+class EvaluacionIA:
+    puntuacion: int
+    motivo: str
+    modalidad: str
 
 
 def cumple_filtros(

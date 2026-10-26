@@ -1,8 +1,7 @@
 """Crea las tablas iniciales y reserva el único navegador SGVA."""
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 revision = "0001_esquema_inicial"
 down_revision = None
@@ -10,8 +9,14 @@ branch_labels = None
 depends_on = None
 
 TABLAS_PRIVADAS = (
-    "usuarios", "campanas", "correos_excluidos", "destinatarios",
-    "historial_envios", "pagos_premium", "navegador_sgva", "alembic_version",
+    "usuarios",
+    "campanas",
+    "correos_excluidos",
+    "destinatarios",
+    "historial_envios",
+    "pagos_premium",
+    "navegador_sgva",
+    "alembic_version",
 )
 
 
@@ -63,7 +68,9 @@ def upgrade() -> None:
         sa.Column("estado", sa.String(25), nullable=False),
     )
     op.create_index("ix_destinatarios_campana_id", "destinatarios", ["campana_id"])
-    op.create_index("ix_destinatarios_campana_correo", "destinatarios", ["campana_id", "correo"], unique=True)
+    op.create_index(
+        "ix_destinatarios_campana_correo", "destinatarios", ["campana_id", "correo"], unique=True
+    )
     op.create_table(
         "historial_envios",
         sa.Column("id", sa.String(36), primary_key=True),
@@ -72,7 +79,11 @@ def upgrade() -> None:
         sa.Column("correo", sa.String(254), nullable=False),
         sa.Column("enviado_en", sa.DateTime(timezone=True), nullable=False),
     )
-    op.create_index("ix_historial_usuario_correo_fecha", "historial_envios", ["usuario_id", "correo", "enviado_en"])
+    op.create_index(
+        "ix_historial_usuario_correo_fecha",
+        "historial_envios",
+        ["usuario_id", "correo", "enviado_en"],
+    )
     op.create_table(
         "pagos_premium",
         sa.Column("id", sa.String(36), primary_key=True),

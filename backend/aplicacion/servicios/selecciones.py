@@ -12,21 +12,35 @@ class SeleccionInvalida(ValueError):
     """Se intentó guardar un destinatario fuera de las ofertas permitidas."""
 
 
-def guardar_seleccion(sesion: Session, campana: Campana, plan: Plan, identificadores: list[str]) -> int:
+def guardar_seleccion(
+    sesion: Session, campana: Campana, plan: Plan, identificadores: list[str]
+) -> int:
     if len(identificadores) > LIMITES_CONTACTO[plan]:
-        raise SeleccionInvalida(f"El plan {plan.value} permite hasta {LIMITES_CONTACTO[plan]} empresas.")
-
-    destinatarios = list(sesion.scalars(
-        select(Destinatario).where(Destinatario.campana_id == campana.id).order_by(
-            Destinatario.puntuacion.desc().nulls_last(), Destinatario.id,
+        raise SeleccionInvalida(
+            f"El plan {plan.value} permite hasta {LIMITES_CONTACTO[plan]} empresas."
         )
-    ))
+
+    destinatarios = list(
+        sesion.scalars(
+            select(Destinatario)
+            .where(Destinatario.campana_id == campana.id)
+            .order_by(
+                Destinatario.puntuacion.desc().nulls_last(),
+                Destinatario.id,
+            )
+        )
+    )
     visibles = destinatarios[:9] if plan == Plan.GRATIS else destinatarios
-    permitidos = {destino.id for destino in visibles
-                  if destino.correo and PATRON_CORREO.fullmatch(destino.correo)}
+    permitidos = {
+        destino.id
+        for destino in visibles
+        if destino.correo and PATRON_CORREO.fullmatch(destino.correo)
+    }
     elegidos = set(identificadores)
     if not elegidos.issubset(permitidos):
-        raise SeleccionInvalida("La selección contiene empresas ocultas, sin correo o de otra campaña.")
+        raise SeleccionInvalida(
+            "La selección contiene empresas ocultas, sin correo o de otra campaña."
+        )
 
     for destino in destinatarios:
         destino.seleccionado = destino.id in elegidos

@@ -7,7 +7,11 @@ from ..modelos import CorreoExcluido, Usuario
 
 
 def listar_exclusiones(sesion: Session, usuario: Usuario) -> list[str]:
-    consulta = select(CorreoExcluido.correo).where(CorreoExcluido.usuario_id == usuario.id).order_by(CorreoExcluido.correo)
+    consulta = (
+        select(CorreoExcluido.correo)
+        .where(CorreoExcluido.usuario_id == usuario.id)
+        .order_by(CorreoExcluido.correo)
+    )
     return list(sesion.scalars(consulta))
 
 
