@@ -82,11 +82,11 @@
             <div class="etiqueta_flotante"><svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#destello"></use></svg><span>Menos búsqueda repetida<br><strong>más tiempo para elegir</strong></span></div>
           </div>
         </div>
-        <div class="contenedor franja_beneficios" aria-label="Ventajas del servicio">
+        <section class="contenedor franja_beneficios" aria-label="Ventajas del servicio">
           <div><span class="beneficio_numero">01</span><strong>Define lo que buscas</strong><span>Modalidad, lugar y actividades.</span></div>
           <div><span class="beneficio_numero">02</span><strong>Revisa las coincidencias</strong><span>Razones visibles, sin decisiones a ciegas.</span></div>
           <div><span class="beneficio_numero">03</span><strong>Conserva el control</strong><span>Retira empresas antes de confirmar.</span></div>
-        </div>
+        </section>
         <div class="contenedor prueba_gmail" hidden id="prueba-gmail">
           <section class="panel_ayuda" aria-labelledby="titulo-prueba-gmail">
             <h2 id="titulo-prueba-gmail">Comprueba tu conexión de Gmail</h2>
@@ -195,11 +195,11 @@
         <div class="contenedor pagina_encabezado pagina_encabezado_corto"><span class="ceja">Paso 3 de 3 · Confirmación</span><h1>Tú decides a quién escribir.</h1><p>Estas empresas y porcentajes son ficticios. El perfil que redactaste todavía no interviene en la puntuación; la modalidad requiere confirmación con la empresa.</p></div>
         <div id="aviso-sin-resultados" class="contenedor aviso_sin_resultados" role="alert" hidden><div class="alerta alerta_error"><strong>No encontramos coincidencias suficientemente buenas con estos filtros.</strong><p>Puedes cambiar la ubicación o el periodo y hacer otra búsqueda, incluso si usas el plan gratis.</p><a class="boton boton_secundario" href="#campana">Ajustar y buscar de nuevo</a></div></div>
         <div class="contenedor revision_disposicion">
-          <div class="panel_revision">
-            <div class="panel_revision_encabezado"><div><h2>Empresas sugeridas</h2><p>Revisa el motivo, el contacto y la modalidad antes de continuar.</p></div><button id="abrir-seleccion" class="boton boton_secundario" type="button" aria-expanded="false" aria-controls="panel-seleccion">Ver seleccionadas <span id="conteo-seleccion">4</span></button></div>
+          <section class="panel_revision" aria-labelledby="titulo-empresas-sugeridas">
+            <div class="panel_revision_encabezado"><div><h2 id="titulo-empresas-sugeridas">Empresas sugeridas</h2><p>Revisa el motivo, el contacto y la modalidad antes de continuar.</p></div><button id="abrir-seleccion" class="boton boton_secundario" type="button" aria-expanded="false" aria-controls="panel-seleccion">Ver seleccionadas <span id="conteo-seleccion">4</span></button></div>
             <p id="aviso-limite-seleccion" class="aviso_limite_seleccion" role="status" hidden>El plan gratis permite seleccionar hasta 8 empresas. Quita una de la lista para añadir otra.</p>
             <div id="lista-coincidencias" class="lista_coincidencias"></div>
-          </div>
+          </section>
           <aside class="resumen_revision"><span class="icono_circulo"><svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#verificar"></use></svg></span><h2>Antes del envío</h2><p>Revisaremos destinatarios excluidos y contactos recientes. Confirmarás la lista y el mensaje antes de enviar.</p><div class="resumen_linea"><span>Plan</span><strong id="plan-revision">Gratis</strong></div><div class="resumen_linea"><span>Seleccionadas</span><strong id="total-seleccion">4 empresas</strong></div><p id="estado-seleccion-resumen" role="status"></p><button id="iniciar-simulacion" class="boton boton_ancho" type="button">Simular envío aprobado <svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#flecha"></use></svg></button><div id="espera-envio-escritorio" class="estado_espera_envio" role="status" hidden><span>Preparando tu turno…</span><div class="linea_espera_envio" aria-hidden="true"><span></span></div></div><p id="aviso-envio-pendiente" class="aviso_envio_pendiente" role="status" hidden></p><a class="enlace_texto" href="#correo">Editar mi correo</a></aside>
         </div>
         <div id="aviso-plan-gratis" class="contenedor aviso_plan_gratis" hidden><strong>Hay <span id="cantidad-ocultas"></span> para descubrir.</strong><p>Para ver el resto de empresas, conoce DEBUPA Premium. Su activación estará disponible próximamente.</p><a class="boton boton_secundario" href="#planes">Ver planes</a></div>
@@ -263,7 +263,40 @@
         <div class="contenedor resultados_disposicion"><div id="tarjetas-resultado" class="tarjetas_resultado"></div><div class="resultados_siguiente"><span class="icono_circulo"><svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#informacion"></use></svg></span><h2>El resumen real tendrá tus datos.</h2><p>En el plan gratis verás una o dos tarjetas detalladas. El registro compacto mostrará todos los contactos confirmados.</p><h3>Registro de la demostración</h3><ul id="lista-envios-resumen" class="lista_envios_resumen"></ul><div id="aviso-espera-gratis" class="alerta alerta_informativa" role="alert" hidden></div><div class="acciones_resultado"><button id="crear-otra-busqueda" class="boton" type="button">Crear otra búsqueda <svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#flecha"></use></svg></button><a class="boton boton_secundario" href="#inicio">Ir al inicio</a></div></div></div>
       </section>
 
-      <section id="planes" class="pagina pagina_planes" data-pagina hidden><div class="contenedor pagina_encabezado"><span class="ceja">Elige tu ritmo</span><h1>Dos maneras de buscar con más foco.</h1><p>Ambos planes conservan la revisión previa, el control de destinatarios y la regla de recontacto después de seis meses.</p></div><div class="contenedor planes_grid"><article class="plan_tarjeta plan_tarjeta_gratis"><span class="plan_nombre">Gratis</span><h2>Empieza con lo esencial.</h2><p class="plan_precio">$0 <small>COP</small></p><ul><li>Hasta 9 ofertas visibles para elegir un máximo de 8 contactos.</li><li>Un adjunto y una o dos tarjetas detalladas en el resumen.</li><li>Revisión y exclusión de destinatarios.</li><li>Una campaña con envíos por mes; sin resultados puedes reintentar.</li></ul><a class="boton boton_ancho boton_secundario" href="#campana">Elegir gratis</a></article><article class="plan_tarjeta plan_tarjeta_destacado"><span class="plan_nombre">Premium</span><h2>Más opciones para comparar.</h2><p class="plan_precio">$7.500 <small>COP / 3 meses</small></p><ul><li>Todas las ofertas encontradas, con selección libre dentro de la campaña.</li><li>Dos adjuntos y más empresas en el resumen.</li><li>Casos dudosos separados para revisar.</li><li>Nuevas búsquedas sin espera mensual.</li></ul><a class="boton boton_ancho" href="#pago">Solicitar activación <svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#flecha"></use></svg></a></article></div><p class="contenedor planes_nota">La consulta SGVA lee hasta 70 ofertas por campaña. Nunca se completará una cuota con empresas de baja afinidad.</p></section>
+      <section id="planes" class="pagina pagina_planes" data-pagina hidden>
+        <div class="contenedor pagina_encabezado">
+          <span class="ceja">Elige tu ritmo</span>
+          <h1>Dos maneras de buscar con más foco.</h1>
+          <p>Ambos planes conservan la revisión previa, el control de destinatarios y la regla de recontacto después de seis meses.</p>
+        </div>
+        <div class="contenedor planes_grid">
+          <article class="plan_tarjeta plan_tarjeta_gratis">
+            <span class="plan_nombre">Gratis</span>
+            <h2>Empieza con lo esencial.</h2>
+            <p class="plan_precio">$0 <small>COP</small></p>
+            <ul>
+              <li>Hasta 9 ofertas visibles para elegir un máximo de 8 contactos.</li>
+              <li>Un adjunto y una o dos tarjetas detalladas en el resumen.</li>
+              <li>Revisión y exclusión de destinatarios.</li>
+              <li>Una campaña con envíos por mes; sin resultados puedes reintentar.</li>
+            </ul>
+            <a class="boton boton_ancho boton_secundario" href="#campana">Elegir gratis</a>
+          </article>
+          <article class="plan_tarjeta plan_tarjeta_destacado">
+            <span class="plan_nombre">Premium</span>
+            <h2>Más opciones para comparar.</h2>
+            <p class="plan_precio">$7.500 <small>COP / 3 meses</small></p>
+            <ul>
+              <li>Todas las ofertas encontradas, con selección libre dentro de la campaña.</li>
+              <li>Dos adjuntos y más empresas en el resumen.</li>
+              <li>Casos dudosos separados para revisar.</li>
+              <li>Nuevas búsquedas sin espera mensual.</li>
+            </ul>
+            <a class="boton boton_ancho" href="#pago">Solicitar activación <svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#flecha"></use></svg></a>
+          </article>
+        </div>
+        <p class="contenedor planes_nota">La consulta SGVA lee hasta 70 ofertas por campaña. Nunca se completará una cuota con empresas de baja afinidad.</p>
+      </section>
 
       <section id="pago" class="pagina pagina_informativa" data-pagina hidden>
         <div class="contenedor pagina_encabezado pago_encabezado"><a class="enlace_texto pago_volver" href="#planes"><svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#volver"></use></svg> Volver a planes</a><span class="ceja">Activación Premium</span><h1>Más oportunidades, durante 3 meses.</h1><p>Escanea el QR, paga en Nequi y adjunta el comprobante. La activación se confirma tras la revisión manual.</p></div>
@@ -273,7 +306,18 @@
         </div>
       </section>
 
-      <section id="pago-enviado" class="pagina pagina_informativa" data-pagina hidden><div class="contenedor pago_agradecimiento"><span class="icono_circulo"><svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#verificar"></use></svg></span><span class="ceja">Solicitud recibida</span><h1>¡Gracias por apoyar a <em>DEBUPA</em>!</h1><p>Nos alegra que quieras crecer con nosotros. Revisaremos tu comprobante y te contaremos la decisión por correo.</p><small>Tu apoyo nos ayuda a mejorar la aplicación. Puedes enviarnos sugerencias a <a href="mailto:debupawebapp@gmail.com">debupawebapp@gmail.com</a>.</small><div class="pago_agradecimiento_tiempo" aria-hidden="true"><span></span></div><small>Volverás al inicio en unos segundos.</small><a class="boton" href="#inicio">Volver ahora</a></div></section>
+      <section id="pago-enviado" class="pagina pagina_informativa" data-pagina hidden>
+        <div class="contenedor pago_agradecimiento">
+          <span class="icono_circulo"><svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#verificar"></use></svg></span>
+          <span class="ceja">Solicitud recibida</span>
+          <h1>¡Gracias por apoyar a <em>DEBUPA</em>!</h1>
+          <p>Nos alegra que quieras crecer con nosotros. Revisaremos tu comprobante y te contaremos la decisión por correo.</p>
+          <small>Tu apoyo nos ayuda a mejorar la aplicación. Puedes enviarnos sugerencias a <a href="mailto:debupawebapp@gmail.com">debupawebapp@gmail.com</a>.</small>
+          <div class="pago_agradecimiento_tiempo" aria-hidden="true"><span></span></div>
+          <small>Volverás al inicio en unos segundos.</small>
+          <a class="boton" href="#inicio">Volver ahora</a>
+        </div>
+      </section>
 
       <section id="nosotros" class="pagina pagina_informativa" data-pagina hidden><div class="contenedor pagina_encabezado"><span class="ceja">Sobre el proyecto</span><h1>Una idea nacida de una búsqueda real.</h1><p>DEBUPA, de «desesperados buscando patrocinio», busca reducir el tiempo que un aprendiz dedica a revisar ofertas dispersas y preparar contactos, sin quitarle el control sobre su decisión.</p></div><div class="contenedor texto_legal"><h2>Qué hacemos</h2><p>Organizamos preferencias, mostramos coincidencias explicables y enviamos correos individuales después de tu confirmación final. El proyecto sigue en desarrollo.</p><h2>Qué no hacemos</h2><p>No somos una herramienta oficial del SENA, no aseguramos una práctica y no postulamos automáticamente al aprendiz dentro del SGVA. Cada vacante y su modalidad deben confirmarse con la empresa.</p><h2>Por qué existe</h2><p>La búsqueda puede exigir revisar muchas ofertas con información incompleta. Queremos que el aprendiz pueda reconocer las oportunidades pertinentes con menos trabajo repetitivo.</p><h2>Contacto</h2><p>Escríbenos a <a href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;to=debupawebapp%40gmail.com" target="_blank" rel="noopener noreferrer">debupawebapp@gmail.com <span class="sr_solo">(abre Gmail en otra pestaña)</span></a>.</p></div></section>
 
@@ -288,18 +332,47 @@
         </div>
       </section>
 
-      <section id="cookies" class="pagina pagina_informativa" data-pagina hidden><div class="contenedor pagina_encabezado"><span class="ceja">Preferencias de privacidad</span><h1>Cookies y almacenamiento local.</h1><p>La aplicación usa el almacenamiento de este navegador para recordar que leíste el aviso de cookies.</p></div><div class="contenedor texto_legal"><h2>Cookies esenciales</h2><p>El inicio de sesión utiliza una cookie esencial para mantener la sesión. En producción se enviará únicamente por HTTPS. No se prevén cookies publicitarias.</p><h2>Tu preferencia</h2><p>Al pulsar «Entendido», se guarda la preferencia en este navegador. Si la borras, el aviso aparecerá nuevamente.</p><button id="restablecer-cookies" class="boton boton_secundario" type="button">Volver a mostrar el aviso</button></div></section>
+      <section id="cookies" class="pagina pagina_informativa" data-pagina hidden>
+        <div class="contenedor pagina_encabezado">
+          <span class="ceja">Preferencias de privacidad</span>
+          <h1>Cookies y almacenamiento local.</h1>
+          <p>La aplicación usa el almacenamiento de este navegador para recordar que leíste el aviso de cookies.</p>
+        </div>
+        <div class="contenedor texto_legal">
+          <h2>Cookies esenciales</h2>
+          <p>El inicio de sesión utiliza una cookie esencial para mantener la sesión. En producción se enviará únicamente por HTTPS. No se prevén cookies publicitarias.</p>
+          <h2>Tu preferencia</h2>
+          <p>Al pulsar «Entendido», se guarda la preferencia en este navegador. Si la borras, el aviso aparecerá nuevamente.</p>
+          <button id="restablecer-cookies" class="boton boton_secundario" type="button">Volver a mostrar el aviso</button>
+        </div>
+      </section>
 
-      <section id="terminos" class="pagina pagina_informativa" data-pagina hidden><div class="contenedor pagina_encabezado"><span class="ceja">Condiciones de uso</span><h1>Qué puedes esperar del servicio.</h1><p>Estas condiciones son un borrador informativo para la interfaz y requieren revisión antes de la operación real.</p></div><div class="contenedor texto_legal"><h2>Alcance</h2><p>DEBUPA ayudará a consultar ofertas visibles para un aprendiz autorizado y a preparar contactos externos. No garantiza respuesta, entrevista o contrato.</p><h2>Tu decisión</h2><p>Deberás revisar las empresas y el mensaje antes de autorizar cada campaña. La clasificación automática puede equivocarse y una modalidad «posible» no es una oferta remota confirmada.</p><h2>Premium y revisión</h2><p>La activación cuesta $7.500 COP y dura tres meses desde su aprobación. El envío del comprobante no activa el servicio: se confirma manualmente el movimiento en Nequi. Si la solicitud es rechazada y realizaste el pago, puedes escribir a debupawebapp@gmail.com dentro de los siete días siguientes al aviso de rechazo para solicitar reembolso. La devolución requiere comprobar el pago real y no es automática. Este plazo adicional no limita los derechos legales del consumidor.</p><h2>Uso responsable</h2><p>Usarás tus propias credenciales y enviarás información veraz. La aplicación limitará el número de contactos para evitar mensajes repetidos o no deseados.</p></div></section>
+      <section id="terminos" class="pagina pagina_informativa" data-pagina hidden>
+        <div class="contenedor pagina_encabezado">
+          <span class="ceja">Condiciones de uso</span>
+          <h1>Qué puedes esperar del servicio.</h1>
+          <p>Estas condiciones son un borrador informativo para la interfaz y requieren revisión antes de la operación real.</p>
+        </div>
+        <div class="contenedor texto_legal">
+          <h2>Alcance</h2>
+          <p>DEBUPA ayudará a consultar ofertas visibles para un aprendiz autorizado y a preparar contactos externos. No garantiza respuesta, entrevista o contrato.</p>
+          <h2>Tu decisión</h2>
+          <p>Deberás revisar las empresas y el mensaje antes de autorizar cada campaña. La clasificación automática puede equivocarse y una modalidad «posible» no es una oferta remota confirmada.</p>
+          <h2>Premium y revisión</h2>
+          <p>La activación cuesta $7.500 COP y dura tres meses desde su aprobación. El envío del comprobante no activa el servicio: se confirma manualmente el movimiento en Nequi. Si la solicitud es rechazada y realizaste el pago, puedes escribir a debupawebapp@gmail.com dentro de los siete días siguientes al aviso de rechazo para solicitar reembolso. La devolución requiere comprobar el pago real y no es automática. Este plazo adicional no limita los derechos legales del consumidor.</p>
+          <h2>Uso responsable</h2>
+          <p>Usarás tus propias credenciales y enviarás información veraz. La aplicación limitará el número de contactos para evitar mensajes repetidos o no deseados.</p>
+        </div>
+      </section>
 
       <section id="administracion" class="pagina pagina_informativa" data-pagina hidden>
         <div class="contenedor admin_encabezado"><div><a class="enlace_texto" href="#inicio"><svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#volver"></use></svg> Inicio</a><span class="ceja">Administración</span><h1>Resumen de DEBUPA</h1></div><span id="admin-cuenta" class="admin_cuenta"></span></div>
-        <div class="contenedor admin_metricas">
+        <section class="contenedor admin_metricas" aria-label="Indicadores de DEBUPA">
           <article class="admin_tarjeta admin_ingresos"><div class="admin_tarjeta_cabecera"><span class="admin_icono"><svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#ingresos"></use></svg></span><label>Periodo <select id="admin-periodo-ingresos" aria-label="Periodo de ingresos"><option value="6">6 meses</option><option value="3">3 meses</option><option value="1">1 mes</option></select></label></div><h2>Ingresos aprobados</h2><strong id="admin-ingresos">—</strong><small>Valor de activaciones aprobadas; no descuenta reembolsos.</small></article>
           <article class="admin_tarjeta admin_campanas"><div class="admin_tarjeta_cabecera"><span class="admin_icono"><svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#campanas"></use></svg></span><select id="admin-periodo-campanas" aria-label="Periodo de campañas"><option value="todo">Todo el tiempo</option><option value="6">6 meses</option><option value="3">3 meses</option><option value="1">1 mes</option></select></div><h2>Campañas creadas</h2><strong id="admin-campanas">—</strong><small>Gratis y Premium</small></article>
           <article class="admin_tarjeta admin_usuarios"><span class="admin_icono"><svg class="icono" aria-hidden="true"><use href="./recursos/iconos.svg#usuarios"></use></svg></span><h2>Cuentas registradas</h2><strong id="admin-total">—</strong><small>Con Google</small></article>
           <article class="admin_tarjeta admin_planes"><h2>Usuarios por plan</h2><div><span>Gratis</span><strong id="admin-gratis">—</strong></div><div><span>Premium activo</span><strong id="admin-premium">—</strong></div></article>
-        </div>
+        </section>
         <div class="contenedor admin_inferior"><section class="admin_solicitudes" aria-labelledby="admin-titulo-solicitudes"><div class="admin_seccion_cabecera"><div><span class="ceja">Revisión manual</span><h2 id="admin-titulo-solicitudes">Solicitudes Premium</h2></div><span id="admin-cantidad-solicitudes" class="admin_contador">0 pendientes</span></div><p class="admin_ayuda">Confirma el movimiento en Nequi antes de aprobar. Una captura por sí sola no acredita el pago.</p><div id="lista-solicitudes" class="lista_solicitudes"></div><p id="admin-estado" role="status" aria-live="polite"></p><details id="admin-avisos"><summary>Avisos de correo pendientes</summary><div id="lista-avisos" class="lista_solicitudes"></div></details><div class="admin_correo"><span id="admin-correo">Comprobando correo…</span><button id="admin-probar-correo" class="boton boton_secundario boton_pequeno" type="button">Probar envío</button></div></section><section class="admin_graficas" aria-label="Gráficas de actividad"><div class="admin_grafica"><h2>Distribución de usuarios</h2><div id="admin-grafica-planes" class="admin_grafica_cuerpo"></div><div class="admin_leyenda"><span><i class="admin_punto admin_punto_gratis"></i> Gratis</span><span><i class="admin_punto admin_punto_premium"></i> Premium</span></div></div><div class="admin_grafica"><h2>Solicitudes Premium</h2><div id="admin-grafica-evolucion" class="admin_grafica_cuerpo"></div><div class="admin_leyenda"><span><i class="admin_punto admin_punto_postuladas"></i> Postuladas</span><span><i class="admin_punto admin_punto_aceptadas"></i> Aceptadas</span><span><i class="admin_punto admin_punto_rechazadas"></i> Rechazadas</span></div></div></section></div>
       </section>
     </main>

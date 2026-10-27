@@ -1,6 +1,7 @@
 "use strict";
 
 import { enviarConCsrf } from "./autenticacion.js";
+import { prepararComprobante } from "./comprobantes.js";
 import { mensajeVacio, pintarGraficas } from "./graficas-administracion.js";
 import { irA } from "./rutas.js";
 
@@ -241,37 +242,6 @@ async function cargarAdministracion() {
   } catch (error) {
     estadoAdmin.textContent = error.message;
   }
-}
-
-async function optimizarImagen(archivo) {
-  if (!archivo || !["image/png", "image/jpeg"].includes(archivo.type) || archivo.size > 8 * 1024 * 1024) {
-    throw new Error("Elige una captura PNG o JPG de máximo 8 MB.");
-  }
-  const original = await createImageBitmap(archivo);
-  const escala = Math.min(1, 1800 / Math.max(original.width, original.height));
-  const lienzo = document.createElement("canvas");
-  lienzo.width = Math.round(original.width * escala);
-  lienzo.height = Math.round(original.height * escala);
-  const contexto = lienzo.getContext("2d");
-  contexto.fillStyle = "#ffffff";
-  contexto.fillRect(0, 0, lienzo.width, lienzo.height);
-  contexto.drawImage(original, 0, 0, lienzo.width, lienzo.height);
-  original.close();
-  const convertir = (calidad) => new Promise((listo) => lienzo.toBlob(listo, "image/jpeg", calidad));
-  let resultado = await convertir(0.88);
-  if (resultado?.size > 2 * 1024 * 1024) resultado = await convertir(0.72);
-  if (!resultado || resultado.size > 2 * 1024 * 1024) throw new Error("La imagen sigue pesando más de 2 MB. Prueba otra captura.");
-  return new File([resultado], "comprobante-optimizado.jpg", { type: "image/jpeg" });
-}
-
-async function prepararComprobante(archivo) {
-  if (archivo?.type === "application/pdf") {
-    if (!archivo.size || archivo.size > 2 * 1024 * 1024) {
-      throw new Error("El PDF debe pesar como máximo 2 MB.");
-    }
-    return archivo;
-  }
-  return optimizarImagen(archivo);
 }
 
 function avisoSinComprobante() {
