@@ -1062,21 +1062,60 @@
 }
 
 .plan_descuento {
-  align-self: flex-start;
-  background: #f6c85f;
-  border-radius: 50%;
-  color: #4d3b0d;
-  display: grid;
-  font-size: 0.7rem;
+  align-items: center;
+  background: var(--color_verde);
+  color: var(--color_blanco);
+  display: flex;
+  flex-direction: column;
   font-weight: 800;
-  height: 4.5rem;
+  height: 5.8rem;
   place-items: center;
   position: absolute;
   right: 1.35rem;
   text-align: center;
   top: 1.25rem;
   transform: rotate(9deg);
-  width: 4.5rem;
+  width: 5.8rem;
+  z-index: 1;
+  clip-path: polygon(
+    50% 0%,
+    61% 10%,
+    76% 4%,
+    82% 18%,
+    97% 21%,
+    91% 36%,
+    100% 50%,
+    90% 62%,
+    96% 78%,
+    80% 82%,
+    74% 97%,
+    59% 90%,
+    50% 100%,
+    39% 90%,
+    24% 96%,
+    18% 82%,
+    3% 78%,
+    9% 63%,
+    0% 50%,
+    10% 37%,
+    4% 21%,
+    19% 18%,
+    24% 4%,
+    39% 10%
+  );
+}
+
+.plan_descuento strong {
+  font-size: 1.45rem;
+  line-height: 1;
+  margin-top: 1.25rem;
+}
+
+.plan_descuento small {
+  font-size: 0.62rem;
+  line-height: 1;
+  margin-top: 0.18rem;
+  text-transform: uppercase;
 }
 
 .plan_precio del,
@@ -1733,6 +1772,22 @@
 }
 
 @media (max-width: 560px) {
+  .plan_descuento {
+    height: 4.8rem;
+    right: 0.9rem;
+    top: 0.9rem;
+    width: 4.8rem;
+  }
+
+  .plan_descuento strong {
+    font-size: 1.2rem;
+    margin-top: 1.05rem;
+  }
+
+  .plan_descuento small {
+    font-size: 0.52rem;
+  }
+
   .sala_espera {
     padding: var(--espacio_5);
   }
