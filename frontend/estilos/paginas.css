@@ -1069,7 +1069,7 @@
   flex-direction: column;
   font-weight: 800;
   height: 5.8rem;
-  place-items: center;
+  justify-content: center;
   position: absolute;
   right: 1.35rem;
   text-align: center;
@@ -1106,16 +1106,23 @@
 }
 
 .plan_descuento strong {
-  font-size: 1.45rem;
+  font-family: var(--fuente_cuerpo);
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: -0.04em;
   line-height: 1;
-  margin-top: 1.25rem;
+  margin: 0;
+  transform: rotate(-9deg);
 }
 
 .plan_descuento small {
+  font-family: var(--fuente_cuerpo);
   font-size: 0.62rem;
+  font-weight: 800;
   line-height: 1;
-  margin-top: 0.18rem;
+  margin-top: 0.22rem;
   text-transform: uppercase;
+  transform: rotate(-9deg);
 }
 
 .plan_precio del,
@@ -1781,7 +1788,6 @@
 
   .plan_descuento strong {
     font-size: 1.2rem;
-    margin-top: 1.05rem;
   }
 
   .plan_descuento small {
