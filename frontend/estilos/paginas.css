@@ -1122,7 +1122,7 @@
   line-height: 1;
   margin-top: 0.22rem;
   text-transform: uppercase;
-  transform: rotate(5deg);
+  transform: translateX(-0.08rem) rotate(5deg);
 }
 
 .plan_precio del,
