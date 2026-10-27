@@ -483,7 +483,7 @@
   height: 28rem;
   left: -0.5rem;
   top: 2.5rem;
-  transform: rotate(-14deg);
+  transform: rotate(5deg);
   width: 27rem;
 }
 
@@ -1112,7 +1112,7 @@
   letter-spacing: -0.04em;
   line-height: 1;
   margin: 0;
-  transform: rotate(-14deg) scaleY(1.28);
+  transform: rotate(5deg) scaleY(1.28);
 }
 
 .plan_descuento small {
