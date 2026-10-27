@@ -15,6 +15,9 @@ function actualizarPlan(plan) {
   selector.value = plan === "premium" ? "premium" : "gratis";
   selector.dispatchEvent(new Event("change"));
   selector.disabled = plan === "premium";
+  document.querySelector("#detalle-plan-campana").textContent = plan === "premium"
+    ? "Premium activo para esta campaña. El plan se asigna desde tu cuenta."
+    : "El plan premium se activará tras la verificación del pago.";
 }
 
 async function obtenerJson(ruta) {

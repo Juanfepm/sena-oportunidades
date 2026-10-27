@@ -194,6 +194,13 @@
   color: #829187;
 }
 
+.campo #plan-campana:disabled {
+  background: var(--color_verde_suave);
+  color: var(--color_verde_profundo);
+  cursor: default;
+  opacity: 1;
+}
+
 .campo label {
   font-size: 0.91rem;
   font-weight: 700;
