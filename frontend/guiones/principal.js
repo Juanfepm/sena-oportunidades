@@ -361,7 +361,7 @@ function configurarSimulacion() {
   });
   const turno = crearTurnoEnvio(
     asegurarSeleccionGuardada,
-    async (campanaId, sigueVigente) => {
+    async (campanaId, sigueVigente, botonOrigen) => {
       campanaPreparada = campanaId;
       preparacion = await prepararEnvio(campanaId);
       if (!sigueVigente()) return;
@@ -392,7 +392,7 @@ function configurarSimulacion() {
       confirmar.textContent = preparacion.aptos.length
         ? `Confirmar y enviar a ${preparacion.aptos.length} ${preparacion.aptos.length === 1 ? "empresa" : "empresas"}`
         : "Sin destinatarios aptos";
-      focoAnterior = document.activeElement;
+      focoAnterior = botonOrigen;
       panel.hidden = false;
       panel.querySelector(".boton_icono").focus();
     },

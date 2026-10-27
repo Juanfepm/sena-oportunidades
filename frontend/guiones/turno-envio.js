@@ -62,7 +62,7 @@ export function crearTurnoEnvio(obtenerCampana, abrirConfirmacion, mostrarError)
       }
       panelEspera.hidden = true;
       indicar("Preparando la revisión final…");
-      await abrirConfirmacion(idConsultado, () => actual === version);
+      await abrirConfirmacion(idConsultado, () => actual === version, focoAnterior);
       if (actual !== version) return;
       indicar(null);
       latido = window.setInterval(async () => {
