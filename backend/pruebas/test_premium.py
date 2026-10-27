@@ -111,7 +111,7 @@ def test_pago_privado_aprobacion_y_aviso(monkeypatch) -> None:
         assert decision.json() == {"estado": "aprobado", "notificacion_estado": "enviado"}
         assert enviados == [("debupawebapp@gmail.com", "aprendiz@ejemplo.com")]
         resumen_actualizado = cliente.get("/api/v1/administracion/resumen").json()
-        assert resumen_actualizado["periodos"]["todo"]["ingresos_aprobados_cop"] == 7500
+        assert resumen_actualizado["periodos"]["todo"]["ingresos_aprobados_cop"] == 8000
         assert resumen_actualizado["evolucion_premium"][-1]["aprobadas"] == 1
         assert (
             cliente.get(f"/api/v1/administracion/pagos/{pago_id}/comprobante").status_code == 404

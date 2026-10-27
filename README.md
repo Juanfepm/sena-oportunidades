@@ -61,7 +61,7 @@ backend/
 
 ## Activación Premium local
 
-El plan cuesta $7.500 COP por tres meses desde su aprobación. El aprendiz adjunta un comprobante PNG, JPG o PDF; solo la cuenta administradora puede abrirlo y aprobar o rechazar después de comprobar el movimiento en Nequi. La aplicación cifra el comprobante y lo elimina de la base activa al decidir. El panel muestra usuarios, planes, solicitudes y avisos no confirmados. La cola de SGVA muestra cuántas búsquedas preceden a la propia y una animación de espera. No se ha desplegado públicamente.
+El plan cuesta $8.000 COP por tres meses desde su aprobación, con un precio de referencia de $10.000 COP y 20% de descuento. El aprendiz adjunta un comprobante PNG, JPG o PDF; solo la cuenta administradora puede abrirlo y aprobar o rechazar después de comprobar el movimiento en Nequi. La aplicación cifra el comprobante y lo elimina de la base activa al decidir. El panel muestra usuarios, planes, solicitudes y avisos no confirmados. La cola de SGVA muestra cuántas búsquedas preceden a la propia y una animación de espera. No se ha desplegado públicamente.
 
 Las instrucciones del servidor y su alcance exacto están en [backend/README.md](backend/README.md).
 

@@ -148,7 +148,7 @@ DEBUPA_CLAVE_CIFRADO sean los mismos con que se autorizó la cuenta. Entra de
 nuevo con DEBUPA si Google dejó de aceptar su permiso. Una notificación de
 decisión premium no confirmada queda visible en Administración.
 
-PAGO PREMIUM: $7.500 COP por tres meses contados desde la aprobación manual.
+PAGO PREMIUM: $8.000 COP por tres meses contados desde la aprobación manual (precio de referencia: $10.000 COP; descuento del 20%).
 El aprendiz adjunta una imagen PNG o JPG de hasta 2 MB. El administrador debe
 comprobar el movimiento real en Nequi antes de aprobar. La imagen permanece
 cifrada y se borra de la base activa después de la decisión.

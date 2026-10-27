@@ -14,7 +14,7 @@ Base local en FastAPI y SQLAlchemy. El código, las rutas y los modelos usan nom
 - Turno breve y ordenado para la revisión final: una campaña espera mientras otra cuenta confirma; el turno se libera al cerrar o autorizar, y vence si se abandona. Esta coordinación reside en memoria y requiere **un solo proceso de Uvicorn**.
 - Consulta de SGVA con un único navegador Chromium, lectura del listado y detalles sin pulsar «Aplicar».
 - Consulta de todos los departamentos en dos búsquedas y lectura de ofertas recientes primero. Clasificación optativa en Gemini con puntuación y motivo, sujeta a autorización del aprendiz.
-- Solicitud Premium de $7.500 COP por tres meses: comprobante cifrado, revisión humana desde el panel y aviso por correo. El cliente nunca puede asignarse Premium.
+- Solicitud Premium de $8.000 COP por tres meses, con precio de referencia de $10.000 COP y 20% de descuento: comprobante cifrado, revisión humana desde el panel y aviso por correo. El cliente nunca puede asignarse Premium.
 - Migraciones de PostgreSQL para el esquema inicial, identidad de Google y permiso de Gmail cifrado, con acceso a las tablas cerrado para los roles públicos de Supabase.
 - El perfil, mensaje y adjuntos se cifran al iniciar cada consulta; no hay guardado manual de borradores. Se eliminan al cancelar, fallar o terminar la campaña, y los datos vencidos se limpian periódicamente.
 

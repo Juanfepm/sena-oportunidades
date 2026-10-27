@@ -1061,6 +1061,39 @@
   font-size: 0.75rem;
 }
 
+.plan_descuento {
+  align-self: flex-start;
+  background: #f6c85f;
+  border-radius: 50%;
+  color: #4d3b0d;
+  display: grid;
+  font-size: 0.7rem;
+  font-weight: 800;
+  height: 4.5rem;
+  place-items: center;
+  position: absolute;
+  right: 1.35rem;
+  text-align: center;
+  top: 1.25rem;
+  transform: rotate(9deg);
+  width: 4.5rem;
+}
+
+.plan_precio del,
+.pago_precio del {
+  color: var(--color_muted);
+  display: block;
+  font-family: var(--fuente_cuerpo);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.plan_precio strong,
+.pago_precio strong {
+  display: inline-block;
+  font-size: inherit;
+}
+
 .plan_tarjeta {
   background: var(--color_blanco);
   border: 1px solid var(--color_borde);

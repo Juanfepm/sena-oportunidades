@@ -9,7 +9,7 @@ from ..dominio.estados import EstadoCampana, EstadoPago, Plan
 from ..dominio.fechas import desplazar_meses
 from ..modelos import Campana, PagoPremium, Usuario
 
-PRECIO_PREMIUM_COP = 7500
+PRECIO_PREMIUM_COP = 8000
 PERIODOS_MESES = (1, 3, 6)
 
 
