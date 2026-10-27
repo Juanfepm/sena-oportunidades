@@ -823,8 +823,73 @@
 
 .panel_seleccion_fondo {
   background: rgb(23 51 55 / 45%);
+  backdrop-filter: blur(7px);
   inset: 0;
   position: absolute;
+}
+
+.estado_espera_envio {
+  color: var(--color_muted);
+  font-size: 0.8rem;
+  margin-top: var(--espacio_3);
+}
+
+.linea_espera_envio {
+  background: var(--color_fondo_verde);
+  border-radius: 1rem;
+  height: 0.45rem;
+  margin: var(--espacio_2) 0;
+  overflow: hidden;
+}
+
+.linea_espera_envio span {
+  animation: avanzar_espera_envio 2s ease-in-out infinite alternate;
+  background: var(--color_verde);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  width: 35%;
+}
+
+.panel_espera_envio {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  padding: var(--espacio_4);
+  z-index: 32;
+}
+
+.panel_espera_envio[hidden] {
+  display: none;
+}
+
+.panel_espera_envio_contenido {
+  background: var(--color_blanco);
+  border: 1px solid var(--color_borde);
+  border-radius: var(--radio_grande);
+  box-shadow: var(--sombra_panel);
+  max-width: 27rem;
+  padding: var(--espacio_8);
+  position: relative;
+  width: 100%;
+}
+
+.panel_espera_envio_contenido h2 {
+  font-family: var(--fuente_titulo);
+  margin: var(--espacio_3) 0;
+}
+
+.panel_espera_envio_contenido p {
+  color: var(--color_muted);
+}
+
+.panel_espera_envio_contenido .boton {
+  margin-top: var(--espacio_4);
+}
+
+@keyframes avanzar_espera_envio {
+  from { transform: translateX(0); }
+  to { transform: translateX(185%); }
 }
 
 .cuerpo_confirmacion {
@@ -1488,6 +1553,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .espera_animacion span { animation: none; width: 100%; }
+  .linea_espera_envio span { animation: none; width: 100%; }
 }
 
 @media (min-width: 761px) {
@@ -1567,6 +1633,11 @@
     font-size: 0.76rem;
     grid-column: 1 / -1;
     margin: 0;
+  }
+
+  .barra_envio_movil > .estado_espera_envio {
+    grid-column: 1 / -1;
+    margin-top: 0;
   }
 
   .pagina_revision {

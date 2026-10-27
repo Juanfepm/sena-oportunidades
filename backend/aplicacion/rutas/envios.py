@@ -65,6 +65,34 @@ def crear_router(
             raise HTTPException(422, str(error)) from error
         return {"seleccionados": cantidad}
 
+    @router.post("/api/v1/campanas/{campana_id}/turno-confirmacion")
+    def solicitar_turno_confirmacion(
+        campana_id: str,
+        _: None = Depends(verificar_csrf),
+        usuario: Usuario = Depends(obtener_usuario_actual),
+        sesion: Session = Depends(obtener_sesion),
+    ) -> dict[str, str | int]:
+        campana = consultar_campana(sesion, usuario, campana_id)
+        if campana is None:
+            raise HTTPException(404, "Campaña no encontrada.")
+        if campana.estado != EstadoCampana.ESPERANDO_CONFIRMACION:
+            raise HTTPException(409, "Esta campaña ya no espera confirmación.")
+        if not campana.seleccion_guardada:
+            raise HTTPException(409, "Guarda tu selección antes de revisar el envío.")
+        return api.state.turnos_confirmacion.solicitar(campana.id)
+
+    @router.delete("/api/v1/campanas/{campana_id}/turno-confirmacion", status_code=204)
+    def liberar_turno_confirmacion(
+        campana_id: str,
+        _: None = Depends(verificar_csrf),
+        usuario: Usuario = Depends(obtener_usuario_actual),
+        sesion: Session = Depends(obtener_sesion),
+    ) -> None:
+        campana = consultar_campana(sesion, usuario, campana_id)
+        if campana is None:
+            raise HTTPException(404, "Campaña no encontrada.")
+        api.state.turnos_confirmacion.liberar(campana.id)
+
     @router.get("/api/v1/campanas/{campana_id}/preparacion-envio")
     def preparacion_envio(
         campana_id: str,
@@ -75,6 +103,8 @@ def crear_router(
         campana = consultar_campana(sesion, usuario, campana_id)
         if campana is None:
             raise HTTPException(404, "Campaña no encontrada.")
+        if not api.state.turnos_confirmacion.vigente(campana.id):
+            raise HTTPException(409, "Espera tu turno para revisar el envío.")
         if not configuracion.sgva_activo or not cifrado_disponible:
             raise HTTPException(503, "El envío de campañas no está configurado.")
         try:
@@ -125,6 +155,8 @@ def crear_router(
             ) from error
         if firma.get("campana") != campana.id or firma.get("usuario") != usuario.id:
             raise HTTPException(409, "La confirmación no corresponde a esta campaña.")
+        if not api.state.turnos_confirmacion.vigente(campana.id):
+            raise HTTPException(409, "Tu turno de revisión venció. Abre de nuevo la lista.")
         try:
             cantidad = autorizar_envio(
                 sesion,
@@ -137,6 +169,7 @@ def crear_router(
         except (EnvioNoPermitido, ClaveCifradoInvalida) as error:
             raise HTTPException(409, str(error)) from error
         api.state.cola_envios.put_nowait(campana.id)
+        api.state.turnos_confirmacion.liberar(campana.id)
         return {"autorizados": cantidad}
 
     @router.get("/api/v1/campanas/{campana_id}/resultado-envio")

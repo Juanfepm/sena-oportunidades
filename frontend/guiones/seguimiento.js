@@ -119,8 +119,10 @@ async function revisar(referencia) {
       document.querySelector("#reanudar-campana").hidden = true;
       const rechazo = campana.etapa.startsWith("SGVA rechazó la consulta:");
       const credenciales = rechazo && /usuario|contraseña|documento/i.test(campana.etapa);
+      const sgvaNoResponde = campana.etapa === "SGVA no respondió";
       mostrarErrorProceso(credenciales ? "sgva_credenciales" : rechazo ? "sgva_restringido" : "servicio",
-        rechazo ? `SGVA informó: ${campana.etapa.split(":").slice(1).join(":").trim()} Revisa tus datos y vuelve a intentarlo.` : campana.etapa,
+        rechazo ? `SGVA informó: ${campana.etapa.split(":").slice(1).join(":").trim()} Revisa tus datos y vuelve a intentarlo.`
+          : sgvaNoResponde ? "SGVA no respondió. El problema puede estar en su servicio; inténtalo más tarde." : campana.etapa,
         referencia.tipo === "consulta" ? "campana" : null);
       return;
     }

@@ -7,6 +7,7 @@ import { configurarPremium } from "./premium.js";
 import { configurarRutas, irA } from "./rutas.js";
 import { campanaEnSeguimiento, configurarSeguimiento, detenerDatosDuranteEspera, detenerSeguimiento, iniciarDatosDuranteEspera, iniciarSeguimiento } from "./seguimiento.js";
 import { configurarUbicaciones } from "./ubicaciones.js";
+import { crearTurnoEnvio } from "./turno-envio.js";
 import { activarCorreccion, validarAdjuntos, validarFormulario } from "./validacion.js";
 
 const etapas = {
@@ -326,10 +327,21 @@ function configurarSimulacion() {
   let preparacion = null;
   let campanaPreparada = null;
   let focoAnterior = null;
+  const mostrarErrorEnvio = (error) => {
+    panel.hidden = true;
+    preparacion = null;
+    campanaPreparada = null;
+    for (const id of ["#aviso-envio-pendiente", "#aviso-envio-movil"]) {
+      const aviso = document.querySelector(id);
+      aviso.textContent = error.message;
+      aviso.hidden = false;
+    }
+  };
   const cerrar = (restaurarFoco = true) => {
     panel.hidden = true;
     preparacion = null;
     campanaPreparada = null;
+    void turno.liberar();
     if (restaurarFoco) focoAnterior?.focus();
   };
   panel.querySelectorAll("[data-cerrar-confirmacion]").forEach((boton) => boton.addEventListener("click", () => cerrar()));
@@ -347,51 +359,48 @@ function configurarSimulacion() {
       primero.focus();
     }
   });
-  const iniciarEnvio = async () => {
+  const turno = crearTurnoEnvio(
+    asegurarSeleccionGuardada,
+    async (campanaId, sigueVigente) => {
+      campanaPreparada = campanaId;
+      preparacion = await prepararEnvio(campanaId);
+      if (!sigueVigente()) return;
+      const fila = (empresa, omitida = false) => {
+        const item = document.createElement("li");
+        const nombre = document.createElement("strong");
+        const datos = document.createElement("span");
+        nombre.textContent = empresa.nombre_empresa;
+        datos.textContent = `${empresa.ubicacion} · ${empresa.correo}`;
+        item.append(nombre, datos);
+        if (omitida) {
+          const motivo = document.createElement("small");
+          motivo.textContent = empresa.motivo;
+          item.append(motivo);
+        }
+        return item;
+      };
+      document.querySelector("#remitente-confirmacion").textContent = preparacion.remitente;
+      document.querySelector("#destinatarios-confirmacion").replaceChildren(...preparacion.aptos.map((empresa) => fila(empresa)));
+      document.querySelector("#lista-omitidos-confirmacion").replaceChildren(...preparacion.omitidos.map((empresa) => fila(empresa, true)));
+      document.querySelector("#omitidos-confirmacion").hidden = preparacion.omitidos.length === 0;
+      document.querySelector("#asunto-confirmacion").textContent = preparacion.asunto;
+      document.querySelector("#cuerpo-confirmacion").textContent = preparacion.cuerpo;
+      document.querySelector("#archivos-confirmacion").textContent = preparacion.archivos.join(", ") || "Ninguno";
+      document.querySelector("#error-confirmacion").hidden = true;
+      const confirmar = document.querySelector("#confirmar-envio-real");
+      confirmar.disabled = preparacion.aptos.length === 0;
+      confirmar.textContent = preparacion.aptos.length
+        ? `Confirmar y enviar a ${preparacion.aptos.length} ${preparacion.aptos.length === 1 ? "empresa" : "empresas"}`
+        : "Sin destinatarios aptos";
+      focoAnterior = document.activeElement;
+      panel.hidden = false;
+      panel.querySelector(".boton_icono").focus();
+    },
+    mostrarErrorEnvio,
+  );
+  const iniciarEnvio = () => {
     if (document.querySelector("#iniciar-simulacion").dataset.modoConsulta === "sgva") {
-      const boton = document.querySelector("#iniciar-simulacion");
-      boton.disabled = true;
-      try {
-        campanaPreparada = await asegurarSeleccionGuardada();
-        preparacion = await prepararEnvio(campanaPreparada);
-        const fila = (empresa, omitida = false) => {
-          const item = document.createElement("li");
-          const nombre = document.createElement("strong");
-          const datos = document.createElement("span");
-          nombre.textContent = empresa.nombre_empresa;
-          datos.textContent = `${empresa.ubicacion} · ${empresa.correo}`;
-          item.append(nombre, datos);
-          if (omitida) {
-            const motivo = document.createElement("small");
-            motivo.textContent = empresa.motivo;
-            item.append(motivo);
-          }
-          return item;
-        };
-        document.querySelector("#remitente-confirmacion").textContent = preparacion.remitente;
-        document.querySelector("#destinatarios-confirmacion").replaceChildren(...preparacion.aptos.map((empresa) => fila(empresa)));
-        document.querySelector("#lista-omitidos-confirmacion").replaceChildren(...preparacion.omitidos.map((empresa) => fila(empresa, true)));
-        document.querySelector("#omitidos-confirmacion").hidden = preparacion.omitidos.length === 0;
-        document.querySelector("#asunto-confirmacion").textContent = preparacion.asunto;
-        document.querySelector("#cuerpo-confirmacion").textContent = preparacion.cuerpo;
-        document.querySelector("#archivos-confirmacion").textContent = preparacion.archivos.join(", ") || "Ninguno";
-        document.querySelector("#error-confirmacion").hidden = true;
-        const confirmar = document.querySelector("#confirmar-envio-real");
-        confirmar.disabled = preparacion.aptos.length === 0;
-        confirmar.textContent = preparacion.aptos.length
-          ? `Confirmar y enviar a ${preparacion.aptos.length} ${preparacion.aptos.length === 1 ? "empresa" : "empresas"}`
-          : "Sin destinatarios aptos";
-        focoAnterior = document.activeElement;
-        panel.hidden = false;
-        panel.querySelector(".boton_icono").focus();
-      } catch (error) {
-        document.querySelector("#aviso-envio-pendiente").textContent = error.message;
-        document.querySelector("#aviso-envio-pendiente").hidden = false;
-        document.querySelector("#aviso-envio-movil").textContent = error.message;
-        document.querySelector("#aviso-envio-movil").hidden = false;
-      } finally {
-        boton.disabled = false;
-      }
+      void turno.iniciar();
       return;
     }
     iniciarSimulacion("envio");
@@ -404,15 +413,12 @@ function configurarSimulacion() {
     try {
       await confirmarEnvio(campanaPreparada, preparacion.aptos.map(({ id }) => id), preparacion.confirmacion);
       const campanaId = campanaPreparada;
+      turno.completado();
       cerrar(false);
       iniciarSeguimiento(campanaId, "envio");
     } catch (error) {
-      document.querySelector("#error-confirmacion").textContent = error.message;
-      document.querySelector("#error-confirmacion").hidden = false;
-      boton.disabled = true;
-      boton.textContent = "Cierra y revisa el estado de la campaña";
-      preparacion = null;
-      campanaPreparada = null;
+      cerrar(false);
+      mostrarErrorEnvio(error);
     }
   });
   document.querySelector("#iniciar-simulacion").addEventListener("click", iniciarEnvio);

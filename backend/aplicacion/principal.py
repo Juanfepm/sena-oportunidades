@@ -23,6 +23,7 @@ from .rutas.consultas import crear_router as rutas_consultas
 from .rutas.envios import crear_router as rutas_envios
 from .rutas.premium import router as router_premium
 from .rutas.temporales import router as router_temporales
+from .servicios.turnos_confirmacion import TurnosConfirmacion
 
 
 def crear_aplicacion(
@@ -53,6 +54,7 @@ def crear_aplicacion(
     api.state.cola_sgva = asyncio.Queue(maxsize=10)
     api.state.tareas_sgva = {}
     api.state.cola_envios = asyncio.Queue(maxsize=10)
+    api.state.turnos_confirmacion = TurnosConfirmacion()
     firma_envio = URLSafeTimedSerializer(
         configuracion.secreto_sesion or "solo-pruebas-locales",
         salt="debupa-confirmar-envio",

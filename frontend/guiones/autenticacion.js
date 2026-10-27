@@ -14,6 +14,7 @@ function actualizarPlan(plan) {
   opcionPremium.textContent = plan === "premium" ? "Premium · activo" : "Premium · pendiente de activación";
   selector.value = plan === "premium" ? "premium" : "gratis";
   selector.dispatchEvent(new Event("change"));
+  selector.disabled = plan === "premium";
 }
 
 async function obtenerJson(ruta) {

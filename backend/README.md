@@ -11,6 +11,7 @@ Base local en FastAPI y SQLAlchemy. El código, las rutas y los modelos usan nom
 - Un adjunto para gratis, dos para premium, ambos de hasta 5 MB; la espera de un mes calendario para gratis comienza solo después de un envío registrado. Premium no espera y una búsqueda sin envíos permite reintentar.
 - Separación de alta coincidencia y «por revisar», y validación de ubicación, fecha y adjuntos.
 - Selección local de ciudades y municipios principales verificada con [DIVIPOLA](https://www.datos.gov.co/Mapas-Nacionales/DIVIPOLA-C-digos-municipios/gdxc-w37w), sincronizada con el frontend mediante `python -m herramientas.actualizar_municipios`.
+- Turno breve y ordenado para la revisión final: una campaña espera mientras otra cuenta confirma; el turno se libera al cerrar o autorizar, y vence si se abandona. Esta coordinación reside en memoria y requiere **un solo proceso de Uvicorn**.
 - Consulta de SGVA con un único navegador Chromium, lectura del listado y detalles sin pulsar «Aplicar».
 - Consulta de todos los departamentos en dos búsquedas y lectura de ofertas recientes primero. Clasificación optativa en Gemini con puntuación y motivo, sujeta a autorización del aprendiz.
 - Solicitud Premium de $7.500 COP por tres meses: comprobante cifrado, revisión humana desde el panel y aviso por correo. El cliente nunca puede asignarse Premium.
@@ -152,7 +153,8 @@ Activa Gmail API en Google Cloud y declara únicamente el permiso `https://www.g
 | `GET /api/v1/campanas/{id}/destinatarios` | Sesión | Muestra hasta nueve ofertas al plan gratis y todas al premium, con el estado de selección guardado. |
 | `PUT /api/v1/campanas/{id}/seleccion` | Sesión + CSRF | Guarda la selección propia; valida límites del plan, visibilidad y correo antes de aceptarla. No envía mensajes. |
 | `GET /api/v1/campanas/{id}/contenido/edicion` | Sesión | Recupera texto y nombres de adjuntos para editar antes de la confirmación; no entrega los archivos. |
-| `GET /api/v1/campanas/{id}/preparacion-envio` | Sesión | Muestra remitente, mensaje, adjuntos y destinatarios aptos u omitidos; entrega una confirmación temporal firmada. |
+| `POST` y `DELETE /api/v1/campanas/{id}/turno-confirmacion` | Sesión + CSRF | Solicita o libera el turno para la revisión final. |
+| `GET /api/v1/campanas/{id}/preparacion-envio` | Sesión + turno | Muestra remitente, mensaje, adjuntos y destinatarios aptos u omitidos; entrega una confirmación temporal firmada. |
 | `POST /api/v1/campanas/{id}/enviar` | Sesión + CSRF | Con confirmación explícita, reserva los destinatarios y pone los envíos individuales en cola. |
 | `GET /api/v1/campanas/{id}/resultado-envio` | Sesión | Muestra estados y contactos de la campaña sin exponer el contenido cifrado. |
 | `GET /api/v1/correos-excluidos` y `DELETE /api/v1/correos-excluidos/{correo}` | Sesión | Gestiona exclusiones propias. |

@@ -31,6 +31,7 @@ from backend.aplicacion.servicios.temporales import (
     guardar_contenido,
     recuperar_contenido,
 )
+from backend.aplicacion.servicios.turnos_confirmacion import TurnosConfirmacion
 
 
 @pytest.fixture
@@ -275,6 +276,8 @@ def test_api_exige_confirmacion_y_muestra_resultado(contexto, monkeypatch):
             ).status_code
             == 422
         )
+        assert cliente.get(f"{ruta}/preparacion-envio").status_code == 409
+        assert cliente.post(f"{ruta}/turno-confirmacion").json()["estado"] == "listo"
         preparacion = cliente.get(f"{ruta}/preparacion-envio")
         assert preparacion.status_code == 200
         assert preparacion.headers["Cache-Control"] == "no-store"
@@ -308,6 +311,56 @@ def test_api_exige_confirmacion_y_muestra_resultado(contexto, monkeypatch):
         assert all(item["estado"] == "enviado" for item in resultado.json())
         assert len(mensajes) == 3
         assert cliente.get(f"{ruta}/contenido/edicion").status_code == 409
+
+
+def test_turnos_confirmacion_respetan_orden_y_liberacion():
+    turnos = TurnosConfirmacion()
+    assert turnos.solicitar("primera")["estado"] == "listo"
+    assert turnos.solicitar("segunda") == {
+        "estado": "en_espera",
+        "personas_delante": 1,
+    }
+    assert turnos.solicitar("tercera")["personas_delante"] == 2
+    assert not turnos.vigente("segunda")
+    turnos.liberar("primera")
+    assert turnos.solicitar("tercera")["personas_delante"] == 1
+    assert turnos.solicitar("segunda")["estado"] == "listo"
+    turnos.liberar("segunda")
+    assert turnos.solicitar("tercera")["estado"] == "listo"
+
+
+def test_api_espera_hasta_liberar_confirmacion(contexto):
+    fabrica, configuracion, usuario_id, campana_id, _ids = contexto
+    with fabrica() as sesion:
+        segunda = Campana(
+            usuario_id=usuario_id,
+            plan_aplicado="premium",
+            limite_contactos=70,
+            modalidad="remoto",
+            departamento="todos",
+            ciudad="todas",
+            antiguedad_dias=7,
+            modo_consulta="sgva",
+            permitir_recontacto=False,
+            estado=EstadoCampana.ESPERANDO_CONFIRMACION,
+            seleccion_guardada=True,
+        )
+        sesion.add(segunda)
+        sesion.commit()
+        segunda_id = segunda.id
+    app = crear_aplicacion(configuracion, fabrica.kw["bind"])
+    app.dependency_overrides[obtener_usuario_actual] = lambda: Usuario(
+        id=usuario_id, plan="premium"
+    )
+    app.dependency_overrides[verificar_csrf] = lambda: None
+    with TestClient(app) as cliente:
+        primera = f"/api/v1/campanas/{campana_id}/turno-confirmacion"
+        segunda = f"/api/v1/campanas/{segunda_id}/turno-confirmacion"
+        assert cliente.post(primera).json()["estado"] == "listo"
+        assert cliente.post(segunda).json()["estado"] == "en_espera"
+        assert cliente.get(f"/api/v1/campanas/{segunda_id}/preparacion-envio").status_code == 409
+        assert cliente.delete(primera).status_code == 204
+        assert cliente.post(segunda).json()["estado"] == "listo"
 
 
 def test_sin_correo_de_debupa_no_autoriza_envios(contexto):

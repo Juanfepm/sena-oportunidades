@@ -136,6 +136,21 @@ export async function prepararEnvio(campanaId) {
   return respuesta.json();
 }
 
+export async function solicitarTurnoConfirmacion(campanaId) {
+  const respuesta = await enviarConCsrf(`/api/v1/campanas/${encodeURIComponent(campanaId)}/turno-confirmacion`, {
+    method: "POST",
+  });
+  if (!respuesta.ok) throw new Error((await leerMensajeError(respuesta)).mensaje);
+  return respuesta.json();
+}
+
+export async function liberarTurnoConfirmacion(campanaId) {
+  const respuesta = await enviarConCsrf(`/api/v1/campanas/${encodeURIComponent(campanaId)}/turno-confirmacion`, {
+    method: "DELETE",
+  });
+  if (!respuesta.ok) throw new Error((await leerMensajeError(respuesta)).mensaje);
+}
+
 export async function confirmarEnvio(campanaId, destinatarios, confirmacion) {
   const respuesta = await enviarConCsrf(`/api/v1/campanas/${encodeURIComponent(campanaId)}/enviar`, {
     method: "POST",
