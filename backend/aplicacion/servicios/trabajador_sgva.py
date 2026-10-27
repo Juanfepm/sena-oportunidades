@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from ..dominio.estados import EstadoCampana
 from ..dominio.ofertas import EvaluacionIA
+from ..dominio.texto import limpiar_texto_externo
 from ..esquemas import PATRON_CORREO
 from ..integraciones.contratos import (
     AccesoSGVARestringido,
@@ -105,14 +106,15 @@ def guardar_ofertas(
         sesion.add(
             Destinatario(
                 campana_id=campana.id,
-                nombre_empresa=oferta.nombre_empresa[:180],
+                nombre_empresa=limpiar_texto_externo(oferta.nombre_empresa)[:180],
                 correo=correo,
-                telefono_original=(oferta.telefono_original or "")[:80] or None,
-                descripcion=oferta.descripcion,
-                departamento=oferta.departamento[:80],
-                ciudad=oferta.ciudad[:80],
+                telefono_original=limpiar_texto_externo(oferta.telefono_original or "")[:80]
+                or None,
+                descripcion=limpiar_texto_externo(oferta.descripcion, multilinea=True),
+                departamento=limpiar_texto_externo(oferta.departamento)[:80],
+                ciudad=limpiar_texto_externo(oferta.ciudad)[:80],
                 dias_publicada=oferta.dias_publicada,
-                motivo=motivo,
+                motivo=limpiar_texto_externo(motivo),
                 puntuacion=evaluacion.puntuacion if evaluacion else None,
                 estado=estado,
             )

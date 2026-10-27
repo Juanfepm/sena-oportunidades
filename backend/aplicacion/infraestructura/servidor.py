@@ -24,8 +24,14 @@ from ..servicios.temporales import limpiar_expirados
 from ..servicios.trabajador_demo import vigilar_cola
 from ..servicios.trabajador_envio import vigilar_envios
 from ..servicios.trabajador_sgva import interrumpir_sin_credenciales, vigilar_consultas
+from .limites import regla_para
 
 MAXIMO_PETICION_TEMPORAL = 11 * 1024 * 1024
+POLITICA_CONTENIDO = (
+    "default-src 'self'; img-src 'self' data: blob:; frame-src 'self' blob:; "
+    "script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; "
+    "base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+)
 
 
 def crear_ciclo_vida(configuracion: Configuracion):
@@ -117,34 +123,32 @@ def registrar_respuestas(api: FastAPI) -> None:
     @api.middleware("http")
     async def proteger_respuestas(peticion: Request, siguiente) -> Response:
         try:
-            if peticion.method == "POST" and peticion.url.path == "/api/v1/pagos-premium":
-                longitud = peticion.headers.get("content-length", "")
-                if not longitud.isdigit():
+            origen = peticion.headers.get("origin")
+            permitido = api.state.configuracion.origen_publico or str(peticion.base_url).rstrip(
+                "/"
+            )
+            if (
+                peticion.url.path.startswith("/api/v1/")
+                and origen is not None
+                and origen != permitido
+            ):
+                respuesta = JSONResponse({"detail": "Origen no autorizado."}, status_code=403)
+            elif regla := regla_para(peticion.method, peticion.url.path):
+                operacion, cantidad, ventana = regla
+                cliente = peticion.session.get("usuario_id") or (
+                    peticion.client.host if peticion.client else "desconocido"
+                )
+                espera = await api.state.limites.comprobar(cliente, operacion, cantidad, ventana)
+                if espera:
                     respuesta = JSONResponse(
-                        {"detail": "Indica el tamaño del comprobante."}, status_code=411
-                    )
-                elif int(longitud) > 3 * 1024 * 1024:
-                    respuesta = JSONResponse(
-                        {"detail": "El comprobante supera el límite."}, status_code=413
-                    )
-                else:
-                    respuesta = await siguiente(peticion)
-            elif peticion.method == "PUT" and peticion.url.path.endswith("/contenido"):
-                longitud = peticion.headers.get("content-length", "")
-                if not longitud.isdigit():
-                    respuesta = JSONResponse(
-                        {"detail": "Indica el tamaño total de la solicitud."},
-                        status_code=411,
-                    )
-                elif int(longitud) > MAXIMO_PETICION_TEMPORAL:
-                    respuesta = JSONResponse(
-                        {"detail": "El contenido supera el límite permitido."},
-                        status_code=413,
+                        {"detail": "Demasiadas solicitudes. Inténtalo más tarde."},
+                        status_code=429,
+                        headers={"Retry-After": str(espera)},
                     )
                 else:
-                    respuesta = await siguiente(peticion)
+                    respuesta = await _procesar_peticion(peticion, siguiente)
             else:
-                respuesta = await siguiente(peticion)
+                respuesta = await _procesar_peticion(peticion, siguiente)
         except SQLAlchemyError:
             if (
                 peticion.method == "GET"
@@ -160,6 +164,39 @@ def registrar_respuestas(api: FastAPI) -> None:
                     status_code=503,
                 )
         respuesta.headers["Cache-Control"] = "no-store"
+        respuesta.headers["Content-Security-Policy"] = POLITICA_CONTENIDO
         respuesta.headers["Referrer-Policy"] = "no-referrer"
         respuesta.headers["X-Content-Type-Options"] = "nosniff"
+        respuesta.headers["X-Frame-Options"] = "DENY"
+        return respuesta
+
+    async def _procesar_peticion(peticion: Request, siguiente) -> Response:
+        if peticion.method == "POST" and peticion.url.path == "/api/v1/pagos-premium":
+            longitud = peticion.headers.get("content-length", "")
+            if not longitud.isdigit():
+                respuesta = JSONResponse(
+                    {"detail": "Indica el tamaño del comprobante."}, status_code=411
+                )
+            elif int(longitud) > 3 * 1024 * 1024:
+                respuesta = JSONResponse(
+                    {"detail": "El comprobante supera el límite."}, status_code=413
+                )
+            else:
+                respuesta = await siguiente(peticion)
+        elif peticion.method == "PUT" and peticion.url.path.endswith("/contenido"):
+            longitud = peticion.headers.get("content-length", "")
+            if not longitud.isdigit():
+                respuesta = JSONResponse(
+                    {"detail": "Indica el tamaño total de la solicitud."},
+                    status_code=411,
+                )
+            elif int(longitud) > MAXIMO_PETICION_TEMPORAL:
+                respuesta = JSONResponse(
+                    {"detail": "El contenido supera el límite permitido."},
+                    status_code=413,
+                )
+            else:
+                respuesta = await siguiente(peticion)
+        else:
+            respuesta = await siguiente(peticion)
         return respuesta

@@ -14,6 +14,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from .base_datos import crear_motor
 from .configuracion import Configuracion
 from .dominio.archivos import MAXIMO_BYTES
+from .infraestructura.limites import LimiteSolicitudes
 from .infraestructura.servidor import crear_ciclo_vida, registrar_respuestas
 from .integraciones.cifrado import ClaveCifradoInvalida, obtener_cifrador
 from .rutas.administracion import router as router_administracion
@@ -32,6 +33,8 @@ def crear_aplicacion(
     configuracion = configuracion or Configuracion.desde_entorno()
     if configuracion.entorno == "produccion" and not configuracion.secreto_sesion:
         raise ValueError("Producción requiere DEBUPA_SECRETO_SESION para firmar las sesiones.")
+    if configuracion.entorno == "produccion" and not configuracion.origen_publico:
+        raise ValueError("Producción requiere DEBUPA_ORIGEN_PUBLICO para limitar el origen.")
     if (
         configuracion.google_cliente_id
         and configuracion.google_cliente_secreto
@@ -43,11 +46,14 @@ def crear_aplicacion(
         cifrado_disponible = True
     except ClaveCifradoInvalida:
         cifrado_disponible = False
+    if configuracion.entorno == "produccion" and not cifrado_disponible:
+        raise ValueError("Producción requiere DEBUPA_CLAVE_CIFRADO válida.")
 
     motor = motor or crear_motor(configuracion)
     MultiPartParser.spool_max_size = MAXIMO_BYTES + 1
     api = FastAPI(title="API de DEBUPA", version="0.1.0", lifespan=crear_ciclo_vida(configuracion))
     api.state.configuracion = configuracion
+    api.state.limites = LimiteSolicitudes()
     api.state.cifrado_disponible = cifrado_disponible
     api.state.fabrica_sesiones = sessionmaker(motor, expire_on_commit=False)
     api.state.aviso_cola = asyncio.Event()
@@ -59,6 +65,7 @@ def crear_aplicacion(
         configuracion.secreto_sesion or "solo-pruebas-locales",
         salt="debupa-confirmar-envio",
     )
+    registrar_respuestas(api)
     api.add_middleware(
         SessionMiddleware,
         secret_key=configuracion.secreto_sesion
@@ -68,7 +75,6 @@ def crear_aplicacion(
         same_site="lax",
         max_age=7 * 24 * 60 * 60,
     )
-    registrar_respuestas(api)
     api.include_router(rutas_autenticacion(configuracion, cifrado_disponible))
     api.include_router(rutas_consultas(configuracion, cifrado_disponible))
     api.include_router(rutas_campanas(api, configuracion))

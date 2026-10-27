@@ -17,6 +17,7 @@ from playwright.async_api import TimeoutError as TiempoAgotado
 from playwright.async_api import async_playwright
 
 from ..dominio.ofertas import OfertaSGVA
+from ..dominio.texto import limpiar_texto_externo
 from .contratos import AccesoSGVARestringido, SGVAEntornoIncompatible, SGVANoDisponible
 
 ORIGEN = "https://caprendizaje.sena.edu.co"
@@ -126,7 +127,7 @@ async def _ingresar(pagina, documento: str, clave: str) -> None:
 
 
 def texto_plano(valor: object) -> str:
-    return html.unescape(re.sub(r"<[^>]*>", " ", str(valor or ""))).strip()
+    return limpiar_texto_externo(html.unescape(re.sub(r"<[^>]*>", " ", str(valor or ""))))
 
 
 async def _detalle(pagina, identificador: str, nombre: str, hoy: date) -> OfertaSGVA:
@@ -216,8 +217,9 @@ async def _buscar_departamento(
 
 async def _filas_busqueda(pagina) -> list:
     async with pagina.expect_response(
-        lambda respuesta: "/sgva/Solicitudes/AprendizConsultarSolicitudesRequeridas"
-        in respuesta.url,
+        lambda respuesta: (
+            "/sgva/Solicitudes/AprendizConsultarSolicitudesRequeridas" in respuesta.url
+        ),
         timeout=20000,
     ) as respuesta_pendiente:
         await pagina.locator("#btn_buscar_solicitud").click()

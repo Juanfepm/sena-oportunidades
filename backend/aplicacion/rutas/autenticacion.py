@@ -28,6 +28,7 @@ from ..integraciones.oauth_google import (
 )
 from ..modelos import ConexionGmail, Usuario
 from ..seguridad import obtener_token_csrf, obtener_usuario_actual, verificar_csrf
+from ..servicios.correo_marca import aviso_html
 from ..servicios.identidad_google import (
     IdentidadGoogleInvalida,
     PermisoGmailAusente,
@@ -227,6 +228,11 @@ def crear_router(configuracion: Configuracion, cifrado_disponible: bool) -> APIR
                         "text",
                         "plain",
                     ),
+                ),
+                aviso_html(
+                    "Prueba de conexión",
+                    "DEBUPA puede enviar desde tu cuenta de Gmail. "
+                    "No se contactó a ninguna empresa.",
                 ),
             )
         except (PermisoGmailInvalido, ClaveCifradoInvalida) as error:

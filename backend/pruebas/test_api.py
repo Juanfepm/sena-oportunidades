@@ -60,10 +60,35 @@ def acceso() -> dict[str, str]:
     return {"Authorization": "Bearer clave-segura-de-pruebas-locales-2026"}
 
 
+def test_api_rechaza_origen_ajeno_y_limita_creacion(cliente: TestClient) -> None:
+    ajeno = cliente.post(
+        "/api/v1/campanas",
+        json=solicitud_valida(),
+        headers={**acceso(), "Origin": "https://sitio-ajeno.example"},
+    )
+    assert ajeno.status_code == 403
+
+    codigos = [
+        cliente.post("/api/v1/campanas", json={}, headers=acceso()).status_code for _ in range(13)
+    ]
+    assert codigos[:12] == [422] * 12
+    assert codigos[12] == 429
+
+
+def test_backend_rechaza_caracteres_ocultos_en_texto(cliente: TestClient) -> None:
+    solicitud = solicitud_valida()
+    solicitud["departamento"] = "todos\u202e"
+    respuesta = cliente.post("/api/v1/campanas", json=solicitud, headers=acceso())
+    assert respuesta.status_code == 422
+
+
 def test_capacidades_no_prometen_integraciones(cliente: TestClient):
     respuesta = cliente.get("/api/v1/salud")
     assert respuesta.status_code == 200
     assert respuesta.headers["Cache-Control"] == "no-store"
+    assert "script-src 'self'" in respuesta.headers["Content-Security-Policy"]
+    assert "frame-ancestors 'none'" in respuesta.headers["Content-Security-Policy"]
+    assert "Access-Control-Allow-Origin" not in respuesta.headers
     capacidades = cliente.get("/api/v1/capacidades").json()
     assert capacidades["borradores"] is True
     assert capacidades["sgva"] is False

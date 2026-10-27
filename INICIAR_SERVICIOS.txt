@@ -110,7 +110,7 @@ Aplica las migraciones pendientes. Ejecutar upgrade head otra vez es seguro:
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini current
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini check
 
-current debe mostrar 0008_premium_revision (head).
+current debe mostrar 0009_rls_datos_privados (head).
 check debe terminar con No new upgrade operations detected.
 
 8. INICIAR EL SERVIDOR

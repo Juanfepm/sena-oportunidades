@@ -21,6 +21,7 @@ from ..integraciones.gmail import (
 from ..modelos import Campana, ConexionGmail, Destinatario, HistorialEnvio
 from .campanas_envio import interrumpir_envios
 from .conexiones_gmail import obtener_conexion_resumen
+from .correo_empresa import preparar_correo_empresa
 from .resumen_correo import CORREO_DEBUPA, crear_resumen
 from .temporales import eliminar_contenido, recuperar_contenido
 
@@ -91,8 +92,16 @@ async def procesar_envio(
             sesion.commit()
             correo = envio.correo
         try:
+            cuerpo_con_firma, cuerpo_html = preparar_correo_empresa(cuerpo)
             mensaje_id = await enviar_gmail(
-                configuracion, token, remitente, correo, asunto, cuerpo, adjuntos
+                configuracion,
+                token,
+                remitente,
+                correo,
+                asunto,
+                cuerpo_con_firma,
+                adjuntos,
+                cuerpo_html,
             )
         except (EnvioGmailNoConfirmado, PermisoGmailInvalido, GmailNoDisponible) as error:
             with fabrica() as sesion:

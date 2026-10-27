@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-labelledby="titulo">
+  <title id="titulo">Icono de DEBUPA</title>
+  <rect width="100" height="100" rx="22" fill="#25815e" />
+  <circle cx="30" cy="40" r="5.5" fill="#fff" />
+  <circle cx="30" cy="61" r="5.5" fill="#fff" />
+  <path
+    fill="#fff"
+    fill-rule="evenodd"
+    d="M46 28h15c15 0 25 9 25 22S76 72 61 72H46V28Zm10 9v26h5c9 0 15-5 15-13s-6-13-15-13h-5Z"
+  />
+</svg>

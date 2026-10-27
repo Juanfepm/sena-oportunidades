@@ -20,6 +20,7 @@ from ..modelos import PagoPremium, Usuario
 from ..seguridad import obtener_administrador, verificar_csrf
 from ..servicios.avisos_premium import notificar_decision
 from ..servicios.conexiones_gmail import obtener_conexion_resumen
+from ..servicios.correo_marca import aviso_html
 from ..servicios.estadisticas_administracion import obtener_estadisticas
 from ..servicios.pagos import verificar_pago
 from ..servicios.resumen_correo import CORREO_DEBUPA
@@ -154,6 +155,11 @@ async def probar_correo_servicio(
             CORREO_DEBUPA,
             "DEBUPA · Prueba del correo de servicio",
             "El correo de servicio puede enviar los resúmenes y avisos Premium.",
+            (),
+            aviso_html(
+                "Correo de servicio conectado",
+                "El correo de servicio puede enviar los resúmenes y avisos Premium.",
+            ),
         )
     except (
         EnvioGmailNoConfirmado,

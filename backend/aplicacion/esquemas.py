@@ -6,11 +6,10 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 
+from .dominio.texto import limpiar_texto
 from .dominio.ubicaciones import MUNICIPIOS_POR_DEPARTAMENTO
 
 PATRON_CORREO = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
-PATRON_CONTROL = re.compile(r"[\x00-\x1f\x7f]")
-PATRON_CONTROL_TEXTO = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
 
 class SolicitudBorrador(BaseModel):
@@ -28,9 +27,7 @@ class SolicitudBorrador(BaseModel):
     @field_validator("departamento", "ciudad")
     @classmethod
     def limpiar_ubicacion(cls, valor: str) -> str:
-        if PATRON_CONTROL.search(valor):
-            raise ValueError("La ubicación contiene caracteres de control.")
-        return valor
+        return limpiar_texto(valor)
 
     @field_validator("correos_excluidos")
     @classmethod
@@ -135,9 +132,7 @@ class PerfilTemporalIA(BaseModel):
     @field_validator("habilidades", "actividades_deseadas", "actividades_no_deseadas")
     @classmethod
     def validar_texto(cls, valor: str) -> str:
-        if PATRON_CONTROL_TEXTO.search(valor):
-            raise ValueError("El perfil contiene caracteres de control.")
-        return valor
+        return limpiar_texto(valor, multilinea=True)
 
 
 class SolicitudAccesoSGVA(BaseModel):
@@ -162,16 +157,12 @@ class SolicitudContenidoTemporal(BaseModel):
     @field_validator("habilidades", "actividades_deseadas", "actividades_no_deseadas", "cuerpo")
     @classmethod
     def validar_texto(cls, valor: str) -> str:
-        if PATRON_CONTROL_TEXTO.search(valor):
-            raise ValueError("El texto contiene caracteres de control.")
-        return valor
+        return limpiar_texto(valor, multilinea=True)
 
     @field_validator("asunto")
     @classmethod
     def validar_asunto(cls, valor: str) -> str:
-        if PATRON_CONTROL.search(valor):
-            raise ValueError("El asunto no admite saltos de línea ni caracteres de control.")
-        return valor
+        return limpiar_texto(valor)
 
 
 class ResumenContenidoTemporal(BaseModel):

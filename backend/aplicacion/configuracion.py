@@ -2,25 +2,40 @@
 
 from dataclasses import dataclass, field
 from os import getenv
+from urllib.parse import urlsplit
 
 
 @dataclass(frozen=True)
 class Configuracion:
     entorno: str = "desarrollo"
-    base_datos: str = "sqlite:///./backend/datos/desarrollo.sqlite3"
-    clave_pruebas: str | None = None
+    base_datos: str = field(default="sqlite:///./backend/datos/desarrollo.sqlite3", repr=False)
+    clave_pruebas: str | None = field(default=None, repr=False)
     usuario_pruebas: str = "aprendiz-local"
     google_cliente_id: str | None = None
-    google_cliente_secreto: str | None = None
+    google_cliente_secreto: str | None = field(default=None, repr=False)
     google_uri_redireccion: str = "http://127.0.0.1:8000/api/v1/autenticacion/google/callback"
     google_url_inicio: str = "/#inicio"
+    origen_publico: str | None = None
     correo_administrador: str | None = None
-    secreto_sesion: str | None = None
-    clave_cifrado: str | None = None
+    secreto_sesion: str | None = field(default=None, repr=False)
+    clave_cifrado: str | None = field(default=None, repr=False)
     sgva_activo: bool = False
     gemini_clave: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
+        if self.origen_publico:
+            origen = urlsplit(self.origen_publico)
+            if (
+                origen.scheme not in {"http", "https"}
+                or not origen.netloc
+                or origen.path
+                or origen.query
+                or origen.fragment
+                or origen.username
+                or origen.password
+                or (self.entorno == "produccion" and origen.scheme != "https")
+            ):
+                raise ValueError("DEBUPA_ORIGEN_PUBLICO debe ser un origen HTTPS sin ruta.")
         if self.clave_pruebas and len(self.clave_pruebas) < 32:
             raise ValueError("La clave local de desarrollo debe tener al menos 32 caracteres.")
         if self.secreto_sesion and len(self.secreto_sesion) < 32:
@@ -40,6 +55,7 @@ class Configuracion:
                 "http://127.0.0.1:8000/api/v1/autenticacion/google/callback",
             ),
             google_url_inicio=getenv("GOOGLE_URL_INICIO", "/#inicio"),
+            origen_publico=getenv("DEBUPA_ORIGEN_PUBLICO"),
             correo_administrador=getenv("DEBUPA_CORREO_ADMIN"),
             secreto_sesion=getenv("DEBUPA_SECRETO_SESION"),
             clave_cifrado=getenv("DEBUPA_CLAVE_CIFRADO"),

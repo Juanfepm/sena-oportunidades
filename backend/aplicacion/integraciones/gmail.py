@@ -4,6 +4,7 @@ from base64 import urlsafe_b64encode
 from dataclasses import dataclass
 from email.message import EmailMessage
 from email.policy import SMTP
+from pathlib import Path
 
 import httpx
 
@@ -47,6 +48,11 @@ def preparar_mensaje(
     mensaje.set_content(cuerpo)
     if cuerpo_html is not None:
         mensaje.add_alternative(cuerpo_html, subtype="html")
+        if "cid:debupa-icono" in cuerpo_html:
+            icono = Path(__file__).resolve().parents[3] / "frontend/recursos/debupa-icono.png"
+            mensaje.get_body(preferencelist=("html",)).add_related(
+                icono.read_bytes(), maintype="image", subtype="png", cid="<debupa-icono>"
+            )
     for adjunto in adjuntos:
         mensaje.add_attachment(
             adjunto.contenido,

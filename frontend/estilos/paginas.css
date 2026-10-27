@@ -45,6 +45,7 @@
   font-weight: 700;
   height: 2.7rem;
   justify-content: center;
+  position: relative;
   width: 2.7rem;
 }
 
@@ -902,6 +903,12 @@
   overflow-wrap: anywhere;
 }
 
+.firma_correo_vista {
+  color: var(--color_muted);
+  font-size: 0.76rem;
+  margin-top: -0.4rem;
+}
+
 #panel-confirmar-envio .panel_seleccion_contenido {
   max-width: 36rem;
 }
@@ -1169,7 +1176,17 @@
 .resultado_tarjeta_cabecera {
   align-items: center;
   display: flex;
+  gap: 0.5rem;
   justify-content: space-between;
+}
+
+.marca_tarjeta {
+  bottom: -0.25rem;
+  height: 0.85rem;
+  opacity: 0.72;
+  position: absolute;
+  right: -0.25rem;
+  width: 0.85rem;
 }
 
 .resultado_tarjeta dd {

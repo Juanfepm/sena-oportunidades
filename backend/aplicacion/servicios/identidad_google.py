@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..configuracion import Configuracion
+from ..dominio.texto import limpiar_texto_externo
 from ..integraciones.cifrado import ClaveCifradoInvalida, cifrar_token, descifrar_token
 from ..integraciones.oauth_google import PERMISO_ENVIO_GMAIL, CredencialesGoogle
 from ..modelos import ConexionGmail, Usuario
@@ -27,6 +28,7 @@ def registrar_cuenta(
     correo = str(identidad.get("email", "")).strip().lower()
     if not sujeto or not correo or identidad.get("email_verified") is not True:
         raise IdentidadGoogleInvalida("La identidad de Google no está verificada.")
+    nombre = limpiar_texto_externo(str(identidad.get("name", ""))) or None
     permisos = token.get("scope")
     if not isinstance(permisos, str) or PERMISO_ENVIO_GMAIL not in permisos.split():
         raise PermisoGmailAusente("Google no autorizó el envío por Gmail.")
@@ -38,12 +40,12 @@ def registrar_cuenta(
         usuario = Usuario(
             identificador_externo=f"google:{sujeto}",
             correo_google=correo,
-            nombre_google=str(identidad.get("name", "")).strip() or None,
+            nombre_google=nombre,
         )
         sesion.add(usuario)
     else:
         usuario.correo_google = correo
-        usuario.nombre_google = str(identidad.get("name", "")).strip() or usuario.nombre_google
+        usuario.nombre_google = nombre or usuario.nombre_google
         usuario.ultimo_acceso_en = datetime.now(timezone.utc)
     usuario.es_administrador = bool(
         configuracion.correo_administrador

@@ -168,9 +168,13 @@ def test_envia_una_vez_y_borra_contenido(contexto, monkeypatch):
         "empresa2@ejemplo.com",
     }
     assert all(mensaje[1] == "aprendiz@ejemplo.com" for mensaje in mensajes[:2])
+    assert all(mensaje[4].startswith("Hola") for mensaje in mensajes[:2])
+    assert all("Correo enviado con apoyo de DEBUPA" in mensaje[4] for mensaje in mensajes[:2])
+    assert all("cid:debupa-icono" not in mensaje[6] for mensaje in mensajes[:2])
     assert mensajes[2][0] == "token-debupa-cifrado-ficticio"
     assert mensajes[2][1:3] == ("debupawebapp@gmail.com", "aprendiz@ejemplo.com")
     assert "3001234567" in mensajes[2][6]
+    assert 'src="cid:debupa-icono"' in mensajes[2][6]
     with fabrica() as sesion:
         assert sesion.get(Campana, campana_id).estado == EstadoCampana.COMPLETADA
         assert all(

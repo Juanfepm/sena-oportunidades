@@ -20,6 +20,23 @@ from backend.aplicacion.modelos import HistorialEnvio
 from backend.aplicacion.principal import crear_aplicacion
 
 
+def test_icono_solo_se_incrusta_en_avisos_de_debupa() -> None:
+    con_icono = gmail.preparar_mensaje(
+        "debupawebapp@gmail.com",
+        "aprendiz@ejemplo.com",
+        "Resumen",
+        "Resumen de contacto",
+        cuerpo_html='<img src="cid:debupa-icono" alt="">',
+    )
+    sin_icono = gmail.preparar_mensaje(
+        "aprendiz@ejemplo.com", "empresa@ejemplo.com", "Práctica", "Hola"
+    )
+    aviso = BytesParser(policy=default).parsebytes(urlsafe_b64decode(con_icono))
+    empresa = BytesParser(policy=default).parsebytes(urlsafe_b64decode(sin_icono))
+    assert any(parte.get_content_type() == "image/png" for parte in aviso.walk())
+    assert not any(parte.get_content_type() == "image/png" for parte in empresa.walk())
+
+
 @pytest.mark.parametrize("gmail_confirma", [True, False])
 def test_prueba_gmail_solo_escribe_al_usuario_y_no_se_repite(
     monkeypatch: pytest.MonkeyPatch,

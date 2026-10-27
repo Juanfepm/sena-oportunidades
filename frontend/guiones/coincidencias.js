@@ -24,6 +24,16 @@ function elemento(etiqueta, clase, texto) {
   return nodo;
 }
 
+function marcaTarjeta() {
+  const marca = elemento("img", "marca_tarjeta");
+  marca.src = "./recursos/debupa-icono.svg";
+  marca.alt = "";
+  marca.setAttribute("aria-hidden", "true");
+  marca.width = 18;
+  marca.height = 18;
+  return marca;
+}
+
 function actualizarConteo() {
   const cantidad = seleccion.size;
   document.querySelector("#conteo-seleccion").textContent = String(cantidad);
@@ -46,6 +56,7 @@ function tarjetaEmpresa(empresa) {
   const tarjeta = elemento("article", "sugerencia_tarjeta");
   const cabecera = elemento("div", "sugerencia_tarjeta_cabecera");
   const avatar = elemento("span", "avatar_empresa", empresa.inicial);
+  avatar.append(marcaTarjeta());
   const identidad = elemento("div");
   identidad.append(elemento("strong", "", empresa.nombre), elemento("small", "", empresa.ubicacion));
   const puntaje = elemento("span", "pildora_puntuacion", empresa.pendienteIa ? "Sin análisis de IA" : `${empresa.puntaje}% estimado`);
@@ -243,7 +254,9 @@ export function pintarResumen(plan) {
   tarjetas.replaceChildren(...(plan === "premium" ? empresas : empresas.slice(0, 2)).map((empresa) => {
     const tarjeta = elemento("article", "resultado_tarjeta");
     const cabecera = elemento("div", "resultado_tarjeta_cabecera");
-    cabecera.append(elemento("span", "avatar_empresa", empresa.inicial), elemento("span", "pildora_puntuacion", `${empresa.puntaje}% estimado`));
+    const avatar = elemento("span", "avatar_empresa", empresa.inicial);
+    avatar.append(marcaTarjeta());
+    cabecera.append(avatar, elemento("span", "pildora_puntuacion", `${empresa.puntaje}% estimado`));
     const detalles = elemento("dl");
     [["Correo", empresa.correo], ["Contacto", empresa.telefono], ["Estado", "Demostración, no enviado"], ["Fecha", fecha]].forEach(([clave, valor]) => {
       const fila = elemento("div");
@@ -270,7 +283,9 @@ export function pintarResultadoEnvio(resultados, plan, estadoCampana) {
   tarjetas.replaceChildren(...destacados.map((empresa) => {
     const tarjeta = elemento("article", "resultado_tarjeta");
     const cabecera = elemento("div", "resultado_tarjeta_cabecera");
-    cabecera.append(elemento("span", "avatar_empresa", empresa.nombre_empresa.charAt(0)),
+    const avatar = elemento("span", "avatar_empresa", empresa.nombre_empresa.charAt(0));
+    avatar.append(marcaTarjeta());
+    cabecera.append(avatar,
       elemento("span", "pildora_puntuacion", empresa.puntuacion == null ? "Revisada" : `${empresa.puntuacion}% estimado`));
     const detalles = elemento("dl");
     [["Correo", empresa.correo], ["Contacto", empresa.telefono_original || "Sin número"],
