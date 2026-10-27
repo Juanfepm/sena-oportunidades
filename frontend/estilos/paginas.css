@@ -1107,12 +1107,12 @@
 
 .plan_descuento strong {
   font-family: var(--fuente_cuerpo);
-  font-size: 1.5rem;
+  font-size: 1.72rem;
   font-weight: 900;
   letter-spacing: -0.04em;
   line-height: 1;
   margin: 0;
-  transform: rotate(-9deg);
+  transform: rotate(-14deg) scaleY(1.28);
 }
 
 .plan_descuento small {
@@ -1122,7 +1122,7 @@
   line-height: 1;
   margin-top: 0.22rem;
   text-transform: uppercase;
-  transform: rotate(-9deg);
+  transform: rotate(-14deg);
 }
 
 .plan_precio del,
@@ -1787,7 +1787,7 @@
   }
 
   .plan_descuento strong {
-    font-size: 1.2rem;
+    font-size: 1.42rem;
   }
 
   .plan_descuento small {
