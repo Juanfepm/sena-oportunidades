@@ -1,0 +1,13 @@
+[Unit]
+Description=Aplicar migraciones de DEBUPA
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=debupa
+Group=debupa
+WorkingDirectory=/opt/debupa
+EnvironmentFile=/etc/debupa/debupa.env
+ExecStart=/opt/debupa/.venv/bin/alembic -c backend/alembic.ini upgrade head
+

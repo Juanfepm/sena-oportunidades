@@ -1,0 +1,22 @@
+[Unit]
+Description=DEBUPA FastAPI
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=debupa
+Group=debupa
+WorkingDirectory=/opt/debupa
+EnvironmentFile=/etc/debupa/debupa.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/debupa/.venv/bin/uvicorn backend.aplicacion.principal:aplicacion --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips=127.0.0.1
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+

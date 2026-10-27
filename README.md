@@ -10,6 +10,8 @@ El selector muestra una selección práctica de ciudades y municipios principale
 
 La estructura inicial de PostgreSQL ya tiene migraciones versionadas. El procedimiento de creación y conexión segura está en [backend/README.md](backend/README.md#preparar-postgresql-en-supabase).
 
+La guía para desplegar el servicio completo en una VM Oracle Cloud Always Free está en [despliegue/oracle/README.md](despliegue/oracle/README.md).
+
 ## Ejecutar la aplicación local
 
 Para probar el inicio de sesión, sirve frontend y API juntos:
