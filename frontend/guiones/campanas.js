@@ -144,9 +144,10 @@ export async function solicitarTurnoConfirmacion(campanaId) {
   return respuesta.json();
 }
 
-export async function liberarTurnoConfirmacion(campanaId) {
+export async function liberarTurnoConfirmacion(campanaId, alSalir = false) {
   const respuesta = await enviarConCsrf(`/api/v1/campanas/${encodeURIComponent(campanaId)}/turno-confirmacion`, {
     method: "DELETE",
+    keepalive: alSalir,
   });
   if (!respuesta.ok) throw new Error((await leerMensajeError(respuesta)).mensaje);
 }

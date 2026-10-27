@@ -109,6 +109,12 @@ export function crearTurnoEnvio(obtenerCampana, abrirConfirmacion, mostrarError)
   document.addEventListener("keydown", (evento) => {
     if (evento.key === "Escape" && !panelEspera.hidden) void liberar();
   });
+  window.addEventListener("hashchange", () => {
+    if (campanaId && window.location.hash !== "#confirmacion") void liberar();
+  });
+  window.addEventListener("pagehide", () => {
+    if (campanaId) void liberarTurnoConfirmacion(campanaId, true).catch(() => {});
+  });
 
   return {
     iniciar,
