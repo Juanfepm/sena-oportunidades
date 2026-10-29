@@ -54,18 +54,22 @@ def crear_ciclo_vida(configuracion: Configuracion):
         if configuracion.sgva_activo:
             with api.state.fabrica_sesiones() as sesion:
                 interrumpir_sin_credenciales(sesion)
-            trabajador = asyncio.create_task(
-                vigilar_consultas(
-                    api.state.fabrica_sesiones,
-                    api.state.cola_sgva,
-                    configuracion.gemini_clave,
-                    api.state.tareas_sgva,
+            trabajadores = [
+                asyncio.create_task(
+                    vigilar_consultas(
+                        api.state.fabrica_sesiones,
+                        api.state.cola_sgva,
+                        configuracion.gemini_clave,
+                        api.state.tareas_sgva,
+                        navegador_id,
+                    )
                 )
-            )
+                for navegador_id in (1, 2)
+            ]
         else:
-            trabajador = asyncio.create_task(
-                vigilar_cola(api.state.fabrica_sesiones, api.state.aviso_cola)
-            )
+            trabajadores = [
+                asyncio.create_task(vigilar_cola(api.state.fabrica_sesiones, api.state.aviso_cola))
+            ]
         with api.state.fabrica_sesiones() as sesion:
             interrumpir_envios(sesion)
             sesion.execute(
@@ -80,9 +84,9 @@ def crear_ciclo_vida(configuracion: Configuracion):
         try:
             yield
         finally:
-            for activa in (tarea, trabajador, trabajador_envios):
+            for activa in (tarea, *trabajadores, trabajador_envios):
                 activa.cancel()
-            for activa in (tarea, trabajador, trabajador_envios):
+            for activa in (tarea, *trabajadores, trabajador_envios):
                 with suppress(asyncio.CancelledError):
                     await activa
 

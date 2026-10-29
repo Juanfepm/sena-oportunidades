@@ -22,11 +22,16 @@ def encolar(sesion: Session, campana: Campana) -> None:
 
 
 def reservar_siguiente(
-    sesion: Session, fecha_actual: datetime, campana_id: str | None = None
+    sesion: Session,
+    fecha_actual: datetime,
+    campana_id: str | None = None,
+    navegador_id: int = 1,
 ) -> Campana | None:
-    navegador = sesion.get(NavegadorSGVA, 1, with_for_update=True)
+    navegador = sesion.get(NavegadorSGVA, navegador_id, with_for_update=True)
     if navegador is None:
         raise RuntimeError("Inicializa la reserva del navegador antes de iniciar el trabajador.")
+    if not navegador.habilitado:
+        return None
     if (
         navegador.campana_id
         and navegador.reserva_hasta
@@ -60,7 +65,9 @@ def reservar_siguiente(
 
 
 def renovar_reserva(sesion: Session, campana: Campana, fecha_actual: datetime) -> None:
-    navegador = sesion.get(NavegadorSGVA, 1, with_for_update=True)
+    navegador = sesion.scalar(
+        select(NavegadorSGVA).where(NavegadorSGVA.campana_id == campana.id).with_for_update()
+    )
     if (
         navegador is None
         or navegador.campana_id != campana.id
@@ -73,7 +80,9 @@ def renovar_reserva(sesion: Session, campana: Campana, fecha_actual: datetime) -
 
 
 def liberar(sesion: Session, campana: Campana, nuevo_estado: EstadoCampana) -> None:
-    navegador = sesion.get(NavegadorSGVA, 1, with_for_update=True)
+    navegador = sesion.scalar(
+        select(NavegadorSGVA).where(NavegadorSGVA.campana_id == campana.id).with_for_update()
+    )
     if navegador is None or navegador.campana_id != campana.id:
         raise ValueError("La campaña no posee la reserva del navegador.")
     campana.estado = nuevo_estado

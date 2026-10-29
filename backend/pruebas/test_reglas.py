@@ -1,5 +1,6 @@
 """Casos críticos de selección, recontacto, cola y pagos."""
 
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from backend.aplicacion.base_datos import Base
+from backend.aplicacion.consola_navegadores import main as controlar_navegadores
 from backend.aplicacion.dominio.archivos import ArchivoAdjunto, validar_adjuntos
 from backend.aplicacion.dominio.contactos import evaluar_contacto, hace_seis_meses
 from backend.aplicacion.dominio.disponibilidad import proxima_busqueda
@@ -32,7 +34,7 @@ def sesion():
     )
     Base.metadata.create_all(motor)
     with Session(motor, expire_on_commit=False) as sesion_actual:
-        sesion_actual.add(NavegadorSGVA(id=1))
+        sesion_actual.add_all([NavegadorSGVA(id=1), NavegadorSGVA(id=2, habilitado=False)])
         sesion_actual.commit()
         yield sesion_actual
     motor.dispose()
@@ -168,6 +170,64 @@ def test_demostracion_reencola_reserva_vencida(sesion: Session):
     assert campana.estado == EstadoCampana.EN_COLA
     assert navegador.campana_id is None
     assert navegador.reserva_hasta is None
+
+
+def test_segundo_navegador_solo_trabaja_al_activarse(sesion: Session):
+    usuario = Usuario(identificador_externo="desarrollo:dos-navegadores")
+    sesion.add(usuario)
+    sesion.flush()
+    campanas = [
+        Campana(
+            usuario_id=usuario.id,
+            plan_aplicado=Plan.GRATIS,
+            limite_contactos=8,
+            modalidad="remoto",
+            departamento="todos",
+            ciudad="todas",
+            antiguedad_dias=7,
+        )
+        for _ in range(3)
+    ]
+    sesion.add_all(campanas)
+    sesion.flush()
+    for campana in campanas:
+        encolar(sesion, campana)
+    sesion.commit()
+
+    ahora = datetime(2026, 10, 29, tzinfo=timezone.utc)
+    primera = reservar_siguiente(sesion, ahora)
+    assert primera is not None
+    assert reservar_siguiente(sesion, ahora, navegador_id=2) is None
+
+    segundo = sesion.get(NavegadorSGVA, 2)
+    segundo.habilitado = True
+    sesion.commit()
+    otra = reservar_siguiente(sesion, ahora, navegador_id=2)
+    assert otra is not None and otra.id != primera.id
+    renovar_reserva(sesion, otra, ahora + timedelta(minutes=1))
+    segundo.habilitado = False
+    sesion.commit()
+    liberar(sesion, otra, EstadoCampana.ESPERANDO_CONFIRMACION)
+    assert reservar_siguiente(sesion, ahora, navegador_id=2) is None
+    assert reservar_siguiente(sesion, ahora) is None
+
+
+def test_consola_activa_y_desactiva_segundo_navegador(tmp_path, monkeypatch):
+    ruta = tmp_path / "navegadores.sqlite3"
+    direccion = f"sqlite:///{ruta.as_posix()}"
+    motor = create_engine(direccion)
+    Base.metadata.create_all(motor)
+    with Session(motor) as sesion:
+        sesion.add_all([NavegadorSGVA(id=1), NavegadorSGVA(id=2, habilitado=False)])
+        sesion.commit()
+    motor.dispose()
+    monkeypatch.setenv("DEBUPA_BASE_DATOS", direccion)
+
+    for accion, esperado in (("activar", True), ("desactivar", False)):
+        monkeypatch.setattr(sys, "argv", ["consola_navegadores", accion])
+        controlar_navegadores()
+        with Session(create_engine(direccion)) as sesion:
+            assert sesion.get(NavegadorSGVA, 2).habilitado is esperado
 
 
 def test_pago_requiere_administrador_y_revision_pendiente(sesion: Session):

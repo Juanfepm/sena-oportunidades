@@ -1,7 +1,7 @@
 # Despliegue de DEBUPA en Oracle Cloud Always Free
 
 Esta guía prepara una VM Ubuntu ARM64 de Oracle Cloud para ejecutar DEBUPA con un
-solo proceso Uvicorn, un solo navegador Playwright y PostgreSQL en Supabase.
+solo proceso Uvicorn, un navegador Playwright activo y un segundo opcional, con PostgreSQL en Supabase.
 
 ## Decisiones de producción
 
@@ -42,8 +42,8 @@ Crea el archivo protegido. No lo subas a GitHub:
 
 ```bash
 sudo nano /etc/debupa/debupa.env
-sudo chmod 600 /etc/debupa/debupa.env
 sudo chown root:debupa /etc/debupa/debupa.env
+sudo chmod 640 /etc/debupa/debupa.env
 ```
 
 Contenido mínimo:
@@ -134,6 +134,20 @@ sudo journalctl -u debupa -n 100 --no-pager
 ```
 
 ## Comprobaciones
+
+Para habilitar el segundo navegador desde la VM después de la migración, usa
+el entorno del servicio y la misma base de datos:
+
+```bash
+sudo systemd-run --wait --collect --pipe \
+  -p User=debupa -p WorkingDirectory=/opt/debupa \
+  -p EnvironmentFile=/etc/debupa/debupa.env \
+  /opt/debupa/.venv/bin/python -m backend.aplicacion.consola_navegadores activar
+```
+
+Sustituye `activar` por `estado` o `desactivar` según necesites. El cambio se
+detecta sin reiniciar el servidor. Deja un solo proceso Uvicorn para que las
+credenciales en memoria y la cola se compartan entre los dos navegadores.
 
 ```bash
 curl -I https://TU_DOMINIO/

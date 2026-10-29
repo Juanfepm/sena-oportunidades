@@ -110,7 +110,7 @@ Aplica las migraciones pendientes. Ejecutar upgrade head otra vez es seguro:
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini current
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini check
 
-current debe mostrar 0009_rls_datos_privados (head).
+current debe mostrar 0010_segundo_navegador_sgva (head).
 check debe terminar con No new upgrade operations detected.
 
 8. INICIAR EL SERVIDOR
@@ -133,6 +133,15 @@ coincidencias. Al revisar las ofertas, «Revisar envío» muestra el mensaje y c
 destinatario. Solo el botón final «Confirmar y enviar» manda correos reales a las
 empresas desde tu Gmail. Puedes cerrar el navegador; mantén el servidor abierto.
 Si Gmail deja un envío sin confirmar, revisa «Enviados» antes de volver a contactar.
+
+SEGUNDO NAVEGADOR SGVA (opcional)
+En otra terminal de PowerShell, entra al proyecto y configura la misma
+DEBUPA_BASE_DATOS y PGSSLROOTCERT del paso 4. Después puedes usar:
+.\.venv\Scripts\python.exe -m backend.aplicacion.consola_navegadores activar
+.\.venv\Scripts\python.exe -m backend.aplicacion.consola_navegadores estado
+.\.venv\Scripts\python.exe -m backend.aplicacion.consola_navegadores desactivar
+El primero siempre funciona; el segundo está apagado inicialmente. No es
+necesario reiniciar Uvicorn al activarlo o desactivarlo.
 
 Antes del primer envío real, vincula el correo que enviará los resúmenes:
 1. Si Google OAuth está en «Prueba», añade debupawebapp@gmail.com como usuario de prueba.

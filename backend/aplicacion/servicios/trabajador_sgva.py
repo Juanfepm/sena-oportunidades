@@ -48,8 +48,8 @@ def interrumpir_sin_credenciales(sesion: Session) -> None:
         .where(Campana.estado.in_([EstadoCampana.EN_COLA, EstadoCampana.CONSULTANDO]))
         .values(estado=EstadoCampana.INTERRUMPIDA, etapa="Servidor reiniciado; crea otra búsqueda")
     )
-    navegador = sesion.get(NavegadorSGVA, 1, with_for_update=True)
-    if navegador is not None:
+    navegadores = sesion.scalars(select(NavegadorSGVA).with_for_update()).all()
+    for navegador in navegadores:
         navegador.campana_id = None
         navegador.reserva_hasta = None
     sesion.commit()
@@ -123,13 +123,16 @@ def guardar_ofertas(
 
 
 async def procesar_acceso(
-    fabrica: sessionmaker[Session], acceso: AccesoEnCola, clave_ia: str | None = None
-) -> None:
+    fabrica: sessionmaker[Session],
+    acceso: AccesoEnCola,
+    clave_ia: str | None = None,
+    navegador_id: int = 1,
+) -> bool:
     campana_id, documento, clave, perfil = acceso
     with fabrica() as sesion:
-        campana = reservar_siguiente(sesion, datetime.now(timezone.utc), campana_id)
+        campana = reservar_siguiente(sesion, datetime.now(timezone.utc), campana_id, navegador_id)
         if campana is None:
-            return
+            return False
         filtros = (campana.departamento, campana.ciudad, campana.antiguedad_dias)
         modalidad = campana.modalidad
         sesion.commit()
@@ -206,6 +209,7 @@ async def procesar_acceso(
                 liberar(sesion, campana, EstadoCampana.ERROR)
                 sesion.commit()
                 eliminar_contenido(sesion, campana)
+    return True
 
 
 async def vigilar_consultas(
@@ -213,14 +217,33 @@ async def vigilar_consultas(
     cola: asyncio.Queue[AccesoEnCola],
     clave_ia: str | None = None,
     tareas_activas: dict[str, asyncio.Task] | None = None,
+    navegador_id: int = 1,
 ) -> None:
     tareas_activas = tareas_activas if tareas_activas is not None else {}
     while True:
-        acceso = await cola.get()
-        operacion = asyncio.create_task(procesar_acceso(fabrica, acceso, clave_ia))
+        if navegador_id == 2:
+            with fabrica() as sesion:
+                navegador = sesion.get(NavegadorSGVA, navegador_id)
+                habilitado = bool(navegador and navegador.habilitado)
+            if not habilitado:
+                await asyncio.sleep(2)
+                continue
+        try:
+            if navegador_id == 2:
+                acceso = await asyncio.wait_for(cola.get(), timeout=2)
+            else:
+                acceso = await cola.get()
+        except TimeoutError:
+            continue
+        operacion = asyncio.create_task(procesar_acceso(fabrica, acceso, clave_ia, navegador_id))
         tareas_activas[acceso[0]] = operacion
         try:
-            await operacion
+            iniciada = await operacion
+            if not iniciada:
+                with fabrica() as sesion:
+                    campana = sesion.get(Campana, acceso[0])
+                    if campana and campana.estado == EstadoCampana.EN_COLA:
+                        await cola.put(acceso)
         except asyncio.CancelledError:
             if asyncio.current_task().cancelling():
                 raise

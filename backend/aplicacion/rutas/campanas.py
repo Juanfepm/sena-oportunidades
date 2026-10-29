@@ -141,8 +141,12 @@ def crear_router(api: FastAPI, configuracion: Configuracion) -> APIRouter:
         if campana is None:
             raise HTTPException(404, "Campaña no encontrada.")
         if campana.estado in {EstadoCampana.EN_COLA, EstadoCampana.CONSULTANDO}:
-            navegador = sesion.get(NavegadorSGVA, 1, with_for_update=True)
-            if navegador is not None and navegador.campana_id == campana.id:
+            navegador = sesion.scalar(
+                select(NavegadorSGVA)
+                .where(NavegadorSGVA.campana_id == campana.id)
+                .with_for_update()
+            )
+            if navegador is not None:
                 navegador.campana_id = None
                 navegador.reserva_hasta = None
             campana.estado = EstadoCampana.CANCELADA

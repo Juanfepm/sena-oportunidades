@@ -12,7 +12,7 @@ Base local en FastAPI y SQLAlchemy. El código, las rutas y los modelos usan nom
 - Separación de alta coincidencia y «por revisar», y validación de ubicación, fecha y adjuntos.
 - Selección local de ciudades y municipios principales verificada con [DIVIPOLA](https://www.datos.gov.co/Mapas-Nacionales/DIVIPOLA-C-digos-municipios/gdxc-w37w), sincronizada con el frontend mediante `python -m herramientas.actualizar_municipios`.
 - Turno breve y ordenado para la revisión final: una campaña espera mientras otra cuenta confirma; el turno se libera al cerrar o autorizar, y vence si se abandona. Esta coordinación reside en memoria y requiere **un solo proceso de Uvicorn**.
-- Consulta de SGVA con un único navegador Chromium, lectura del listado y detalles sin pulsar «Aplicar».
+- Consulta de SGVA con un navegador Chromium activo y un segundo opcional, lectura del listado y detalles sin pulsar «Aplicar».
 - Consulta de todos los departamentos en dos búsquedas y lectura de ofertas recientes primero. Clasificación optativa en Gemini con puntuación y motivo, sujeta a autorización del aprendiz.
 - Solicitud Premium de $8.000 COP por tres meses, con precio de referencia de $10.000 COP y 20% de descuento: comprobante cifrado, revisión humana desde el panel y aviso por correo. El cliente nunca puede asignarse Premium.
 - Migraciones de PostgreSQL para el esquema inicial, identidad de Google y permiso de Gmail cifrado, con acceso a las tablas cerrado para los roles públicos de Supabase.
@@ -81,14 +81,26 @@ Remove-Variable direccionProtegida
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini check
 ```
 
-`current` debe mostrar `0008_premium_revision (head)` después de aplicar las migraciones; `check` debe indicar que no hay operaciones nuevas. En el editor SQL de Supabase puedes comprobarlo sin modificar datos:
+`current` debe mostrar `0010_segundo_navegador_sgva (head)` después de aplicar las migraciones; `check` debe indicar que no hay operaciones nuevas. En el editor SQL de Supabase puedes comprobarlo sin modificar datos:
 
 ```sql
 select version_num from alembic_version;
-select id from navegador_sgva;
+select id, habilitado from navegador_sgva order by id;
 ```
 
-La segunda consulta debe devolver únicamente `1`. Cierra la terminal cuando termines para retirar la cadena de su entorno. En Supabase Free debes organizar copias de seguridad externas antes de almacenar datos reales. No ejecutes `downgrade` en una base con información: eliminaría tablas.
+La segunda consulta debe mostrar `1 | true` y `2 | false`. Cierra la terminal cuando termines para retirar la cadena de su entorno. En Supabase Free debes organizar copias de seguridad externas antes de almacenar datos reales. No ejecutes `downgrade` en una base con información: eliminaría tablas.
+
+## Segundo navegador SGVA
+
+El segundo navegador permanece apagado después de migrar. En una terminal del proyecto con `DEBUPA_BASE_DATOS` y, si corresponde, `PGSSLROOTCERT` configuradas, ejecuta:
+
+```powershell
+.\.venv\Scripts\python.exe -m backend.aplicacion.consola_navegadores activar
+.\.venv\Scripts\python.exe -m backend.aplicacion.consola_navegadores estado
+.\.venv\Scripts\python.exe -m backend.aplicacion.consola_navegadores desactivar
+```
+
+En Linux usa `.venv/bin/python` en lugar de `.\.venv\Scripts\python.exe`. El servidor detecta el cambio en unos segundos, sin reiniciar. Apagar el segundo navegador impide que tome nuevas campañas, pero deja terminar la consulta que ya esté procesando. Mantén un solo proceso de Uvicorn: las credenciales SGVA se conservan en su cola de memoria y los dos trabajadores comparten esa cola. El modo de demostración sigue usando solo el primer navegador.
 
 ## Google OAuth y permiso de Gmail
 

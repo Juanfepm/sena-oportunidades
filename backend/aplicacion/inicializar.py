@@ -21,8 +21,12 @@ def inicializar() -> None:
     motor = crear_motor(configuracion)
     Base.metadata.create_all(motor)
     with Session(motor) as sesion:
-        if sesion.scalar(select(NavegadorSGVA).where(NavegadorSGVA.id == 1)) is None:
+        existentes = set(sesion.scalars(select(NavegadorSGVA.id)))
+        if 1 not in existentes:
             sesion.add(NavegadorSGVA(id=1))
+        if 2 not in existentes:
+            sesion.add(NavegadorSGVA(id=2, habilitado=False))
+        if len(existentes) < 2:
             sesion.commit()
     motor.dispose()
 

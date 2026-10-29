@@ -24,7 +24,9 @@ def test_migracion_inicial_coincide_con_modelos() -> None:
                 *Base.metadata.tables,
                 "alembic_version",
             }
-            assert conexion.execute(select(NavegadorSGVA.id)).scalar_one() == 1
+            assert conexion.execute(
+                select(NavegadorSGVA.id, NavegadorSGVA.habilitado).order_by(NavegadorSGVA.id)
+            ).all() == [(1, True), (2, False)]
             command.check(configuracion)
     finally:
         motor.dispose()
