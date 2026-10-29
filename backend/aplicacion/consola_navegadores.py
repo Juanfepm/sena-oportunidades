@@ -20,12 +20,19 @@ def main() -> None:
             navegador = sesion.get(NavegadorSGVA, 2, with_for_update=True)
             if navegador is None:
                 raise SystemExit("Aplica primero las migraciones: alembic upgrade head")
-            if argumentos.accion != "estado":
-                navegador.habilitado = argumentos.accion == "activar"
+            if argumentos.accion == "activar":
+                navegador.habilitado = True
+                navegador.apagado_pendiente = False
                 sesion.commit()
-            estado = "activo" if navegador.habilitado else "apagado"
-            ocupacion = " (terminando una consulta)" if navegador.campana_id else ""
-            print(f"Segundo navegador SGVA: {estado}{ocupacion}.")
+            elif argumentos.accion == "desactivar":
+                navegador.apagado_pendiente = navegador.campana_id is not None
+                navegador.habilitado = navegador.apagado_pendiente
+                sesion.commit()
+            if navegador.apagado_pendiente:
+                estado = "apagado pendiente: terminará la consulta actual"
+            else:
+                estado = "activo" if navegador.habilitado else "apagado"
+            print(f"Segundo navegador SGVA: {estado}.")
     finally:
         motor.dispose()
 

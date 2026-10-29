@@ -1,4 +1,4 @@
-"""Reserva persistente para un único navegador SGVA."""
+"""Reservas persistentes para los navegadores SGVA."""
 
 from datetime import datetime, timedelta, timezone
 
@@ -11,6 +11,15 @@ from ..modelos import Campana, NavegadorSGVA
 
 def _con_zona(fecha: datetime) -> datetime:
     return fecha if fecha.tzinfo else fecha.replace(tzinfo=timezone.utc)
+
+
+def desocupar_navegador(navegador: NavegadorSGVA) -> None:
+    """Libera la reserva y completa un apagado solicitado durante la consulta."""
+    navegador.campana_id = None
+    navegador.reserva_hasta = None
+    if navegador.apagado_pendiente:
+        navegador.habilitado = False
+        navegador.apagado_pendiente = False
 
 
 def encolar(sesion: Session, campana: Campana) -> None:
@@ -30,7 +39,7 @@ def reservar_siguiente(
     navegador = sesion.get(NavegadorSGVA, navegador_id, with_for_update=True)
     if navegador is None:
         raise RuntimeError("Inicializa la reserva del navegador antes de iniciar el trabajador.")
-    if not navegador.habilitado:
+    if not navegador.habilitado or navegador.apagado_pendiente:
         return None
     if (
         navegador.campana_id
@@ -86,6 +95,5 @@ def liberar(sesion: Session, campana: Campana, nuevo_estado: EstadoCampana) -> N
     if navegador is None or navegador.campana_id != campana.id:
         raise ValueError("La campaña no posee la reserva del navegador.")
     campana.estado = nuevo_estado
-    navegador.campana_id = None
-    navegador.reserva_hasta = None
+    desocupar_navegador(navegador)
     sesion.flush()

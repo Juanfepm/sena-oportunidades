@@ -205,5 +205,6 @@ class NavegadorSGVA(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     habilitado: Mapped[bool] = mapped_column(default=True, nullable=False)
+    apagado_pendiente: Mapped[bool] = mapped_column(default=False, nullable=False)
     campana_id: Mapped[str | None] = mapped_column(ForeignKey("campanas.id"))
     reserva_hasta: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -110,7 +110,7 @@ Aplica las migraciones pendientes. Ejecutar upgrade head otra vez es seguro:
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini current
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini check
 
-current debe mostrar 0010_segundo_navegador_sgva (head).
+current debe mostrar 0011_apagado_diferido_sgva (head).
 check debe terminar con No new upgrade operations detected.
 
 8. INICIAR EL SERVIDOR
@@ -142,6 +142,8 @@ DEBUPA_BASE_DATOS y PGSSLROOTCERT del paso 4. Después puedes usar:
 .\.venv\Scripts\python.exe -m backend.aplicacion.consola_navegadores desactivar
 El primero siempre funciona; el segundo está apagado inicialmente. No es
 necesario reiniciar Uvicorn al activarlo o desactivarlo.
+Si ejecutas desactivar durante una consulta, estado mostrará «apagado pendiente».
+La consulta termina normalmente y solo después se apaga el segundo navegador.
 
 Antes del primer envío real, vincula el correo que enviará los resúmenes:
 1. Si Google OAuth está en «Prueba», añade debupawebapp@gmail.com como usuario de prueba.

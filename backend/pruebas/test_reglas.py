@@ -25,6 +25,7 @@ from backend.aplicacion.servicios.cola import encolar, liberar, renovar_reserva,
 from backend.aplicacion.servicios.pagos import verificar_pago
 from backend.aplicacion.servicios.planes import plan_disponible
 from backend.aplicacion.servicios.trabajador_demo import recuperar_reserva_vencida
+from backend.aplicacion.servicios.trabajador_sgva import interrumpir_sin_credenciales
 
 
 @pytest.fixture
@@ -205,9 +206,14 @@ def test_segundo_navegador_solo_trabaja_al_activarse(sesion: Session):
     otra = reservar_siguiente(sesion, ahora, navegador_id=2)
     assert otra is not None and otra.id != primera.id
     renovar_reserva(sesion, otra, ahora + timedelta(minutes=1))
-    segundo.habilitado = False
+    segundo.apagado_pendiente = True
     sesion.commit()
+    assert segundo.habilitado
+    assert reservar_siguiente(sesion, ahora, navegador_id=2) is None
+    renovar_reserva(sesion, otra, ahora + timedelta(minutes=2))
     liberar(sesion, otra, EstadoCampana.ESPERANDO_CONFIRMACION)
+    assert not segundo.habilitado
+    assert not segundo.apagado_pendiente
     assert reservar_siguiente(sesion, ahora, navegador_id=2) is None
     assert reservar_siguiente(sesion, ahora) is None
 
@@ -228,6 +234,98 @@ def test_consola_activa_y_desactiva_segundo_navegador(tmp_path, monkeypatch):
         controlar_navegadores()
         with Session(create_engine(direccion)) as sesion:
             assert sesion.get(NavegadorSGVA, 2).habilitado is esperado
+
+
+def test_consola_difiere_apagado_hasta_terminar_consulta(tmp_path, monkeypatch, capsys):
+    ruta = tmp_path / "apagado-diferido.sqlite3"
+    direccion = f"sqlite:///{ruta.as_posix()}"
+    motor = create_engine(direccion)
+    Base.metadata.create_all(motor)
+    with Session(motor) as sesion:
+        usuario = Usuario(identificador_externo="desarrollo:apagado-diferido")
+        sesion.add(usuario)
+        sesion.flush()
+        campana = Campana(
+            usuario_id=usuario.id,
+            plan_aplicado=Plan.GRATIS,
+            limite_contactos=8,
+            modalidad="remoto",
+            departamento="todos",
+            ciudad="todas",
+            antiguedad_dias=7,
+            estado=EstadoCampana.CONSULTANDO,
+        )
+        sesion.add(campana)
+        sesion.flush()
+        sesion.add_all(
+            [
+                NavegadorSGVA(id=1),
+                NavegadorSGVA(
+                    id=2,
+                    habilitado=True,
+                    campana_id=campana.id,
+                    reserva_hasta=datetime.now(timezone.utc) + timedelta(minutes=15),
+                ),
+            ]
+        )
+        sesion.commit()
+        campana_id = campana.id
+    monkeypatch.setenv("DEBUPA_BASE_DATOS", direccion)
+
+    monkeypatch.setattr(sys, "argv", ["consola_navegadores", "desactivar"])
+    controlar_navegadores()
+    assert "apagado pendiente" in capsys.readouterr().out
+    with Session(motor) as sesion:
+        navegador = sesion.get(NavegadorSGVA, 2)
+        assert navegador.habilitado and navegador.apagado_pendiente
+        campana = sesion.get(Campana, campana_id)
+        renovar_reserva(sesion, campana, datetime.now(timezone.utc))
+        sesion.commit()
+
+    monkeypatch.setattr(sys, "argv", ["consola_navegadores", "activar"])
+    controlar_navegadores()
+    with Session(motor) as sesion:
+        assert not sesion.get(NavegadorSGVA, 2).apagado_pendiente
+    monkeypatch.setattr(sys, "argv", ["consola_navegadores", "desactivar"])
+    controlar_navegadores()
+    with Session(motor) as sesion:
+        campana = sesion.get(Campana, campana_id)
+        liberar(sesion, campana, EstadoCampana.ESPERANDO_CONFIRMACION)
+        sesion.commit()
+    monkeypatch.setattr(sys, "argv", ["consola_navegadores", "estado"])
+    controlar_navegadores()
+    assert "Segundo navegador SGVA: apagado." in capsys.readouterr().out
+    motor.dispose()
+
+
+def test_reinicio_completa_apagado_pendiente(sesion: Session):
+    usuario = Usuario(identificador_externo="desarrollo:reinicio-pendiente")
+    sesion.add(usuario)
+    sesion.flush()
+    campana = Campana(
+        usuario_id=usuario.id,
+        plan_aplicado=Plan.GRATIS,
+        limite_contactos=8,
+        modalidad="remoto",
+        departamento="todos",
+        ciudad="todas",
+        antiguedad_dias=7,
+        estado=EstadoCampana.CONSULTANDO,
+    )
+    sesion.add(campana)
+    sesion.flush()
+    navegador = sesion.get(NavegadorSGVA, 2)
+    navegador.habilitado = True
+    navegador.apagado_pendiente = True
+    navegador.campana_id = campana.id
+    sesion.commit()
+
+    interrumpir_sin_credenciales(sesion)
+    assert not navegador.habilitado
+    assert not navegador.apagado_pendiente
+    assert navegador.campana_id is None
+    sesion.refresh(campana)
+    assert campana.estado == EstadoCampana.INTERRUMPIDA
 
 
 def test_pago_requiere_administrador_y_revision_pendiente(sesion: Session):

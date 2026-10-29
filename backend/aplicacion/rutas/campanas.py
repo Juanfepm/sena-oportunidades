@@ -26,7 +26,7 @@ from ..servicios.campanas import (
 from ..servicios.campanas_envio import (
     cancelar_envio,
 )
-from ..servicios.cola import encolar
+from ..servicios.cola import desocupar_navegador, encolar
 from ..servicios.planes import plan_disponible
 from ..servicios.temporales import eliminar_contenido
 
@@ -147,8 +147,7 @@ def crear_router(api: FastAPI, configuracion: Configuracion) -> APIRouter:
                 .with_for_update()
             )
             if navegador is not None:
-                navegador.campana_id = None
-                navegador.reserva_hasta = None
+                desocupar_navegador(navegador)
             campana.estado = EstadoCampana.CANCELADA
             campana.etapa = "Consulta cancelada por el aprendiz"
             sesion.commit()

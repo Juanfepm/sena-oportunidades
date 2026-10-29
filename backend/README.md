@@ -81,14 +81,14 @@ Remove-Variable direccionProtegida
 .\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini check
 ```
 
-`current` debe mostrar `0010_segundo_navegador_sgva (head)` después de aplicar las migraciones; `check` debe indicar que no hay operaciones nuevas. En el editor SQL de Supabase puedes comprobarlo sin modificar datos:
+`current` debe mostrar `0011_apagado_diferido_sgva (head)` después de aplicar las migraciones; `check` debe indicar que no hay operaciones nuevas. En el editor SQL de Supabase puedes comprobarlo sin modificar datos:
 
 ```sql
 select version_num from alembic_version;
-select id, habilitado from navegador_sgva order by id;
+select id, habilitado, apagado_pendiente from navegador_sgva order by id;
 ```
 
-La segunda consulta debe mostrar `1 | true` y `2 | false`. Cierra la terminal cuando termines para retirar la cadena de su entorno. En Supabase Free debes organizar copias de seguridad externas antes de almacenar datos reales. No ejecutes `downgrade` en una base con información: eliminaría tablas.
+La segunda consulta debe mostrar `1 | true | false` y `2 | false | false`. Cierra la terminal cuando termines para retirar la cadena de su entorno. En Supabase Free debes organizar copias de seguridad externas antes de almacenar datos reales. No ejecutes `downgrade` en una base con información: eliminaría tablas.
 
 ## Segundo navegador SGVA
 
@@ -100,7 +100,7 @@ El segundo navegador permanece apagado después de migrar. En una terminal del p
 .\.venv\Scripts\python.exe -m backend.aplicacion.consola_navegadores desactivar
 ```
 
-En Linux usa `.venv/bin/python` en lugar de `.\.venv\Scripts\python.exe`. El servidor detecta el cambio en unos segundos, sin reiniciar. Apagar el segundo navegador impide que tome nuevas campañas, pero deja terminar la consulta que ya esté procesando. Mantén un solo proceso de Uvicorn: las credenciales SGVA se conservan en su cola de memoria y los dos trabajadores comparten esa cola. El modo de demostración sigue usando solo el primer navegador.
+En Linux usa `.venv/bin/python` en lugar de `.\.venv\Scripts\python.exe`. El servidor detecta el cambio en unos segundos, sin reiniciar. Si el segundo navegador está ocupado, `desactivar` lo deja en **apagado pendiente**: no toma otra campaña y sigue activo hasta terminar la consulta actual. Entonces se apaga automáticamente. `estado` muestra esa transición. `activar` cancela un apagado pendiente. Mantén un solo proceso de Uvicorn: las credenciales SGVA se conservan en su cola de memoria y los dos trabajadores comparten esa cola. El modo de demostración sigue usando solo el primer navegador.
 
 ## Google OAuth y permiso de Gmail
 

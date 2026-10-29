@@ -27,7 +27,7 @@ from ..modelos import (
     Destinatario,
     NavegadorSGVA,
 )
-from .cola import liberar, renovar_reserva, reservar_siguiente
+from .cola import desocupar_navegador, liberar, renovar_reserva, reservar_siguiente
 from .temporales import eliminar_contenido
 
 AccesoEnCola = tuple[str, str, str, dict[str, str] | None]
@@ -50,8 +50,7 @@ def interrumpir_sin_credenciales(sesion: Session) -> None:
     )
     navegadores = sesion.scalars(select(NavegadorSGVA).with_for_update()).all()
     for navegador in navegadores:
-        navegador.campana_id = None
-        navegador.reserva_hasta = None
+        desocupar_navegador(navegador)
     sesion.commit()
 
 
@@ -224,7 +223,9 @@ async def vigilar_consultas(
         if navegador_id == 2:
             with fabrica() as sesion:
                 navegador = sesion.get(NavegadorSGVA, navegador_id)
-                habilitado = bool(navegador and navegador.habilitado)
+                habilitado = bool(
+                    navegador and navegador.habilitado and not navegador.apagado_pendiente
+                )
             if not habilitado:
                 await asyncio.sleep(2)
                 continue

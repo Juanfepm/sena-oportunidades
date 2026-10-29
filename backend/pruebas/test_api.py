@@ -13,6 +13,7 @@ from sqlalchemy.pool import StaticPool
 
 from backend.aplicacion.base_datos import Base
 from backend.aplicacion.configuracion import Configuracion
+from backend.aplicacion.dominio.estados import EstadoCampana
 from backend.aplicacion.modelos import (
     Campana,
     ConexionGmail,
@@ -58,6 +59,34 @@ def solicitud_valida() -> dict:
 
 def acceso() -> dict[str, str]:
     return {"Authorization": "Bearer clave-segura-de-pruebas-locales-2026"}
+
+
+def test_cancelar_consulta_completa_apagado_pendiente(cliente: TestClient) -> None:
+    respuesta = cliente.post("/api/v1/campanas", json=solicitud_valida(), headers=acceso())
+    assert respuesta.status_code == 201
+    campana_id = respuesta.json()["id"]
+    with cliente.app.state.fabrica_sesiones() as sesion:
+        campana = sesion.get(Campana, campana_id)
+        campana.estado = EstadoCampana.CONSULTANDO
+        sesion.add(
+            NavegadorSGVA(
+                id=2,
+                habilitado=True,
+                apagado_pendiente=True,
+                campana_id=campana_id,
+                reserva_hasta=datetime.now(timezone.utc) + timedelta(minutes=15),
+            )
+        )
+        sesion.commit()
+
+    cancelada = cliente.post(f"/api/v1/campanas/{campana_id}/cancelar", headers=acceso())
+    assert cancelada.status_code == 200
+    assert cancelada.json()["estado"] == "cancelada"
+    with cliente.app.state.fabrica_sesiones() as sesion:
+        navegador = sesion.get(NavegadorSGVA, 2)
+        assert not navegador.habilitado
+        assert not navegador.apagado_pendiente
+        assert navegador.campana_id is None
 
 
 def test_api_rechaza_origen_ajeno_y_limita_creacion(cliente: TestClient) -> None:
