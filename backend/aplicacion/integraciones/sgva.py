@@ -2,6 +2,7 @@
 
 import asyncio
 import html
+import logging
 import os
 import re
 import sys
@@ -25,6 +26,7 @@ INGRESO = f"{ORIGEN}/sgva/SGVA_Diseno/pag/login.aspx"
 BUSQUEDA = f"{ORIGEN}/sgva/Aprendices/Solicitudes/"
 MAXIMO_OFERTAS = 70
 ID_SOLICITUD = re.compile(r'data-id-solicitud=["\'](\d+)["\']')
+REGISTRO = logging.getLogger(__name__)
 
 
 def normalizar(texto: str) -> str:
@@ -265,15 +267,18 @@ async def consultar_sgva(
         raise SGVAEntornoIncompatible(
             "En Windows, inicia el servidor sin --reload para usar Playwright."
         )
+    etapa = "iniciar Chromium"
     try:
         async with async_playwright() as playwright:
             navegador = await playwright.chromium.launch(headless=True)
             try:
                 contexto = await navegador.new_context(accept_downloads=False)
                 pagina = await contexto.new_page()
+                etapa = "iniciar sesión en SGVA"
                 await _ingresar(pagina, documento, clave)
                 if avance:
                     await avance(15, "Acceso a SGVA confirmado")
+                etapa = "abrir Buscar empresa"
                 respuesta = await pagina.goto(BUSQUEDA, wait_until="load", timeout=30000)
                 if (
                     respuesta is None
@@ -285,6 +290,7 @@ async def consultar_sgva(
                     await pagina.wait_for_load_state("networkidle", timeout=12000)
                 except TiempoAgotado:
                     pass  # La búsqueda esperará su respuesta específica.
+                etapa = "consultar solicitudes"
                 await _buscar_departamento(
                     pagina, departamento, ciudad, antiguedad, ofertas, vistos, hoy, avance, limite
                 )
@@ -294,5 +300,6 @@ async def consultar_sgva(
     except (AccesoSGVARestringido, SGVANoDisponible):
         raise
     except (ErrorPlaywright, OSError) as error:
+        REGISTRO.warning("Playwright falló al %s: %s", etapa, type(error).__name__)
         raise SGVANoDisponible("SGVA interrumpió la consulta.") from error
     return ofertas

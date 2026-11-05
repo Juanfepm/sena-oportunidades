@@ -177,6 +177,13 @@ async def procesar_acceso(
             liberar(sesion, campana, EstadoCampana.ESPERANDO_CONFIRMACION)
             sesion.commit()
     except (AccesoSGVARestringido, SGVANoDisponible) as error:
+        REGISTRO.warning(
+            "Consulta SGVA %s: %s: %s (causa: %s)",
+            campana_id,
+            type(error).__name__,
+            error,
+            type(error.__cause__).__name__ if error.__cause__ else "ninguna",
+        )
         with fabrica() as sesion:
             campana = sesion.get(Campana, campana_id)
             if campana and campana.estado == EstadoCampana.CONSULTANDO:
@@ -201,6 +208,7 @@ async def procesar_acceso(
                 eliminar_contenido(sesion, campana)
         raise
     except Exception:
+        REGISTRO.exception("Error inesperado en la consulta SGVA %s", campana_id)
         with fabrica() as sesion:
             campana = sesion.get(Campana, campana_id)
             if campana and campana.estado == EstadoCampana.CONSULTANDO:
