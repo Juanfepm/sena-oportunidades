@@ -19,7 +19,13 @@ from playwright.async_api import async_playwright
 
 from ..dominio.ofertas import OfertaSGVA
 from ..dominio.texto import limpiar_texto_externo
-from .contratos import AccesoSGVARestringido, SGVAEntornoIncompatible, SGVANoDisponible
+from .contratos import (
+    AccesoSGVARestringido,
+    SGVACaido,
+    SGVAEntornoIncompatible,
+    SGVANoDisponible,
+    SGVASinConexion,
+)
 
 ORIGEN = "https://caprendizaje.sena.edu.co"
 INGRESO = f"{ORIGEN}/sgva/SGVA_Diseno/pag/login.aspx"
@@ -103,14 +109,26 @@ async def _respuesta_ingreso(route) -> None:
 
 
 async def _ingresar(pagina, documento: str, clave: str) -> None:
-    respuesta = await pagina.goto(INGRESO, wait_until="domcontentloaded", timeout=30000)
-    if respuesta is None or respuesta.status >= 500:
-        raise SGVANoDisponible("La página de acceso no respondió.")
+    try:
+        respuesta = await pagina.goto(INGRESO, wait_until="domcontentloaded", timeout=30000)
+    except TiempoAgotado as error:
+        raise SGVASinConexion("La página de acceso no respondió a tiempo.") from error
+    if respuesta is None:
+        raise SGVASinConexion("La página de acceso no respondió.")
+    if respuesta.status >= 500:
+        raise SGVACaido("SGVA devolvió un fallo al abrir el acceso.")
     await pagina.locator("#aprendices").click()
     await pagina.locator("#tbLoginUsuario").fill(documento)
     await pagina.locator("#__tbPasswordUsuario").fill(clave)
     await pagina.route(f"{ORIGEN}/sgva/SGVA_Diseno/pag/**", _respuesta_ingreso)
-    await pagina.locator("#ini_session_aprendiz").click()
+    try:
+        await pagina.locator("#ini_session_aprendiz").click()
+    except TiempoAgotado as error:
+        if pagina.url.startswith("http://caprendizaje.sena.edu.co/"):
+            raise SGVASinConexion(
+                "SGVA redirigió el acceso a una conexión HTTP inaccesible."
+            ) from error
+        raise SGVANoDisponible("SGVA no completó la solicitud de acceso.") from error
     try:
         await pagina.wait_for_function(
             """() => {
@@ -123,8 +141,14 @@ async def _ingresar(pagina, documento: str, clave: str) -> None:
         )
     except TiempoAgotado as error:
         if "login.aspx" in pagina.url:
-            raise AccesoSGVARestringido("SGVA no aceptó el acceso como aprendiz.") from error
-        raise SGVANoDisponible("SGVA no terminó el inicio de sesión.") from error
+            aviso = (
+                await pagina.locator("#LabelError").text_content(timeout=1000)
+                if await pagina.locator("#LabelError").count()
+                else None
+            )
+            if aviso and aviso.strip():
+                raise AccesoSGVARestringido(mensaje_error_ingreso(aviso)) from error
+        raise SGVASinConexion("SGVA no terminó el inicio de sesión.") from error
     if "login.aspx" in pagina.url:
         aviso = await pagina.locator("#LabelError").text_content()
         raise AccesoSGVARestringido(mensaje_error_ingreso(aviso or ""))
@@ -155,11 +179,16 @@ def texto_plano(valor: object) -> str:
 
 async def _detalle(pagina, identificador: str, nombre: str, hoy: date) -> OfertaSGVA:
     """Usa el mismo GET de solo lectura que abre el detalle del SGVA."""
-    respuesta = await pagina.context.request.get(
-        f"{ORIGEN}/sgva/Solicitudes/ConsultarSolicitud",
-        params={"solicitudID": identificador},
-        timeout=15000,
-    )
+    try:
+        respuesta = await pagina.context.request.get(
+            f"{ORIGEN}/sgva/Solicitudes/ConsultarSolicitud",
+            params={"solicitudID": identificador},
+            timeout=15000,
+        )
+    except TiempoAgotado as error:
+        raise SGVASinConexion("SGVA no respondió al consultar una solicitud.") from error
+    if respuesta.status >= 500:
+        raise SGVACaido("SGVA devolvió un fallo al consultar una solicitud.")
     if respuesta.status != 200:
         raise SGVANoDisponible("SGVA no entregó el detalle de una solicitud.")
     try:
@@ -247,6 +276,8 @@ async def _filas_busqueda(pagina) -> list:
     ) as respuesta_pendiente:
         await pagina.locator("#btn_buscar_solicitud").click()
     respuesta_busqueda = await respuesta_pendiente.value
+    if respuesta_busqueda.status >= 500:
+        raise SGVACaido("SGVA devolvió un fallo al buscar solicitudes.")
     if respuesta_busqueda.status != 200:
         raise SGVANoDisponible("SGVA rechazó la búsqueda de solicitudes.")
     try:
@@ -300,12 +331,15 @@ async def consultar_sgva(
                 if avance:
                     await avance(15, "Acceso a SGVA confirmado")
                 etapa = "abrir Buscar empresa"
-                respuesta = await pagina.goto(BUSQUEDA, wait_until="load", timeout=30000)
-                if (
-                    respuesta is None
-                    or respuesta.status >= 500
-                    or urlparse(pagina.url).path != "/sgva/Aprendices/Solicitudes/"
-                ):
+                try:
+                    respuesta = await pagina.goto(BUSQUEDA, wait_until="load", timeout=30000)
+                except TiempoAgotado as error:
+                    raise SGVASinConexion("SGVA no respondió al abrir Buscar empresa.") from error
+                if respuesta is None:
+                    raise SGVASinConexion("SGVA no respondió al abrir Buscar empresa.")
+                if respuesta.status >= 500:
+                    raise SGVACaido("SGVA devolvió un fallo al abrir Buscar empresa.")
+                if urlparse(pagina.url).path != "/sgva/Aprendices/Solicitudes/":
                     raise AccesoSGVARestringido("No fue posible abrir Buscar empresa.")
                 try:
                     await pagina.wait_for_load_state("networkidle", timeout=12000)
@@ -320,7 +354,14 @@ async def consultar_sgva(
                 await navegador.close()
     except (AccesoSGVARestringido, SGVANoDisponible):
         raise
+    except TiempoAgotado as error:
+        REGISTRO.warning("SGVA agotó el tiempo al %s", etapa)
+        raise SGVASinConexion(f"SGVA no respondió al {etapa}.") from error
     except (ErrorPlaywright, OSError) as error:
         REGISTRO.warning("Playwright falló al %s: %s", etapa, type(error).__name__)
+        if etapa != "iniciar Chromium" and (
+            isinstance(error, OSError) or "net::ERR_" in str(error)
+        ):
+            raise SGVASinConexion(f"No fue posible conectar con SGVA al {etapa}.") from error
         raise SGVANoDisponible("SGVA interrumpió la consulta.") from error
     return ofertas

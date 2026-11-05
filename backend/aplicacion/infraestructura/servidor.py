@@ -13,7 +13,9 @@ from ..configuracion import Configuracion
 from ..integraciones.contratos import (
     AccesoSGVARestringido,
     IntegracionNoDisponible,
+    SGVACaido,
     SGVANoDisponible,
+    SGVASinConexion,
 )
 from ..modelos import (
     PagoPremium,
@@ -111,6 +113,20 @@ def registrar_respuestas(api: FastAPI) -> None:
                 "codigo": "sgva_no_disponible",
                 "detail": "El servicio SGVA no respondió. Inténtalo más tarde.",
             },
+            status_code=503,
+        )
+
+    @api.exception_handler(SGVASinConexion)
+    async def sgva_sin_conexion(_: Request, __: SGVASinConexion) -> JSONResponse:
+        return JSONResponse(
+            {"codigo": "sgva_sin_conexion", "detail": "No pudimos conectar con SGVA."},
+            status_code=503,
+        )
+
+    @api.exception_handler(SGVACaido)
+    async def sgva_caido(_: Request, __: SGVACaido) -> JSONResponse:
+        return JSONResponse(
+            {"codigo": "sgva_caido", "detail": "SGVA está fuera de servicio."},
             status_code=503,
         )
 

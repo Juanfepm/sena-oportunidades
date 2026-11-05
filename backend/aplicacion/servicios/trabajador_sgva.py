@@ -14,8 +14,10 @@ from ..esquemas import PATRON_CORREO
 from ..integraciones.contratos import (
     AccesoSGVARestringido,
     IntegracionNoDisponible,
+    SGVACaido,
     SGVAEntornoIncompatible,
     SGVANoDisponible,
+    SGVASinConexion,
 )
 from ..integraciones.ia import clasificar_ofertas
 from ..integraciones.sgva import consultar_sgva, normalizar
@@ -32,6 +34,18 @@ from .temporales import eliminar_contenido
 
 AccesoEnCola = tuple[str, str, str, dict[str, str] | None]
 REGISTRO = logging.getLogger(__name__)
+
+
+def etapa_error_sgva(error: SGVANoDisponible | AccesoSGVARestringido) -> str:
+    if isinstance(error, SGVAEntornoIncompatible):
+        return "Reinicia el servidor sin --reload en Windows"
+    if isinstance(error, SGVACaido):
+        return "SGVA fuera de servicio"
+    if isinstance(error, SGVASinConexion):
+        return "SGVA sin conexión"
+    if isinstance(error, AccesoSGVARestringido):
+        return f"SGVA rechazó la consulta: {error}"[:80]
+    return "SGVA no respondió"
 
 
 def interrumpir_sin_credenciales(sesion: Session) -> None:
@@ -187,14 +201,7 @@ async def procesar_acceso(
         with fabrica() as sesion:
             campana = sesion.get(Campana, campana_id)
             if campana and campana.estado == EstadoCampana.CONSULTANDO:
-                if isinstance(error, SGVAEntornoIncompatible):
-                    campana.etapa = "Reinicia el servidor sin --reload en Windows"
-                else:
-                    campana.etapa = (
-                        f"SGVA rechazó la consulta: {error}"[:80]
-                        if isinstance(error, AccesoSGVARestringido)
-                        else "SGVA no respondió"
-                    )
+                campana.etapa = etapa_error_sgva(error)
                 liberar(sesion, campana, EstadoCampana.ERROR)
                 sesion.commit()
                 eliminar_contenido(sesion, campana)

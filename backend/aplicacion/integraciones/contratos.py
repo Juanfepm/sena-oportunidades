@@ -20,5 +20,13 @@ class SGVANoDisponible(IntegracionNoDisponible):
     """La plataforma SGVA no respondió a la consulta."""
 
 
+class SGVASinConexion(SGVANoDisponible):
+    """DEBUPA no pudo establecer o mantener la conexión con SGVA."""
+
+
+class SGVACaido(SGVANoDisponible):
+    """SGVA respondió con un fallo de su servidor."""
+
+
 class SGVAEntornoIncompatible(SGVANoDisponible):
     """El servidor no puede iniciar Playwright con su bucle actual."""

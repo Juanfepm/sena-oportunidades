@@ -14,9 +14,13 @@ from sqlalchemy.pool import StaticPool
 from backend.aplicacion.base_datos import Base
 from backend.aplicacion.configuracion import Configuracion
 from backend.aplicacion.integraciones.contratos import (
+    AccesoSGVARestringido,
     EvaluacionIA,
     OfertaSGVA,
+    SGVACaido,
     SGVAEntornoIncompatible,
+    SGVANoDisponible,
+    SGVASinConexion,
 )
 from backend.aplicacion.integraciones.sgva import (
     _buscar_departamento,
@@ -29,6 +33,7 @@ from backend.aplicacion.integraciones.sgva import (
 )
 from backend.aplicacion.modelos import Campana, ContenidoTemporal, NavegadorSGVA
 from backend.aplicacion.principal import crear_aplicacion
+from backend.aplicacion.servicios.trabajador_sgva import etapa_error_sgva
 
 
 def test_opciones_y_fecha_sgva() -> None:
@@ -78,6 +83,15 @@ def test_redireccion_de_ingreso_sgva_conserva_https() -> None:
             assert headers["set-cookie"] == "sesion=ficticia"
 
     asyncio.run(_respuesta_ingreso(Ruta()))
+
+
+def test_errores_sgva_distinguen_conexion_y_fallo_del_servidor() -> None:
+    assert etapa_error_sgva(SGVASinConexion()) == "SGVA sin conexión"
+    assert etapa_error_sgva(SGVACaido()) == "SGVA fuera de servicio"
+    assert etapa_error_sgva(SGVANoDisponible()) == "SGVA no respondió"
+    assert etapa_error_sgva(AccesoSGVARestringido("Usuario o contraseña incorrecta.")) == (
+        "SGVA rechazó la consulta: Usuario o contraseña incorrecta."
+    )
 
 
 @pytest.mark.skipif(
