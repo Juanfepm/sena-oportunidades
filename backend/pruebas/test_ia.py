@@ -232,3 +232,64 @@ def test_falla_temporal_no_descarta_lotes_posteriores(monkeypatch) -> None:
 
     assert resultado[0] is None
     assert resultado[1].puntuacion == 85
+
+
+def test_lote_grande_se_divide_si_el_modelo_se_satura(monkeypatch) -> None:
+    tamanos = []
+    pausas = []
+
+    class Cliente:
+        def __init__(self, **_):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            return None
+
+        async def post(self, _url, **argumentos):
+            texto = argumentos["json"]["contents"][0]["parts"][0]["text"]
+            ofertas = json.loads(texto.split("Datos:\n")[1])["ofertas"]
+            tamanos.append(len(ofertas))
+            if len(ofertas) == 10:
+                return ia.httpx.Response(503, json={"error": {"status": "UNAVAILABLE"}})
+            evaluaciones = [
+                {
+                    "id": indice,
+                    "puntuacion": 80 + int(oferta["perfil_y_funciones"][-1]),
+                    "motivo": "Coincide",
+                    "modalidad": "posible",
+                }
+                for indice, oferta in enumerate(ofertas)
+            ]
+            return ia.httpx.Response(
+                200,
+                json={
+                    "candidates": [
+                        {
+                            "content": {
+                                "parts": [{"text": json.dumps({"evaluaciones": evaluaciones})}]
+                            }
+                        }
+                    ]
+                },
+            )
+
+    async def pausa(segundos):
+        pausas.append(segundos)
+
+    monkeypatch.setattr(ia.httpx, "AsyncClient", Cliente)
+    monkeypatch.setattr(ia.asyncio, "sleep", pausa)
+    ofertas = [
+        OfertaSGVA("Ejemplo", None, None, f"Analizar datos {indice}", "Bogotá", "Bogotá", 1)
+        for indice in range(10)
+    ]
+
+    resultado = asyncio.run(
+        ia.clasificar_ofertas("clave", {"habilidades": "Python"}, "remoto", ofertas)
+    )
+
+    assert tamanos == [10, 10, 5, 5]
+    assert [evaluacion.puntuacion for evaluacion in resultado] == list(range(80, 90))
+    assert pausas == [2]

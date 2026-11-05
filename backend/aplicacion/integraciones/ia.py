@@ -18,7 +18,8 @@ URL_ALTERNATIVA = (
 PATRON_CONTACTO = re.compile(
     r"https?://\S+|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|(?<!\w)\+?\d[\d\s().-]{6,}\d"
 )
-TAMANO_LOTE = 5
+TAMANO_LOTE = 10
+TAMANO_LOTE_REINTENTO = 5
 REGISTRO = logging.getLogger(__name__)
 
 
@@ -77,10 +78,15 @@ def _peticion(perfil: dict[str, str], modalidad: str, ofertas: list[OfertaSGVA])
 
 
 async def _evaluaciones_del_lote(
-    cliente: httpx.AsyncClient, clave: str, peticion: dict, esperadas: int
+    cliente: httpx.AsyncClient,
+    clave: str,
+    peticion: dict,
+    esperadas: int,
+    usar_alternativo: bool = True,
 ) -> tuple[list[dict] | None, bool]:
     """Reintenta una saturación breve y usa otro modelo gratuito si persiste."""
-    for url, intentos in ((URL, 2), (URL_ALTERNATIVA, 1)):
+    modelos = ((URL, 2), (URL_ALTERNATIVA, 1)) if usar_alternativo else ((URL, 2),)
+    for url, intentos in modelos:
         for intento in range(intentos):
             try:
                 respuesta = await cliente.post(
@@ -128,11 +134,78 @@ async def _evaluaciones_del_lote(
                 respuesta.status_code,
                 estado,
             )
+            if respuesta.status_code == 429 and intento + 1 < intentos:
+                try:
+                    espera = min(60, max(5, float(respuesta.headers.get("Retry-After", 15))))
+                except ValueError:
+                    espera = 15
+                await asyncio.sleep(espera)
+                continue
             if respuesta.status_code != 503:
                 return None, False
             if intento + 1 < intentos:
                 await asyncio.sleep(2)
     return None, True
+
+
+def _validar_evaluaciones(evaluaciones: list[dict], cantidad: int) -> list[EvaluacionIA | None]:
+    por_id = {
+        item["id"]: item
+        for item in evaluaciones
+        if isinstance(item, dict) and type(item.get("id")) is int
+    }
+    resultados = []
+    for indice in range(cantidad):
+        item = por_id.get(indice)
+        if (
+            not item
+            or type(item.get("puntuacion")) is not int
+            or not 0 <= item["puntuacion"] <= 100
+        ):
+            resultados.append(None)
+            continue
+        motivo = str(item.get("motivo", "")).strip()[:220]
+        modalidad_ia = item.get("modalidad")
+        if not motivo or modalidad_ia not in {
+            "confirmada",
+            "posible",
+            "requiere_presencia",
+        }:
+            resultados.append(None)
+            continue
+        resultados.append(EvaluacionIA(item["puntuacion"], motivo, modalidad_ia))
+    validas = sum(item is not None for item in resultados)
+    if validas != cantidad:
+        REGISTRO.warning("Gemini entregó %s de %s evaluaciones válidas", validas, cantidad)
+    return resultados
+
+
+async def _analizar_lote(
+    cliente: httpx.AsyncClient,
+    clave: str,
+    perfil: dict[str, str],
+    modalidad: str,
+    ofertas: list[OfertaSGVA],
+) -> tuple[list[EvaluacionIA | None], bool]:
+    cantidad = len(ofertas)
+    evaluaciones, continuar = await _evaluaciones_del_lote(
+        cliente,
+        clave,
+        _peticion(perfil, modalidad, ofertas),
+        cantidad,
+        usar_alternativo=cantidad <= TAMANO_LOTE_REINTENTO,
+    )
+    if evaluaciones is not None:
+        return _validar_evaluaciones(evaluaciones, cantidad), True
+    if not continuar or cantidad <= TAMANO_LOTE_REINTENTO:
+        return [None] * cantidad, continuar
+
+    mitad = cantidad // 2
+    primera, continuar = await _analizar_lote(cliente, clave, perfil, modalidad, ofertas[:mitad])
+    if not continuar:
+        return primera + [None] * (cantidad - mitad), False
+    segunda, continuar = await _analizar_lote(cliente, clave, perfil, modalidad, ofertas[mitad:])
+    return primera + segunda, continuar
 
 
 async def clasificar_ofertas(
@@ -148,46 +221,9 @@ async def clasificar_ofertas(
                     min(98, 72 + inicio * 25 // max(1, len(ofertas))),
                     f"Analizando coincidencias {inicio + 1}-{inicio + len(lote)}",
                 )
-            evaluaciones, continuar = await _evaluaciones_del_lote(
-                cliente, clave, _peticion(perfil, modalidad, lote), len(lote)
-            )
-            if evaluaciones is None:
-                # Una falla temporal solo afecta este lote; los siguientes continúan.
-                resultados.extend([None] * (len(lote) if continuar else len(ofertas) - inicio))
-                if not continuar:
-                    break
-                await asyncio.sleep(1)
-                continue
-            por_id = {
-                item["id"]: item
-                for item in evaluaciones
-                if isinstance(item, dict) and type(item.get("id")) is int
-            }
-            for indice in range(len(lote)):
-                item = por_id.get(indice)
-                if (
-                    not item
-                    or type(item.get("puntuacion")) is not int
-                    or not 0 <= item["puntuacion"] <= 100
-                ):
-                    resultados.append(None)
-                    continue
-                motivo = str(item.get("motivo", "")).strip()[:220]
-                modalidad_ia = item.get("modalidad")
-                if not motivo or modalidad_ia not in {
-                    "confirmada",
-                    "posible",
-                    "requiere_presencia",
-                }:
-                    resultados.append(None)
-                    continue
-                resultados.append(EvaluacionIA(item["puntuacion"], motivo, modalidad_ia))
-            validas = sum(item is not None for item in resultados[-len(lote) :])
-            if validas != len(lote):
-                REGISTRO.warning(
-                    "Gemini entregó %s de %s evaluaciones válidas en el lote",
-                    validas,
-                    len(lote),
-                )
-            await asyncio.sleep(1)
+            evaluaciones, continuar = await _analizar_lote(cliente, clave, perfil, modalidad, lote)
+            resultados.extend(evaluaciones)
+            if not continuar:
+                resultados.extend([None] * (len(ofertas) - inicio - len(lote)))
+                break
     return resultados

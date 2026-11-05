@@ -142,6 +142,12 @@ $env:DEBUPA_SECRETO_SESION = ((New-Guid).Guid + (New-Guid).Guid).Replace("-", ""
 
 Activa Gmail API en Google Cloud y declara únicamente el permiso `https://www.googleapis.com/auth/gmail.send`. Con la clave de cifrado configurada, «Entrar con Google» autoriza la cuenta y Gmail en un solo paso. DEBUPA solicita acceso offline y guarda el token de renovación cifrado. «Cerrar sesión» elimina y revoca el permiso del aprendiz. La cuenta administradora exacta `debupawebapp@gmail.com` conserva su permiso de servicio al cerrar sesión para enviar resúmenes y decisiones de pago. Configura `DEBUPA_CORREO_ADMIN=debupawebapp@gmail.com`, reinicia la API e inicia sesión de nuevo con esa cuenta para habilitar el panel. Pulsa «Probar envío propio» en Administración; iniciar sesión por sí solo no manda un mensaje. Las campañas consultadas en SGVA pueden enviar mensajes reales después de una confirmación final; DEBUPA no lee la bandeja.
 
+### Abrir el acceso de Google al público
+
+El código ya acepta cualquier cuenta de Google; la lista de cuentas permitidas pertenece a la configuración del proyecto en Google Cloud. En **Google Auth Platform > Público**, conserva el tipo **Usuarios externos** y cambia el estado de **Prueba** a **En producción** cuando la aplicación esté preparada. El cliente web debe incluir `https://debupa.qd.je/api/v1/autenticacion/google/callback` entre sus URI de redirección. No hace falta cambiar el secreto ni el código para publicar el acceso.
+
+DEBUPA pide `gmail.send` para enviar mensajes desde la cuenta del aprendiz. Google clasifica este permiso como **sensible**: publicar sin verificación puede mostrar una advertencia y limita los usuarios nuevos. Para acceso público completo, configura en **Información de la marca** la página de inicio, la política de privacidad y los datos de contacto; en **Acceso a los datos** declara `openid`, `email`, `profile` y `gmail.send`; verifica el dominio de la web en Search Console con una cuenta propietaria o editora del proyecto y presenta la solicitud en **Centro de verificación**. Google puede pedir una explicación del permiso y un video que muestre el consentimiento y un envío real. Confirma antes que puedes verificar `debupa.qd.je`: si el proveedor del subdominio no permite la verificación DNS que Google solicite, hará falta un dominio bajo tu control.
+
 ## Rutas disponibles
 
 | Ruta | Acceso | Estado |
