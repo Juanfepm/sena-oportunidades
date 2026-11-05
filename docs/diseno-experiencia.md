@@ -51,5 +51,5 @@ DEBUPA toma únicamente el flujo de consulta y lectura como referencia. Contacta
 - La espera mensual del plan gratis comienza después de un envío registrado; sin envíos se puede reintentar. La vista previa solo simula este estado.
 - Renderizar texto variable con `textContent`; no insertar contenido del usuario con `innerHTML`.
 - Validar tipo, cantidad y tamaño de archivos también en el servidor cuando exista.
-- Mantener las páginas de privacidad, cookies y condiciones como borradores señalados hasta su revisión para el piloto.
+- Enlazar las páginas independientes de privacidad, cookies, términos y devoluciones desde la aplicación. Verificar que su contenido coincida con el tratamiento y los precios reales antes de cada publicación.
 - El panel de administración necesitará control de acceso en el backend antes de manejar datos.

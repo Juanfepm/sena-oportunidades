@@ -61,6 +61,23 @@ def acceso() -> dict[str, str]:
     return {"Authorization": "Bearer clave-segura-de-pruebas-locales-2026"}
 
 
+@pytest.mark.parametrize(
+    ("ruta", "titulo"),
+    [
+        ("/privacidad.html", "Política de privacidad"),
+        ("/terminos.html", "Términos de uso"),
+        ("/cookies.html", "Cookies y almacenamiento local"),
+        ("/reembolsos.html", "Devoluciones y retracto"),
+    ],
+)
+def test_paginas_legales_publicas_y_separadas(cliente: TestClient, ruta: str, titulo: str) -> None:
+    respuesta = cliente.get(ruta)
+    assert respuesta.status_code == 200
+    assert "text/html" in respuesta.headers["content-type"]
+    assert titulo in respuesta.text
+    assert "borrador informativo" not in respuesta.text
+
+
 def test_cancelar_consulta_completa_apagado_pendiente(cliente: TestClient) -> None:
     respuesta = cliente.post("/api/v1/campanas", json=solicitud_valida(), headers=acceso())
     assert respuesta.status_code == 201

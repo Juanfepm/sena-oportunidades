@@ -176,6 +176,7 @@ class PagoPremium(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=nuevo_id)
     usuario_id: Mapped[str] = mapped_column(ForeignKey("usuarios.id"), index=True, nullable=False)
+    importe_cop: Mapped[int] = mapped_column(Integer, default=8000, nullable=False)
     estado: Mapped[str] = mapped_column(String(12), default=EstadoPago.PENDIENTE, nullable=False)
     referencia_comprobante: Mapped[str] = mapped_column(String(255), nullable=False)
     comprobante_cifrado: Mapped[bytes | None] = mapped_column(LargeBinary)

@@ -9,7 +9,6 @@ from ..dominio.estados import EstadoCampana, EstadoPago, Plan
 from ..dominio.fechas import desplazar_meses
 from ..modelos import Campana, PagoPremium, Usuario
 
-PRECIO_PREMIUM_COP = 8000
 PERIODOS_MESES = (1, 3, 6)
 
 
@@ -39,9 +38,9 @@ def obtener_estadisticas(sesion: Session) -> dict:
         if desde is not None:
             pagos.append(PagoPremium.verificado_en >= desde)
             campanas.append(Campana.creado_en >= desde)
-        aprobados = _contar(sesion, PagoPremium, *pagos)
+        ingresos = sesion.scalar(select(func.sum(PagoPremium.importe_cop)).where(*pagos)) or 0
         return {
-            "ingresos_aprobados_cop": aprobados * PRECIO_PREMIUM_COP,
+            "ingresos_aprobados_cop": ingresos,
             "campanas": _contar(sesion, Campana, *campanas),
         }
 

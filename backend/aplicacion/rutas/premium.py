@@ -1,6 +1,6 @@
 """Solicitud Premium y carga privada del comprobante."""
 
-from datetime import timezone
+from datetime import datetime, timezone
 from hashlib import sha256
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from ..base_datos import obtener_sesion
 from ..dominio.estados import EstadoPago
+from ..dominio.precios import FIN_PROMOCION, PRECIO_REGULAR_COP, precio_premium
 from ..integraciones.cifrado import ClaveCifradoInvalida, obtener_cifrador
 from ..modelos import PagoPremium, Usuario
 from ..seguridad import obtener_usuario_actual, verificar_csrf
@@ -26,6 +27,16 @@ def _tipo_comprobante(contenido: bytes) -> str | None:
     if contenido.startswith(b"%PDF-") and b"%%EOF" in contenido[-1024:]:
         return "application/pdf"
     return None
+
+
+@router.get("/pagos-premium/precio")
+def consultar_precio() -> dict[str, int | str | None]:
+    importe = precio_premium(datetime.now(timezone.utc))
+    return {
+        "importe_cop": importe,
+        "precio_regular_cop": PRECIO_REGULAR_COP,
+        "promocion_hasta": FIN_PROMOCION.isoformat() if importe != PRECIO_REGULAR_COP else None,
+    }
 
 
 @router.get("/pagos-premium/estado")
@@ -88,6 +99,7 @@ async def solicitar_premium(
         raise HTTPException(409, "Este comprobante ya fue recibido.")
     pago = PagoPremium(
         usuario_id=usuario.id,
+        importe_cop=precio_premium(datetime.now(timezone.utc)),
         estado=EstadoPago.PENDIENTE,
         referencia_comprobante=huella,
         comprobante_cifrado=cifrado,

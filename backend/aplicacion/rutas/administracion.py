@@ -69,6 +69,7 @@ def resumen_administracion(
                 "id": pago.id,
                 "nombre": usuario.nombre_google or "Aprendiz",
                 "correo": usuario.correo_google,
+                "importe_cop": pago.importe_cop,
                 "creado_en": pago.creado_en.isoformat(),
                 "notificacion_estado": pago.notificacion_estado,
             }

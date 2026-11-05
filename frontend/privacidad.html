@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="es-CO">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Política de privacidad y tratamiento de datos de DEBUPA Web App." />
+    <meta name="theme-color" content="#23805d" />
+    <title>Privacidad y datos | DEBUPA</title>
+    <link rel="icon" type="image/svg+xml" href="./recursos/debupa-icono.svg" />
+    <link rel="stylesheet" href="./estilos/variables.css" />
+    <link rel="stylesheet" href="./estilos/base.css" />
+    <link rel="stylesheet" href="./estilos/legal.css" />
+  </head>
+  <body>
+    <a class="enlace_salto" href="#contenido-principal">Saltar al contenido</a>
+    <header class="legal_cabecera">
+      <a class="legal_marca" href="./#inicio" aria-label="DEBUPA, ir al inicio">DEBUPA</a>
+      <a href="./#inicio">Volver al inicio</a>
+    </header>
+    <main id="contenido-principal" class="legal_contenido">
+      <p class="legal_fecha">Actualizada el 5 de noviembre de 2026</p>
+      <h1>Política de privacidad</h1>
+      <p class="legal_intro">
+        DEBUPA Web App es un proyecto independiente con operación en Cali, Colombia. Ayuda a aprendices mayores de edad
+        a revisar ofertas visibles en SGVA y a contactar empresas desde su propio Gmail. No pertenece al SENA.
+      </p>
+      <p class="legal_nota">
+        Para preguntas, consultas, correcciones o solicitudes de eliminación de datos, escribe a
+        <a href="mailto:debupawebapp@gmail.com">debupawebapp@gmail.com</a>. Indica la cuenta de Google utilizada y el
+        derecho que quieres ejercer; verificaremos que la solicitud provenga de su titular.
+      </p>
+
+      <section class="legal_seccion" aria-labelledby="datos-tratados">
+        <h2 id="datos-tratados">Qué información tratamos</h2>
+        <ul>
+          <li>De Google: identificador de la cuenta, nombre y correo electrónico para iniciar sesión e identificar tu plan.</li>
+          <li>De Gmail: permiso <code>gmail.send</code> para enviar los mensajes que confirmes. No solicitamos permiso para leer tu bandeja ni buscamos correos enviados fuera de DEBUPA.</li>
+          <li>De cada campaña: modalidad, ubicación, rango de publicación, intereses, exclusiones, ofertas consultadas, puntuaciones, destinatarios elegidos y estados de envío.</li>
+          <li>De forma temporal: número de documento y contraseña SGVA durante la consulta; perfil, texto del correo y adjuntos mientras se procesa la campaña.</li>
+          <li>Para Premium: comprobante de pago, fecha, estado de revisión y datos necesarios para resolver la solicitud o un reembolso.</li>
+        </ul>
+        <p>El número de documento y la contraseña SGVA no se guardan en la base de datos. No solicitamos la contraseña de Google.</p>
+      </section>
+
+      <section class="legal_seccion" aria-labelledby="finalidades">
+        <h2 id="finalidades">Para qué usamos los datos</h2>
+        <p>
+          Usamos tu identidad de Google para darte acceso y aplicar los límites del plan; tus credenciales SGVA para
+          consultar las ofertas que ese servicio te muestra; tus preferencias para ordenar resultados; y el permiso de
+          Gmail para enviar solo a los destinatarios que confirmes. Guardamos los destinatarios contactados por DEBUPA
+          para evitar repeticiones durante seis meses y respetar tus exclusiones. La información de Premium se usa para
+          verificar manualmente el pago, activar el plan y comunicar la decisión.
+        </p>
+        <p>
+          Tratamos los datos que facilitas para prestar el servicio que solicitas y, cuando corresponde, con tu
+          autorización específica para consultar SGVA, analizar ofertas con IA, enviar mensajes y revisar el pago.
+          Puedes dejar de usar el servicio y solicitar el ejercicio de tus derechos por correo.
+        </p>
+      </section>
+
+      <section class="legal_seccion" aria-labelledby="google-gmail">
+        <h2 id="google-gmail">Google, Gmail y tus correos</h2>
+        <p>
+          Al entrar con Google pedimos <code>openid</code>, <code>email</code>, <code>profile</code> y
+          <code>gmail.send</code>. Guardamos cifrado el permiso de renovación mientras tu sesión está activa. Al cerrar
+          sesión eliminamos el permiso guardado del aprendiz e intentamos revocarlo en Google; puedes revocar el acceso
+          también desde la seguridad de tu cuenta de Google. La cuenta de DEBUPA conserva por separado su permiso de
+          envío para entregar resúmenes y avisos sobre Premium.
+        </p>
+        <p>
+          Los correos a empresas salen de tu Gmail después de revisar la lista y dar la confirmación final. Las empresas
+          reciben el texto y los adjuntos que preparaste, junto con tu dirección de remitente. El resumen de contactos
+          y los avisos de Premium llegan desde debupawebapp@gmail.com. Registramos correo destinatario, fecha, estado e
+          identificador de envío; no copiamos tu bandeja de entrada. Los datos obtenidos de las API de Google Workspace
+          no se venden, no se usan para publicidad y no se usan para entrenar modelos de IA generales.
+        </p>
+      </section>
+
+      <section class="legal_seccion" aria-labelledby="inteligencia-artificial">
+        <h2 id="inteligencia-artificial">Análisis opcional con IA</h2>
+        <p>
+          Si autorizas la IA, enviamos a Gemini tus habilidades, actividades deseadas y no deseadas, modalidad elegida y
+          texto de las funciones de las ofertas. Antes de enviarlo retiramos patrones de contacto. No enviamos tu
+          identidad de Google, datos de Gmail, credenciales SGVA, mensaje redactado ni adjuntos. Gemini devuelve una
+          puntuación y un motivo orientativos; puedes revisar y quitar empresas antes de enviar.
+        </p>
+        <p>
+          Usamos el nivel gratuito de la API de Gemini. Según las condiciones de Google para ese nivel, el proveedor
+          puede usar las entradas y salidas para mejorar sus productos. Por eso te pedimos una autorización separada y
+          recomendamos no escribir información sensible en el perfil libre.
+        </p>
+      </section>
+
+      <section class="legal_seccion" aria-labelledby="proveedores">
+        <h2 id="proveedores">Con quién se comparte</h2>
+        <p>
+          Google presta el inicio de sesión, Gmail y Gemini; Amazon Web Services aloja la aplicación y Supabase aloja
+          PostgreSQL. Estos proveedores pueden procesar información en infraestructura fuera de Colombia para prestar
+          el servicio. Las empresas reciben únicamente el correo y los adjuntos que decides enviarles. No comercializamos
+          bases de datos ni compartimos información con anunciantes. Podemos atender requerimientos válidos de una
+          autoridad cuando la ley lo exija.
+        </p>
+      </section>
+
+      <section class="legal_seccion" aria-labelledby="conservacion">
+        <h2 id="conservacion">Conservación y protección</h2>
+        <p>
+          El perfil, el correo redactado y los adjuntos se cifran para la campaña y se eliminan de la base activa al
+          terminar, cancelar o fallar; si quedan pendientes, su vigencia máxima es de 24 horas antes de la limpieza del
+          servidor. El comprobante Premium se cifra mientras se revisa y su contenido se elimina de la base activa al
+          decidir; permanecen la decisión y una huella del archivo para detectar reutilización. Las copias de seguridad
+          del proveedor pueden persistir conforme a su ciclo de retención.
+        </p>
+        <p>
+          La cuenta, preferencias, campañas, ofertas y el historial de envíos permanecen mientras sean necesarios para
+          prestar el servicio, aplicar la regla de seis meses, atender solicitudes o cumplir obligaciones legales. No
+          hay una fecha de borrado automático de la cuenta: puedes pedir acceso o supresión por correo y revisaremos qué
+          datos deben conservarse por obligación legal. Usamos HTTPS, controles de acceso y cifrado para los permisos y
+          archivos temporales.
+        </p>
+      </section>
+
+      <section class="legal_seccion" aria-labelledby="derechos">
+        <h2 id="derechos">Tus derechos</h2>
+        <p>
+          Puedes conocer, actualizar, rectificar o solicitar la supresión de tus datos y revocar una autorización en los
+          casos previstos por la Ley 1581 de 2012. Envía tu solicitud a
+          <a href="mailto:debupawebapp@gmail.com">debupawebapp@gmail.com</a>. Las consultas se atienden en hasta diez
+          días hábiles y los reclamos en hasta quince días hábiles, con las prórrogas legales cuando correspondan.
+          Puedes presentar una queja ante la Superintendencia de Industria y Comercio después de agotar el trámite ante
+          nosotros. Consulta la <a href="https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981" target="_blank" rel="noopener noreferrer">Ley 1581 de 2012</a>.
+          El servicio está dirigido exclusivamente a mayores de 18 años.
+        </p>
+      </section>
+
+      <section class="legal_seccion" aria-labelledby="cambios-privacidad">
+        <h2 id="cambios-privacidad">Cambios de esta política</h2>
+        <p>
+          Publicaremos aquí las actualizaciones con su fecha. Si cambia de forma relevante el uso de datos de Google,
+          informaremos antes de aplicar el nuevo uso y pediremos una nueva autorización cuando corresponda.
+          Consulta también nuestras <a href="./cookies.html">cookies</a> y los <a href="./terminos.html">términos de uso</a>.
+        </p>
+      </section>
+    </main>
+    <footer class="legal_pie">
+      DEBUPA · Proyecto independiente · Cali, Colombia ·
+      <a href="./terminos.html">Términos</a>
+      <a href="./reembolsos.html">Devoluciones</a>
+      <a href="mailto:debupawebapp@gmail.com">Contacto</a>
+    </footer>
+  </body>
+</html>

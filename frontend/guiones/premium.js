@@ -15,6 +15,28 @@ let temporizadorNotificacion = null;
 let temporizadorSalida = null;
 let temporizadorAgradecimiento = null;
 
+async function mostrarPrecioPremium() {
+  let precio;
+  try {
+    const respuesta = await fetch("/api/v1/pagos-premium/precio", { cache: "no-store" });
+    if (!respuesta.ok) throw new Error("Precio no disponible.");
+    precio = await respuesta.json();
+  } catch {
+    // Evita mostrar una promoción vencida si el servidor de precios no responde.
+    if (Date.now() < Date.parse("2027-11-05T00:00:00-05:00")) return;
+    precio = { importe_cop: 10000, promocion_hasta: null };
+  }
+
+  const formato = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+  document.querySelectorAll("[data-precio-premium]").forEach((elemento) => {
+    elemento.textContent = formato.format(precio.importe_cop).replace(/\s*COP/, "");
+  });
+  const promocionActiva = Boolean(precio.promocion_hasta);
+  document.querySelectorAll("[data-promocion], [data-precio-anterior], [data-vigencia-promocion]").forEach((elemento) => {
+    elemento.hidden = !promocionActiva;
+  });
+}
+
 function notificarAdministracion(mensaje, esError = false) {
   const aviso = document.querySelector("#admin-notificacion");
   clearTimeout(temporizadorNotificacion);
@@ -38,7 +60,7 @@ function confirmarDecision(nombre, aprobar) {
     ? "Aceptar solicitud Premium" : "Rechazar solicitud Premium";
   document.querySelector("#texto-confirmar-decision").textContent = aprobar
     ? `Confirma primero el movimiento real en Nequi antes de activar Premium para ${nombre}.`
-    : `Se eliminará el comprobante de ${nombre} y se enviará el aviso sobre los 7 días para solicitar reembolso.`;
+    : `Se eliminará el comprobante de ${nombre}. Si pagó, podrá solicitar la devolución íntegra sin un límite de siete días.`;
   const boton = document.querySelector("#aceptar-decision");
   boton.textContent = aprobar ? "Aceptar solicitud" : "Rechazar solicitud";
   boton.classList.toggle("boton_rechazar", !aprobar);
@@ -80,7 +102,7 @@ function mostrarSolicitud(solicitud) {
   const correo = document.createElement("p");
   correo.textContent = solicitud.correo;
   const fecha = document.createElement("small");
-  fecha.textContent = new Date(solicitud.creado_en).toLocaleString("es-CO");
+  fecha.textContent = `${new Date(solicitud.creado_en).toLocaleString("es-CO")} · Pago esperado: $${new Intl.NumberFormat("es-CO").format(solicitud.importe_cop)} COP`;
   const acciones = document.createElement("div");
   acciones.className = "solicitud_premium_acciones";
   const ver = document.createElement("button");
@@ -249,6 +271,7 @@ function avisoSinComprobante() {
 }
 
 export function configurarPremium() {
+  mostrarPrecioPremium();
   document.querySelector("#cancelar-decision").addEventListener("click", () => {
     document.querySelector("#confirmar-decision").close("cancelar");
   });
