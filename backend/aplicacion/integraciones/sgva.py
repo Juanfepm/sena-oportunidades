@@ -82,6 +82,26 @@ def mensaje_error_ingreso(texto: str) -> str:
     return "SGVA no aceptó el acceso como aprendiz."
 
 
+def _encabezados_ingreso_seguro(encabezados: dict[str, str]) -> dict[str, str]:
+    destino = encabezados.get("location", "")
+    url = urlparse(destino)
+    if url.scheme == "http" and url.netloc.lower() == urlparse(ORIGEN).netloc:
+        return {**encabezados, "location": url._replace(scheme="https").geturl()}
+    return encabezados
+
+
+async def _respuesta_ingreso(route) -> None:
+    if route.request.method != "POST":
+        await route.continue_()
+        return
+    respuesta = await route.fetch(max_redirects=0)
+    originales = respuesta.headers
+    encabezados = _encabezados_ingreso_seguro(originales)
+    if encabezados != originales:
+        REGISTRO.warning("SGVA redirigió el inicio de sesión a HTTP; se usó HTTPS")
+    await route.fulfill(response=respuesta, headers=encabezados)
+
+
 async def _ingresar(pagina, documento: str, clave: str) -> None:
     respuesta = await pagina.goto(INGRESO, wait_until="domcontentloaded", timeout=30000)
     if respuesta is None or respuesta.status >= 500:
@@ -89,6 +109,7 @@ async def _ingresar(pagina, documento: str, clave: str) -> None:
     await pagina.locator("#aprendices").click()
     await pagina.locator("#tbLoginUsuario").fill(documento)
     await pagina.locator("#__tbPasswordUsuario").fill(clave)
+    await pagina.route(f"{ORIGEN}/sgva/SGVA_Diseno/pag/**", _respuesta_ingreso)
     await pagina.locator("#ini_session_aprendiz").click()
     try:
         await pagina.wait_for_function(

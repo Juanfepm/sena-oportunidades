@@ -20,6 +20,7 @@ from backend.aplicacion.integraciones.contratos import (
 )
 from backend.aplicacion.integraciones.sgva import (
     _buscar_departamento,
+    _respuesta_ingreso,
     consultar_sgva,
     dias_desde,
     filas_recientes,
@@ -53,6 +54,30 @@ def test_distingue_avisos_de_credenciales_publicados_por_sgva() -> None:
         == "Usuario o contraseña incorrecta."
     )
     assert mensaje_error_ingreso("Error desconocido") == "SGVA no aceptó el acceso como aprendiz."
+
+
+def test_redireccion_de_ingreso_sgva_conserva_https() -> None:
+    class Respuesta:
+        headers = {
+            "location": "http://caprendizaje.sena.edu.co/sgva/Aprendices/Index",
+            "set-cookie": "sesion=ficticia",
+        }
+
+    class Ruta:
+        request = type("Peticion", (), {"method": "POST"})()
+
+        async def fetch(self, *, max_redirects):
+            assert max_redirects == 0
+            return Respuesta()
+
+        async def fulfill(self, *, response, headers):
+            assert isinstance(response, Respuesta)
+            assert headers["location"] == (
+                "https://caprendizaje.sena.edu.co/sgva/Aprendices/Index"
+            )
+            assert headers["set-cookie"] == "sesion=ficticia"
+
+    asyncio.run(_respuesta_ingreso(Ruta()))
 
 
 @pytest.mark.skipif(
