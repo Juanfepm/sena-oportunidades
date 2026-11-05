@@ -175,6 +175,13 @@ async def procesar_acceso(
                 )
             except IntegracionNoDisponible:
                 REGISTRO.warning("La IA no completó el análisis de la campaña %s", campana_id)
+        elif ofertas:
+            REGISTRO.warning(
+                "IA omitida en la campaña %s: perfil=%s, clave=%s",
+                campana_id,
+                bool(perfil),
+                bool(clave_ia),
+            )
         with fabrica() as sesion:
             campana = sesion.get(Campana, campana_id)
             if campana is None or campana.estado != EstadoCampana.CONSULTANDO:

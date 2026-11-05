@@ -9,16 +9,16 @@ import httpx
 
 from ..dominio.ofertas import EvaluacionIA, OfertaSGVA
 
-MODELO = "gemini-3.5-flash-lite"
+MODELO = "gemini-3.1-flash-lite"
 URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODELO}:generateContent"
-MODELO_ALTERNATIVO = "gemini-3.5-flash"
+MODELO_ALTERNATIVO = "gemini-3.5-flash-lite"
 URL_ALTERNATIVA = (
     f"https://generativelanguage.googleapis.com/v1beta/models/{MODELO_ALTERNATIVO}:generateContent"
 )
 PATRON_CONTACTO = re.compile(
     r"https?://\S+|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|(?<!\w)\+?\d[\d\s().-]{6,}\d"
 )
-TAMANO_LOTE = 10
+TAMANO_LOTE = 5
 REGISTRO = logging.getLogger(__name__)
 
 
@@ -77,8 +77,8 @@ def _peticion(perfil: dict[str, str], modalidad: str, ofertas: list[OfertaSGVA])
 
 
 async def _evaluaciones_del_lote(
-    cliente: httpx.AsyncClient, clave: str, peticion: dict
-) -> list[dict] | None:
+    cliente: httpx.AsyncClient, clave: str, peticion: dict, esperadas: int
+) -> tuple[list[dict] | None, bool]:
     """Reintenta una saturación breve y usa otro modelo gratuito si persiste."""
     for url, intentos in ((URL, 2), (URL_ALTERNATIVA, 1)):
         for intento in range(intentos):
@@ -86,19 +86,38 @@ async def _evaluaciones_del_lote(
                 respuesta = await cliente.post(
                     url, headers={"x-goog-api-key": clave}, json=peticion
                 )
+            except httpx.TimeoutException:
+                REGISTRO.warning(
+                    "Gemini agotó el tiempo de respuesta con el modelo %s",
+                    MODELO if url == URL else MODELO_ALTERNATIVO,
+                )
+                break
             except httpx.HTTPError as error:
                 REGISTRO.warning("Gemini no respondió: %s", type(error).__name__)
-                return None
+                return None, True
             if respuesta.status_code == 200:
                 try:
                     contenido = respuesta.json()["candidates"][0]["content"]["parts"][0]["text"]
                     evaluaciones = json.loads(contenido)["evaluaciones"]
                     if not isinstance(evaluaciones, list):
                         raise TypeError("La respuesta no contiene una lista de evaluaciones")
-                    return evaluaciones
+                    ids = {
+                        item.get("id")
+                        for item in evaluaciones
+                        if isinstance(item, dict) and type(item.get("id")) is int
+                    }
+                    if len(evaluaciones) != esperadas or ids != set(range(esperadas)):
+                        REGISTRO.warning(
+                            "Gemini devolvió un lote incompleto: modelo %s, %s de %s evaluaciones",
+                            MODELO if url == URL else MODELO_ALTERNATIVO,
+                            len(ids),
+                            esperadas,
+                        )
+                        break
+                    return evaluaciones, True
                 except (ValueError, KeyError, IndexError, TypeError) as error:
                     REGISTRO.warning("Respuesta inválida de Gemini: %s", type(error).__name__)
-                    return None
+                    return None, True
             try:
                 estado = respuesta.json().get("error", {}).get("status", "desconocido")
             except (ValueError, AttributeError):
@@ -110,10 +129,10 @@ async def _evaluaciones_del_lote(
                 estado,
             )
             if respuesta.status_code != 503:
-                return None
+                return None, False
             if intento + 1 < intentos:
                 await asyncio.sleep(2)
-    return None
+    return None, True
 
 
 async def clasificar_ofertas(
@@ -129,13 +148,16 @@ async def clasificar_ofertas(
                     min(98, 72 + inicio * 25 // max(1, len(ofertas))),
                     f"Analizando coincidencias {inicio + 1}-{inicio + len(lote)}",
                 )
-            evaluaciones = await _evaluaciones_del_lote(
-                cliente, clave, _peticion(perfil, modalidad, lote)
+            evaluaciones, continuar = await _evaluaciones_del_lote(
+                cliente, clave, _peticion(perfil, modalidad, lote), len(lote)
             )
             if evaluaciones is None:
-                # Conserva las evaluaciones ya obtenidas; el resto queda sin puntuar.
-                resultados.extend([None] * (len(ofertas) - inicio))
-                break
+                # Una falla temporal solo afecta este lote; los siguientes continúan.
+                resultados.extend([None] * (len(lote) if continuar else len(ofertas) - inicio))
+                if not continuar:
+                    break
+                await asyncio.sleep(1)
+                continue
             por_id = {
                 item["id"]: item
                 for item in evaluaciones
@@ -160,5 +182,12 @@ async def clasificar_ofertas(
                     resultados.append(None)
                     continue
                 resultados.append(EvaluacionIA(item["puntuacion"], motivo, modalidad_ia))
+            validas = sum(item is not None for item in resultados[-len(lote) :])
+            if validas != len(lote):
+                REGISTRO.warning(
+                    "Gemini entregó %s de %s evaluaciones válidas en el lote",
+                    validas,
+                    len(lote),
+                )
             await asyncio.sleep(1)
     return resultados

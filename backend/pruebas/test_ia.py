@@ -145,3 +145,90 @@ def test_saturacion_reintenta_y_cambia_de_modelo(monkeypatch) -> None:
 
     assert urls == [ia.URL, ia.URL, ia.URL_ALTERNATIVA]
     assert evaluaciones[0].puntuacion == 90
+
+
+def test_lote_incompleto_se_intenta_con_modelo_alternativo(caplog) -> None:
+    urls = []
+
+    class Cliente:
+        async def post(self, url, **_):
+            urls.append(url)
+            evaluaciones = (
+                []
+                if url == ia.URL
+                else [{"id": 0, "puntuacion": 80, "motivo": "Coincide", "modalidad": "posible"}]
+            )
+            return ia.httpx.Response(
+                200,
+                json={
+                    "candidates": [
+                        {
+                            "content": {
+                                "parts": [{"text": json.dumps({"evaluaciones": evaluaciones})}]
+                            }
+                        }
+                    ]
+                },
+            )
+
+    resultado, continuar = asyncio.run(ia._evaluaciones_del_lote(Cliente(), "clave", {}, 1))
+
+    assert urls == [ia.URL, ia.URL_ALTERNATIVA]
+    assert continuar
+    assert resultado[0]["puntuacion"] == 80
+    assert "1 evaluaciones" in caplog.text
+
+
+def test_falla_temporal_no_descarta_lotes_posteriores(monkeypatch) -> None:
+    peticiones = []
+
+    class Cliente:
+        def __init__(self, **_):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            return None
+
+        async def post(self, url, **_):
+            peticiones.append(url)
+            if len(peticiones) <= 3:
+                return ia.httpx.Response(503, json={"error": {"status": "UNAVAILABLE"}})
+            evaluacion = {
+                "id": 0,
+                "puntuacion": 85,
+                "motivo": "Coinciden las funciones.",
+                "modalidad": "posible",
+            }
+            return ia.httpx.Response(
+                200,
+                json={
+                    "candidates": [
+                        {
+                            "content": {
+                                "parts": [{"text": json.dumps({"evaluaciones": [evaluacion]})}]
+                            }
+                        }
+                    ]
+                },
+            )
+
+    async def pausa(_):
+        return None
+
+    monkeypatch.setattr(ia.httpx, "AsyncClient", Cliente)
+    monkeypatch.setattr(ia.asyncio, "sleep", pausa)
+    monkeypatch.setattr(ia, "TAMANO_LOTE", 1)
+    ofertas = [
+        OfertaSGVA("Ejemplo", None, None, "Analizar datos", "Bogotá", "Bogotá", 1)
+        for _ in range(2)
+    ]
+
+    resultado = asyncio.run(
+        ia.clasificar_ofertas("clave", {"habilidades": "Python"}, "remoto", ofertas)
+    )
+
+    assert resultado[0] is None
+    assert resultado[1].puntuacion == 85
