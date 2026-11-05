@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 import re
 
 import httpx
@@ -10,10 +11,15 @@ from ..dominio.ofertas import EvaluacionIA, OfertaSGVA
 
 MODELO = "gemini-3.5-flash-lite"
 URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODELO}:generateContent"
+MODELO_ALTERNATIVO = "gemini-3.5-flash"
+URL_ALTERNATIVA = (
+    f"https://generativelanguage.googleapis.com/v1beta/models/{MODELO_ALTERNATIVO}:generateContent"
+)
 PATRON_CONTACTO = re.compile(
     r"https?://\S+|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|(?<!\w)\+?\d[\d\s().-]{6,}\d"
 )
 TAMANO_LOTE = 10
+REGISTRO = logging.getLogger(__name__)
 
 
 def _limpiar(texto: str, maximo: int) -> str:
@@ -70,6 +76,46 @@ def _peticion(perfil: dict[str, str], modalidad: str, ofertas: list[OfertaSGVA])
     }
 
 
+async def _evaluaciones_del_lote(
+    cliente: httpx.AsyncClient, clave: str, peticion: dict
+) -> list[dict] | None:
+    """Reintenta una saturación breve y usa otro modelo gratuito si persiste."""
+    for url, intentos in ((URL, 2), (URL_ALTERNATIVA, 1)):
+        for intento in range(intentos):
+            try:
+                respuesta = await cliente.post(
+                    url, headers={"x-goog-api-key": clave}, json=peticion
+                )
+            except httpx.HTTPError as error:
+                REGISTRO.warning("Gemini no respondió: %s", type(error).__name__)
+                return None
+            if respuesta.status_code == 200:
+                try:
+                    contenido = respuesta.json()["candidates"][0]["content"]["parts"][0]["text"]
+                    evaluaciones = json.loads(contenido)["evaluaciones"]
+                    if not isinstance(evaluaciones, list):
+                        raise TypeError("La respuesta no contiene una lista de evaluaciones")
+                    return evaluaciones
+                except (ValueError, KeyError, IndexError, TypeError) as error:
+                    REGISTRO.warning("Respuesta inválida de Gemini: %s", type(error).__name__)
+                    return None
+            try:
+                estado = respuesta.json().get("error", {}).get("status", "desconocido")
+            except (ValueError, AttributeError):
+                estado = "respuesta_no_json"
+            REGISTRO.warning(
+                "Gemini no analizó el lote: modelo %s, HTTP %s, estado %s",
+                MODELO if url == URL else MODELO_ALTERNATIVO,
+                respuesta.status_code,
+                estado,
+            )
+            if respuesta.status_code != 503:
+                return None
+            if intento + 1 < intentos:
+                await asyncio.sleep(2)
+    return None
+
+
 async def clasificar_ofertas(
     clave: str, perfil: dict[str, str], modalidad: str, ofertas: list[OfertaSGVA], avance=None
 ) -> list[EvaluacionIA | None]:
@@ -83,19 +129,18 @@ async def clasificar_ofertas(
                     min(98, 72 + inicio * 25 // max(1, len(ofertas))),
                     f"Analizando coincidencias {inicio + 1}-{inicio + len(lote)}",
                 )
-            try:
-                respuesta = await cliente.post(
-                    URL, headers={"x-goog-api-key": clave}, json=_peticion(perfil, modalidad, lote)
-                )
-                if respuesta.status_code != 200:
-                    raise ValueError("El servicio de IA no completó el análisis.")
-                contenido = respuesta.json()["candidates"][0]["content"]["parts"][0]["text"]
-                evaluaciones = json.loads(contenido)["evaluaciones"]
-                por_id = {item["id"]: item for item in evaluaciones if isinstance(item, dict)}
-            except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError):
+            evaluaciones = await _evaluaciones_del_lote(
+                cliente, clave, _peticion(perfil, modalidad, lote)
+            )
+            if evaluaciones is None:
                 # Conserva las evaluaciones ya obtenidas; el resto queda sin puntuar.
                 resultados.extend([None] * (len(ofertas) - inicio))
                 break
+            por_id = {
+                item["id"]: item
+                for item in evaluaciones
+                if isinstance(item, dict) and type(item.get("id")) is int
+            }
             for indice in range(len(lote)):
                 item = por_id.get(indice)
                 if (
