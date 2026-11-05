@@ -18,7 +18,10 @@
         <p class="ceja">Necesitamos una pausa</p>
         <h1 id="titulo-error">Servicio temporalmente no disponible</h1>
         <p id="detalle-error">Vuelve a intentarlo dentro de unos minutos.</p>
-        <a class="boton" href="/">Volver al inicio</a>
+        <nav class="acciones_error" aria-label="Opciones para continuar">
+          <a id="reintentar-google" class="boton" href="/api/v1/autenticacion/google/iniciar" hidden>Intentar de nuevo</a>
+          <a class="boton boton_secundario" href="/">Volver al inicio</a>
+        </nav>
       </section>
     </main>
   </body>

@@ -1,3 +1,10 @@
+.acciones_error {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio_3);
+  margin-top: var(--espacio_4);
+}
+
 .pagina_error {
   align-items: center;
   display: grid;
@@ -28,5 +35,8 @@
 
 .tarjeta_error .boton {
   display: inline-flex;
-  margin-top: var(--espacio_4);
+}
+
+.tarjeta_error .boton[hidden] {
+  display: none;
 }

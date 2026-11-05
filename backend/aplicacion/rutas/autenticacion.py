@@ -87,6 +87,9 @@ def crear_router(configuracion: Configuracion, cifrado_disponible: bool) -> APIR
             or time() - iniciado > 600
         ):
             return pagina_error("google")
+        if request.query_params.get("error") == "access_denied":
+            request.session.clear()
+            return pagina_error("permiso-rechazado")
         codigo = request.query_params.get("code")
         if not codigo:
             return pagina_error("google")

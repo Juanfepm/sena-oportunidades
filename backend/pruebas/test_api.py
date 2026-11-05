@@ -272,6 +272,16 @@ def test_google_inicia_sesion_y_permita_cerrarla(monkeypatch: pytest.MonkeyPatch
 
             inicio = cliente.get("/api/v1/autenticacion/google/iniciar", follow_redirects=False)
             estado = parse_qs(urlsplit(inicio.headers["location"]).query)["state"][0]
+            rechazado = cliente.get(
+                f"/api/v1/autenticacion/google/callback?error=access_denied&state={estado}",
+                follow_redirects=False,
+            )
+            assert rechazado.status_code == 303
+            assert rechazado.headers["location"] == "/error.html?tipo=permiso-rechazado"
+            assert cliente.get("/api/v1/autenticacion/yo").status_code == 401
+
+            inicio = cliente.get("/api/v1/autenticacion/google/iniciar", follow_redirects=False)
+            estado = parse_qs(urlsplit(inicio.headers["location"]).query)["state"][0]
             regreso = cliente.get(
                 f"/api/v1/autenticacion/google/callback?code=ficticio&state={estado}",
                 follow_redirects=False,
