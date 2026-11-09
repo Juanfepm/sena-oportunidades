@@ -46,7 +46,7 @@ def crear_router(configuracion: Configuracion, cifrado_disponible: bool) -> APIR
     router = APIRouter()
 
     @router.get("/api/v1/autenticacion/google/iniciar", name="google_iniciar")
-    async def google_iniciar(request: Request):
+    async def google_iniciar(request: Request, destino: str = "inicio"):
         if (
             not configuracion.google_cliente_id
             or not configuracion.google_cliente_secreto
@@ -57,6 +57,7 @@ def crear_router(configuracion: Configuracion, cifrado_disponible: bool) -> APIR
         request.session.clear()
         request.session["google_oauth_estado"] = estado
         request.session["google_oauth_iniciado"] = int(time())
+        request.session["google_oauth_destino"] = "campana" if destino == "campana" else "inicio"
         parametros = urlencode(
             {
                 "client_id": configuracion.google_cliente_id,
@@ -81,6 +82,7 @@ def crear_router(configuracion: Configuracion, cifrado_disponible: bool) -> APIR
         estado_guardado = request.session.pop("google_oauth_estado", None)
         estado_recibido = request.query_params.get("state", "")
         iniciado = request.session.pop("google_oauth_iniciado", 0)
+        destino = request.session.pop("google_oauth_destino", "inicio")
         if (
             not isinstance(estado_guardado, str)
             or not compare_digest(estado_guardado, estado_recibido)
@@ -107,7 +109,8 @@ def crear_router(configuracion: Configuracion, cifrado_disponible: bool) -> APIR
         request.session.clear()
         request.session["usuario_id"] = usuario.id
         request.session["token_csrf"] = token_urlsafe(32)
-        return RedirectResponse(configuracion.google_url_inicio, status_code=303)
+        regreso = "/#campana" if destino == "campana" else configuracion.google_url_inicio
+        return RedirectResponse(regreso, status_code=303)
 
     @router.post("/api/v1/autenticacion/cerrar-sesion", status_code=204)
     async def cerrar_sesion(
@@ -176,9 +179,14 @@ def crear_router(configuracion: Configuracion, cifrado_disponible: bool) -> APIR
         conexion = sesion.scalar(
             select(ConexionGmail).where(ConexionGmail.usuario_id == usuario.id)
         )
+        conectado = bool(
+            conexion is not None
+            and conexion.correo_google == usuario.correo_google
+            and PERMISO_ENVIO_GMAIL in conexion.permisos.split()
+        )
         return {
-            "conectado": conexion is not None,
-            "correo": conexion.correo_google if conexion else None,
+            "conectado": conectado,
+            "correo": conexion.correo_google if conectado else None,
             "prueba_solicitada": bool(request.session.get("gmail_prueba_solicitada")),
         }
 

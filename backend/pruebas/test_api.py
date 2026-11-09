@@ -263,6 +263,7 @@ def test_google_inicia_sesion_y_permita_cerrarla(monkeypatch: pytest.MonkeyPatch
             parametros = parse_qs(urlsplit(inicio.headers["location"]).query)
             assert "https://www.googleapis.com/auth/gmail.send" in parametros["scope"][0]
             assert parametros["access_type"] == ["offline"]
+            assert cliente.get("/api/v1/autenticacion/yo").status_code == 401
             invalido = cliente.get(
                 "/api/v1/autenticacion/google/callback?code=ficticio&state=incorrecto",
                 follow_redirects=False,
@@ -280,14 +281,27 @@ def test_google_inicia_sesion_y_permita_cerrarla(monkeypatch: pytest.MonkeyPatch
             assert rechazado.headers["location"] == "/error.html?tipo=permiso-rechazado"
             assert cliente.get("/api/v1/autenticacion/yo").status_code == 401
 
-            inicio = cliente.get("/api/v1/autenticacion/google/iniciar", follow_redirects=False)
+            inicio = cliente.get(
+                "/api/v1/autenticacion/google/iniciar?destino=campana",
+                follow_redirects=False,
+            )
             estado = parse_qs(urlsplit(inicio.headers["location"]).query)["state"][0]
             regreso = cliente.get(
                 f"/api/v1/autenticacion/google/callback?code=ficticio&state={estado}",
                 follow_redirects=False,
             )
             assert regreso.status_code == 303
-            assert regreso.headers["location"] == "/#inicio"
+            assert regreso.headers["location"] == "/#campana"
+            inicio = cliente.get(
+                "/api/v1/autenticacion/google/iniciar?destino=https://ejemplo.com",
+                follow_redirects=False,
+            )
+            estado = parse_qs(urlsplit(inicio.headers["location"]).query)["state"][0]
+            regreso_inicio = cliente.get(
+                f"/api/v1/autenticacion/google/callback?code=ficticio&state={estado}",
+                follow_redirects=False,
+            )
+            assert regreso_inicio.headers["location"] == "/#inicio"
             cuenta = cliente.get("/api/v1/autenticacion/yo")
             assert cuenta.status_code == 200
             assert cuenta.json()["correo"] == "aprendiz@ejemplo.com"
@@ -297,6 +311,13 @@ def test_google_inicia_sesion_y_permita_cerrarla(monkeypatch: pytest.MonkeyPatch
                 conexion = sesion.scalar(select(ConexionGmail))
                 assert conexion is not None
                 assert "renovacion-secreta" not in conexion.token_renovacion_cifrado
+                conexion.permisos = "openid email profile"
+                sesion.commit()
+            assert cliente.get("/api/v1/gmail/estado").json()["conectado"] is False
+            with cliente.app.state.fabrica_sesiones() as sesion:
+                conexion = sesion.scalar(select(ConexionGmail))
+                conexion.permisos = "https://www.googleapis.com/auth/gmail.send"
+                sesion.commit()
             assert cliente.post("/api/v1/autenticacion/cerrar-sesion").status_code == 403
             csrf = cliente.get("/api/v1/autenticacion/csrf").json()["token"]
             assert cliente.post("/api/v1/campanas", json=solicitud_valida()).status_code == 403

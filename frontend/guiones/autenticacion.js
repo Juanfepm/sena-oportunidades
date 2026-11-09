@@ -59,7 +59,8 @@ async function actualizarGmail() {
   gmailConectado = false;
   estadoGmail.textContent = "Gmail pendiente; vuelve a entrar";
   estadoGmail.removeAttribute("title");
-  enlaceGoogle.hidden = true;
+  enlaceGoogle.textContent = "Autorizar Gmail";
+  enlaceGoogle.hidden = false;
 }
 
 async function actualizarCuenta() {
@@ -115,6 +116,10 @@ export function tieneSesionActiva() {
   return cuentaActiva !== null;
 }
 
+export function tieneGmailConectado() {
+  return gmailConectado;
+}
+
 export async function enviarConCsrf(ruta, opciones = {}) {
   if (!tokenCsrf) await actualizarCuenta();
   if (!tokenCsrf) throw new Error("Inicia sesión con Google para continuar.");
@@ -138,6 +143,7 @@ export function configurarAutenticacion() {
         credentials: "same-origin",
       });
       if (!respuesta.ok) throw new Error("No se pudo cerrar la sesión.");
+      if (window.location.hash === "#campana") window.location.hash = "inicio";
       await actualizarCuenta();
     } catch {
       estadoCuenta.textContent = "No se pudo cerrar la sesión. Intenta de nuevo.";
